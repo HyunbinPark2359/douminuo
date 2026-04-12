@@ -5,12 +5,14 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.join(__dirname, '..');
+const fmtCommonPath = path.join(root, 'extension', 'fmtCommon.js');
 const formatterPath = path.join(root, 'extension', 'formatter.js');
 const modifiersPath = path.join(root, 'extension', 'modifiers.json');
 
 const ctx = { globalThis: {}, self: {}, console };
 ctx.globalThis = ctx.self = ctx;
 vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(fmtCommonPath, 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(formatterPath, 'utf8'), ctx);
 const formatSample = ctx.formatSample;
 const modifiersDocument = JSON.parse(fs.readFileSync(modifiersPath, 'utf8'));

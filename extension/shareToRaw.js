@@ -26,6 +26,19 @@
     return String(v).trim();
   }
 
+  function extractPsId(s) {
+    var m = String(s).match(/[#&?]ps=([^&#'"\s]+)/i);
+    return m ? m[1].trim() : null;
+  }
+
+  function normalizePartyUrlInput(input) {
+    var strIn = String(input || '').trim();
+    if (!strIn) return null;
+    if (/^https?:\/\//i.test(strIn)) return strIn;
+    if (/^#ps=/i.test(strIn)) return 'https://smartnuo.com/' + strIn;
+    return 'https://smartnuo.com/#ps=' + encodeURIComponent(strIn);
+  }
+
   function unwrapShareJson(j) {
     if (!j) throw new Error('empty_response');
     if (j.error === true || j.error === 'true') throw new Error('share_not_found');
@@ -265,5 +278,9 @@
     getMoves: getMoves,
     getEvValuesSix: getEvValuesSix,
     teraLine: teraLine,
+    str: str,
+    asInt: asInt,
+    extractPsId: extractPsId,
+    normalizePartyUrlInput: normalizePartyUrlInput,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

@@ -1,4 +1,5 @@
 importScripts('shareToRaw.js');
+importScripts('fmtCommon.js');
 importScripts('calcPayload.js');
 importScripts('simpleMovePower.js');
 
@@ -110,19 +111,6 @@ importScripts('simpleMovePower.js');
     parseModifiersJson,
     { version: 0, items: {}, abilities: {} }
   );
-
-  function extractPsId(s) {
-    var m = String(s).match(/[#&?]ps=([^&#'"\s]+)/i);
-    return m ? m[1].trim() : null;
-  }
-
-  function normalizePartyUrlInput(input) {
-    var strIn = String(input || '').trim();
-    if (!strIn) return null;
-    if (/^https?:\/\//i.test(strIn)) return strIn;
-    if (/^#ps=/i.test(strIn)) return 'https://smartnuo.com/' + strIn;
-    return 'https://smartnuo.com/#ps=' + encodeURIComponent(strIn);
-  }
 
   function buildDisplayPartyUrl(origin, pathname, id) {
     var p = pathname || '/';
@@ -356,9 +344,9 @@ importScripts('simpleMovePower.js');
     var chain = Promise.resolve();
     lines.forEach(function (line) {
       chain = chain.then(function () {
-        var full = normalizePartyUrlInput(line);
+        var full = SR.normalizePartyUrlInput(line);
         if (!full) throw new Error('bad_url');
-        var id = extractPsId(full);
+        var id = SR.extractPsId(full);
         if (!id) throw new Error('no_ps_id');
         var baseUrl = new URL(full);
         var origin = baseUrl.origin;
@@ -403,9 +391,9 @@ importScripts('simpleMovePower.js');
       .filter(Boolean);
     if (lines.length === 0) return Promise.reject(new Error('empty'));
 
-    var first = normalizePartyUrlInput(lines[0]);
+    var first = SR.normalizePartyUrlInput(lines[0]);
     if (!first) return Promise.reject(new Error('bad_url'));
-    var id = extractPsId(first);
+    var id = SR.extractPsId(first);
     if (!id) return Promise.reject(new Error('no_ps_id'));
 
     var baseUrl = new URL(first);

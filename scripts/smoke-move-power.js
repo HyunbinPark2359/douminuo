@@ -5,6 +5,7 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.join(__dirname, '..');
+const fmtCommonPath = path.join(root, 'extension', 'fmtCommon.js');
 const simplePath = path.join(root, 'extension', 'simpleMovePower.js');
 const modifiers = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'modifiers.json'), 'utf8'));
 const moveTags = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'moveTags.json'), 'utf8'));
@@ -13,6 +14,7 @@ const moveKo = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'moveKoMa
 const ctx = { globalThis: {}, self: {}, console };
 ctx.globalThis = ctx.self = ctx;
 vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(fmtCommonPath, 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(simplePath, 'utf8'), ctx);
 const SMP = ctx.simpleMovePower;
 

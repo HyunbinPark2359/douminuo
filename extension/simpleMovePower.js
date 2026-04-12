@@ -8,6 +8,12 @@
 (function (global) {
   'use strict';
 
+  var FC = global.nuoFmtCommon;
+  var readLabel = FC.readLabel;
+  var normalizeMatchKey = FC.normalizeMatchKey;
+  var slugifyForMatch = FC.slugifyForMatch;
+  var collectHoldLabels = FC.collectHoldLabels;
+
   /** 한글 타입명 → PokeAPI type.name */
   var TYPE_KO_TO_EN = {
     노말: 'normal',
@@ -43,65 +49,6 @@
     var low = s.toLowerCase();
     if (/^[a-z]+$/.test(low) && low.length <= 12) return low;
     return TYPE_KO_TO_EN[s] || TYPE_KO_TO_EN[s.replace(/\s/g, '')] || '';
-  }
-
-  function readLabel(v) {
-    if (v == null) return '';
-    if (typeof v === 'string') return v.trim();
-    if (typeof v === 'number') return String(v);
-    if (typeof v === 'object' && v.name != null) return readLabel(v.name);
-    if (typeof v === 'object' && v.label != null) return readLabel(v.label);
-    return String(v).trim();
-  }
-
-  function normalizeMatchKey(s) {
-    return String(s || '')
-      .trim()
-      .toLowerCase()
-      .replace(/-/g, ' ')
-      .replace(/\s+/g, ' ');
-  }
-
-  function slugifyForMatch(s) {
-    return normalizeMatchKey(s).replace(/\s+/g, '-');
-  }
-
-  /**
-   * 도구·특성 필드가 문자열 또는 { name, nameKr, … } 일 수 있음.
-   */
-  function collectHoldLabels(hold) {
-    var out = [];
-    var seen = {};
-    function pushRaw(s) {
-      var t = readLabel(s);
-      if (!t || t === '--') return;
-      var k = normalizeMatchKey(t);
-      if (seen[k]) return;
-      seen[k] = true;
-      out.push(t);
-    }
-    if (hold == null) return out;
-    if (typeof hold !== 'object' || Array.isArray(hold)) {
-      pushRaw(hold);
-      return out;
-    }
-    var keys = [
-      'nameKr',
-      'name_kr',
-      'nameKO',
-      'labelKr',
-      'titleKr',
-      'name',
-      'label',
-      'title',
-      'slug',
-      'id',
-    ];
-    var ki;
-    for (ki = 0; ki < keys.length; ki++) {
-      if (hold[keys[ki]] != null) pushRaw(hold[keys[ki]]);
-    }
-    return out;
   }
 
   function findRuleInMap(map, label) {

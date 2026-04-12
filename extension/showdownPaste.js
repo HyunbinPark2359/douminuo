@@ -3,67 +3,16 @@
   'use strict';
 
   var SR = global.shareToRaw;
+  var FC = global.nuoFmtCommon;
+  var readLabel = FC.readLabel;
+  var normalizeMatchKey = FC.normalizeMatchKey;
+  var slugifyForMatch = FC.slugifyForMatch;
+  var collectHoldLabels = FC.collectHoldLabels;
 
   function asInt(v) {
     if (v === null || v === undefined || v === '') return null;
     var n = parseInt(String(v), 10);
     return isNaN(n) ? null : n;
-  }
-
-  function readLabel(v) {
-    if (v == null) return '';
-    if (typeof v === 'string') return v.trim();
-    if (typeof v === 'number') return String(v);
-    if (typeof v === 'object' && v.name != null) return readLabel(v.name);
-    if (typeof v === 'object' && v.label != null) return readLabel(v.label);
-    return String(v).trim();
-  }
-
-  function normalizeMatchKey(s) {
-    return String(s || '')
-      .trim()
-      .toLowerCase()
-      .replace(/-/g, ' ')
-      .replace(/\s+/g, ' ');
-  }
-
-  function slugifyForMatch(s) {
-    return normalizeMatchKey(s).replace(/\s+/g, '-');
-  }
-
-  function collectHoldLabels(hold) {
-    var out = [];
-    var seen = {};
-    function pushRaw(x) {
-      var t = readLabel(x);
-      if (!t || t === '--') return;
-      var k = normalizeMatchKey(t);
-      if (seen[k]) return;
-      seen[k] = true;
-      out.push(t);
-    }
-    if (hold == null) return out;
-    if (typeof hold !== 'object' || Array.isArray(hold)) {
-      pushRaw(hold);
-      return out;
-    }
-    var keys = [
-      'nameKr',
-      'name_kr',
-      'nameKO',
-      'labelKr',
-      'titleKr',
-      'name',
-      'label',
-      'title',
-      'slug',
-      'id',
-    ];
-    var ki;
-    for (ki = 0; ki < keys.length; ki++) {
-      if (hold[keys[ki]] != null) pushRaw(hold[keys[ki]]);
-    }
-    return out;
   }
 
   function findRuleAndSlugInMap(map, label) {

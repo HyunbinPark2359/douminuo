@@ -17,30 +17,17 @@
   var koSlugBuildPromise = null;
 
   function str(v) {
-    if (v == null) return '';
-    if (typeof v === 'string') return v.trim();
-    if (typeof v === 'number') return String(v);
-    if (typeof v === 'object' && v.name != null) return str(v.name);
-    return String(v).trim();
+    return SR.str(v);
   }
 
-  function extractPsId(s) {
-    var m = String(s).match(/[#&?]ps=([^&#'"\s]+)/i);
-    return m ? m[1].trim() : null;
-  }
-
-  function normalizePartyUrlInput(input) {
-    var strIn = String(input || '').trim();
-    if (!strIn) return null;
-    if (/^https?:\/\//i.test(strIn)) return strIn;
-    if (/^#ps=/i.test(strIn)) return 'https://smartnuo.com/' + strIn;
-    return 'https://smartnuo.com/#ps=' + encodeURIComponent(strIn);
+  function asInt(v) {
+    return SR.asInt(v);
   }
 
   function fetchShareGET(fullUrl) {
-    var id = extractPsId(fullUrl);
+    var id = SR.extractPsId(fullUrl);
     if (!id) return Promise.reject(new Error('no_ps_id'));
-    var baseUrl = new URL(normalizePartyUrlInput(fullUrl));
+    var baseUrl = new URL(SR.normalizePartyUrlInput(fullUrl));
     return fetch(baseUrl.origin + '/api/party/share/' + encodeURIComponent(id), {
       method: 'GET',
       credentials: 'include',
@@ -53,22 +40,7 @@
     });
   }
 
-  function asInt(v) {
-    if (v === null || v === undefined || v === '') return null;
-    var n = parseInt(String(v), 10);
-    return isNaN(n) ? null : n;
-  }
-
   var SMARTNUO_STAT_KEYS = ['hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed'];
-
-  function flattenSlot(slot) {
-    if (!slot || typeof slot !== 'object') return {};
-    var nested = slot.pokemon || slot.mon || slot.poke;
-    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
-      return Object.assign({}, nested, slot);
-    }
-    return Object.assign({}, slot);
-  }
 
   function getIvForStat(flat, statIdx) {
     var defIv = 31;
@@ -492,7 +464,7 @@
   }
 
   function buildOneSide(urlText, docs, role) {
-    var full = normalizePartyUrlInput(urlText);
+    var full = SR.normalizePartyUrlInput(urlText);
     if (!full) return Promise.resolve({ error: 'empty_url' });
 
     return fetchShareGET(full).then(function (j) {
@@ -507,7 +479,7 @@
       if (SR.isSlotEmpty(slot)) {
         return { error: 'empty_slot' };
       }
-      var flat = flattenSlot(slot);
+      var flat = SR.flattenSlot(slot);
       var speciesKo = speciesKoFromFlat(flat);
       if (!speciesKo) {
         return { error: 'no_species' };
