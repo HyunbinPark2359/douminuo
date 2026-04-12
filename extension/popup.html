@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>샘플 포맷터</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>스마트누오 샘플 포맷터</h1>
+
+    <div class="tab-row" role="tablist" aria-label="기능 선택">
+      <button type="button" class="tab-btn" role="tab" id="tabFormat" data-panel="panelFormat" aria-selected="true">샘플 변환</button>
+      <button type="button" class="tab-btn" role="tab" id="tabCalc" data-panel="panelCalc" aria-selected="false">계산기 입력</button>
+    </div>
+
+    <section id="panelFormat" class="tab-panel" role="tabpanel" aria-labelledby="tabFormat">
+      <p class="sub">
+        스마트누오 공유 URL을 요약 샘플 형식으로 변환합니다.<br>
+        한 줄은 파티·샘플 자동 판별, 여러 줄은 샘플 URL만(줄마다 하나).
+      </p>
+
+      <div class="options-row" role="group" aria-label="출력 옵션">
+        <label class="option-row" for="includeUrls">
+          <input type="checkbox" id="includeUrls" checked />
+          <span>URL</span>
+        </label>
+        <label class="option-row" for="includeRealStats">
+          <input type="checkbox" id="includeRealStats" />
+          <span>실수치</span>
+        </label>
+        <label class="option-row" for="includeMovePowers">
+          <input type="checkbox" id="includeMovePowers" />
+          <span>결정력</span>
+        </label>
+        <label class="option-row" for="includeBulkStats">
+          <input type="checkbox" id="includeBulkStats" />
+          <span>내구력</span>
+        </label>
+      </div>
+
+      <div class="party-label-row">
+        <label class="party-label" for="urlInput">공유 URL</label>
+        <span class="party-spinner" id="urlSpinner" hidden role="status" aria-live="polite" aria-label="불러오는 중"></span>
+      </div>
+      <textarea
+        id="urlInput"
+        class="url-input"
+        rows="4"
+        placeholder="https://smartnuo.com/#ps=... (샘플 여러 개는 줄마다 URL)"
+        spellcheck="false"
+        autocomplete="off"
+      ></textarea>
+      <p class="err" id="urlError" hidden></p>
+
+      <div class="panels">
+        <section class="card">
+          <div class="card-head">
+            <div class="card-head-left">
+              <label for="output">출력</label>
+              <label class="option-row-inline" for="showdownPaste">
+                <input type="checkbox" id="showdownPaste" />
+                <span>Showdown</span>
+              </label>
+            </div>
+            <button type="button" class="btn" id="copyBtn" title="클립보드에 복사">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              복사하기
+            </button>
+          </div>
+          <textarea id="output" readonly spellcheck="false"></textarea>
+          <p class="toast" id="copyToast">클립보드에 복사했습니다.</p>
+        </section>
+      </div>
+    </section>
+
+    <section id="panelCalc" class="tab-panel tab-panel-hidden" role="tabpanel" aria-labelledby="tabCalc" hidden>
+      <p class="sub">
+        스마트누오에서 <strong>데미지 계산기</strong> 화면을 연 탭에서 사용합니다.<br>
+        샘플 공유 URL(<code>#ps=</code>)을 넣습니다. 파티 전체 URL은 지원하지 않습니다.<br>
+        첫 번째 피해 기술(변화기 제외)을 PokeAPI로 판별해 공격측 기술·분류를 맞춥니다.
+      </p>
+
+      <div class="calc-cols" aria-label="공격측 좌, 수비측 우">
+        <div class="calc-col calc-col-atk">
+          <div class="calc-col-head">
+            <span class="calc-col-title">공격측</span>
+          </div>
+          <label class="sr-only" for="calcAtkUrl">공격측 샘플 URL</label>
+          <textarea
+            id="calcAtkUrl"
+            class="url-input url-input-sm url-input-calc-col"
+            rows="3"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="https://smartnuo.com/#ps=..."
+          ></textarea>
+        </div>
+        <div class="calc-col calc-col-def">
+          <div class="calc-col-head">
+            <span class="calc-col-title">수비측</span>
+          </div>
+          <label class="sr-only" for="calcDefUrl">수비측 샘플 URL</label>
+          <textarea
+            id="calcDefUrl"
+            class="url-input url-input-sm url-input-calc-col"
+            rows="3"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="https://smartnuo.com/#ps=..."
+          ></textarea>
+        </div>
+      </div>
+
+      <p class="err" id="calcError" hidden></p>
+
+      <div class="calc-actions">
+        <button type="button" class="btn btn-calc-fill" id="calcFillBtn">계산기에 입력</button>
+        <span class="party-spinner" id="calcSpinner" hidden role="status" aria-live="polite"></span>
+      </div>
+      <p class="calc-hint" id="calcResult" hidden></p>
+    </section>
+  </div>
+
+  <script src="shareToRaw.js"></script>
+  <script src="formatter.js"></script>
+  <script src="showdownPaste.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

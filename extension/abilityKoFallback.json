@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "note": "PokeAPI ability names에 language ko가 없을 때만. 키는 스마트누오 표기, 값은 PokeAPI ability slug. PokeAPI에 ko 생기면 삭제.",
+  "byKo": {
+    "가시지않는향기": "lingering-aroma",
+    "편승": "opportunist",
+    "되새김질": "cud-chew",
+    "테일아머": "armor-tail",
+    "마이티체인지": "zero-to-hero",
+    "넘치는씨": "seed-sower",
+    "전기로바꾸기": "electromorphosis",
+    "흙먹기": "earth-eater",
+    "열교환": "thermal-exchange",
+    "사령탑": "commander",
+    "풍력발전": "wind-power",
+    "바위나르기": "rocky-payload",
+    "협연": "costar",
+    "분노의껍질": "anger-shell",
+    "정화의소금": "purifying-salt",
+    "독치장": "toxic-debris",
+    "노릇노릇바디": "well-baked-body",
+    "바람타기": "wind-rider",
+    "황금몸": "good-as-gold",
+    "균사의힘": "mycelium-might",
+    "총대장": "supreme-overlord"
+  }
+}

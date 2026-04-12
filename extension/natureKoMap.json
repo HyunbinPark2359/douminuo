@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "source": "PokeAPI /api/v2/nature names (ko) → slug; display = English name from slug",
+  "koToSlug": {
+    "노력": "hardy",
+    "대담": "bold",
+    "조심": "modest",
+    "차분": "calm",
+    "겁쟁이": "timid",
+    "외로움": "lonely",
+    "온순": "docile",
+    "의젓": "mild",
+    "얌전": "gentle",
+    "성급": "hasty",
+    "고집": "adamant",
+    "장난꾸러기": "impish",
+    "수줍음": "bashful",
+    "신중": "careful",
+    "덜렁": "rash",
+    "명랑": "jolly",
+    "개구쟁이": "naughty",
+    "촐랑": "lax",
+    "변덕": "quirky",
+    "천진난만": "naive",
+    "용감": "brave",
+    "무사태평": "relaxed",
+    "냉정": "quiet",
+    "건방": "sassy",
+    "성실": "serious"
+  }
+}

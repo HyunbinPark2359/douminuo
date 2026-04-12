@@ -1,0 +1,3388 @@
+{
+  "generatedAt": "2026-04-12T05:06:35.547Z",
+  "source": "PokeAPI v2 (names missing language ko)",
+  "moves": {
+    "totalInMoveTags": 869,
+    "noPokeapiSlugCount": 21,
+    "noPokeapiSlugIds": [
+      "hiddenpowerbug",
+      "hiddenpowerdark",
+      "hiddenpowerdragon",
+      "hiddenpowerelectric",
+      "hiddenpowerfighting",
+      "hiddenpowerfire",
+      "hiddenpowerflying",
+      "hiddenpowerghost",
+      "hiddenpowergrass",
+      "hiddenpowerground",
+      "hiddenpowerice",
+      "hiddenpowerpoison",
+      "hiddenpowerpsychic",
+      "hiddenpowerrock",
+      "hiddenpowersteel",
+      "hiddenpowerwater",
+      "nihillight",
+      "paleowave",
+      "polarflare",
+      "shadowstrike",
+      "visegrip"
+    ],
+    "noKoreanNameCount": 70,
+    "noKoreanNameFullList": [
+      {
+        "showdownId": "aquacutter",
+        "pokeapiSlug": "aqua-cutter",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "aquastep",
+        "pokeapiSlug": "aqua-step",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "armorcannon",
+        "pokeapiSlug": "armor-cannon",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "axekick",
+        "pokeapiSlug": "axe-kick",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "barbbarrage",
+        "pokeapiSlug": "barb-barrage",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "bitterblade",
+        "pokeapiSlug": "bitter-blade",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "bittermalice",
+        "pokeapiSlug": "bitter-malice",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "blazingtorque",
+        "pokeapiSlug": "blazing-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "bleakwindstorm",
+        "pokeapiSlug": "bleakwind-storm",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "bloodmoon",
+        "pokeapiSlug": "blood-moon",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "ceaselessedge",
+        "pokeapiSlug": "ceaseless-edge",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "chillingwater",
+        "pokeapiSlug": "chilling-water",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "chloroblast",
+        "pokeapiSlug": "chloroblast",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "collisioncourse",
+        "pokeapiSlug": "collision-course",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "combattorque",
+        "pokeapiSlug": "combat-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "comeuppance",
+        "pokeapiSlug": "comeuppance",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "direclaw",
+        "pokeapiSlug": "dire-claw",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "doubleshock",
+        "pokeapiSlug": "double-shock",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "electrodrift",
+        "pokeapiSlug": "electro-drift",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "esperwing",
+        "pokeapiSlug": "esper-wing",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "filletaway",
+        "pokeapiSlug": "fillet-away",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "flowertrick",
+        "pokeapiSlug": "flower-trick",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "gigatonhammer",
+        "pokeapiSlug": "gigaton-hammer",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "glaiverush",
+        "pokeapiSlug": "glaive-rush",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "headlongrush",
+        "pokeapiSlug": "headlong-rush",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "hyperdrill",
+        "pokeapiSlug": "hyper-drill",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "icespinner",
+        "pokeapiSlug": "ice-spinner",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "infernalparade",
+        "pokeapiSlug": "infernal-parade",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "ivycudgel",
+        "pokeapiSlug": "ivy-cudgel",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "jetpunch",
+        "pokeapiSlug": "jet-punch",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "kowtowcleave",
+        "pokeapiSlug": "kowtow-cleave",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "lastrespects",
+        "pokeapiSlug": "last-respects",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "luminacrash",
+        "pokeapiSlug": "lumina-crash",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "lunarblessing",
+        "pokeapiSlug": "lunar-blessing",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "magicaltorque",
+        "pokeapiSlug": "magical-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "makeitrain",
+        "pokeapiSlug": "make-it-rain",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "matchagotcha",
+        "pokeapiSlug": "matcha-gotcha",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "mortalspin",
+        "pokeapiSlug": "mortal-spin",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "mountaingale",
+        "pokeapiSlug": "mountain-gale",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "mysticalpower",
+        "pokeapiSlug": "mystical-power",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "noxioustorque",
+        "pokeapiSlug": "noxious-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "orderup",
+        "pokeapiSlug": "order-up",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "populationbomb",
+        "pokeapiSlug": "population-bomb",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "pounce",
+        "pokeapiSlug": "pounce",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "powershift",
+        "pokeapiSlug": "power-shift",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "psyshieldbash",
+        "pokeapiSlug": "psyshield-bash",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "ragefist",
+        "pokeapiSlug": "rage-fist",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "ragingbull",
+        "pokeapiSlug": "raging-bull",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "ragingfury",
+        "pokeapiSlug": "raging-fury",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "revivalblessing",
+        "pokeapiSlug": "revival-blessing",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "ruination",
+        "pokeapiSlug": "ruination",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "saltcure",
+        "pokeapiSlug": "salt-cure",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "sandsearstorm",
+        "pokeapiSlug": "sandsear-storm",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "shelter",
+        "pokeapiSlug": "shelter",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "spicyextract",
+        "pokeapiSlug": "spicy-extract",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "spinout",
+        "pokeapiSlug": "spin-out",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "springtidestorm",
+        "pokeapiSlug": "springtide-storm",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "stoneaxe",
+        "pokeapiSlug": "stone-axe",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "syrupbomb",
+        "pokeapiSlug": "syrup-bomb",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "takeheart",
+        "pokeapiSlug": "take-heart",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "terablast",
+        "pokeapiSlug": "tera-blast",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "torchsong",
+        "pokeapiSlug": "torch-song",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "trailblaze",
+        "pokeapiSlug": "trailblaze",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "triplearrows",
+        "pokeapiSlug": "triple-arrows",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "tripledive",
+        "pokeapiSlug": "triple-dive",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "twinbeam",
+        "pokeapiSlug": "twin-beam",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "victorydance",
+        "pokeapiSlug": "victory-dance",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "wavecrash",
+        "pokeapiSlug": "wave-crash",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "wickedtorque",
+        "pokeapiSlug": "wicked-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "wildboltstorm",
+        "pokeapiSlug": "wildbolt-storm",
+        "generation": "generation-viii",
+        "isGen9": false
+      }
+    ],
+    "gen9NoKoCount": 46
+  },
+  "movesFallbackSummary": {
+    "coveredByExtensionMoveKoFallback": 37,
+    "stillNeedKoreanStringForShowdownPaste": 33,
+    "stillNeedList": [
+      {
+        "showdownId": "barbbarrage",
+        "pokeapiSlug": "barb-barrage",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "bittermalice",
+        "pokeapiSlug": "bitter-malice",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "blazingtorque",
+        "pokeapiSlug": "blazing-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "bleakwindstorm",
+        "pokeapiSlug": "bleakwind-storm",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "bloodmoon",
+        "pokeapiSlug": "blood-moon",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "ceaselessedge",
+        "pokeapiSlug": "ceaseless-edge",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "chloroblast",
+        "pokeapiSlug": "chloroblast",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "combattorque",
+        "pokeapiSlug": "combat-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "direclaw",
+        "pokeapiSlug": "dire-claw",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "esperwing",
+        "pokeapiSlug": "esper-wing",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "headlongrush",
+        "pokeapiSlug": "headlong-rush",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "infernalparade",
+        "pokeapiSlug": "infernal-parade",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "ivycudgel",
+        "pokeapiSlug": "ivy-cudgel",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "lunarblessing",
+        "pokeapiSlug": "lunar-blessing",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "magicaltorque",
+        "pokeapiSlug": "magical-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "matchagotcha",
+        "pokeapiSlug": "matcha-gotcha",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "mountaingale",
+        "pokeapiSlug": "mountain-gale",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "mysticalpower",
+        "pokeapiSlug": "mystical-power",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "noxioustorque",
+        "pokeapiSlug": "noxious-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "powershift",
+        "pokeapiSlug": "power-shift",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "psyshieldbash",
+        "pokeapiSlug": "psyshield-bash",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "ragingfury",
+        "pokeapiSlug": "raging-fury",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "sandsearstorm",
+        "pokeapiSlug": "sandsear-storm",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "shelter",
+        "pokeapiSlug": "shelter",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "springtidestorm",
+        "pokeapiSlug": "springtide-storm",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "stoneaxe",
+        "pokeapiSlug": "stone-axe",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "syrupbomb",
+        "pokeapiSlug": "syrup-bomb",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "takeheart",
+        "pokeapiSlug": "take-heart",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "triplearrows",
+        "pokeapiSlug": "triple-arrows",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "tripledive",
+        "pokeapiSlug": "triple-dive",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "victorydance",
+        "pokeapiSlug": "victory-dance",
+        "generation": "generation-viii",
+        "isGen9": false
+      },
+      {
+        "showdownId": "wickedtorque",
+        "pokeapiSlug": "wicked-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "wildboltstorm",
+        "pokeapiSlug": "wildbolt-storm",
+        "generation": "generation-viii",
+        "isGen9": false
+      }
+    ],
+    "gen9StillNeedCountAfterFallback": 10,
+    "gen9StillNeedList": [
+      {
+        "showdownId": "blazingtorque",
+        "pokeapiSlug": "blazing-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "bloodmoon",
+        "pokeapiSlug": "blood-moon",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "combattorque",
+        "pokeapiSlug": "combat-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "ivycudgel",
+        "pokeapiSlug": "ivy-cudgel",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "magicaltorque",
+        "pokeapiSlug": "magical-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "matchagotcha",
+        "pokeapiSlug": "matcha-gotcha",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "noxioustorque",
+        "pokeapiSlug": "noxious-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "syrupbomb",
+        "pokeapiSlug": "syrup-bomb",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "tripledive",
+        "pokeapiSlug": "triple-dive",
+        "generation": "generation-ix",
+        "isGen9": true
+      },
+      {
+        "showdownId": "wickedtorque",
+        "pokeapiSlug": "wicked-torque",
+        "generation": "generation-ix",
+        "isGen9": true
+      }
+    ]
+  },
+  "items": {
+    "totalInPokeapi": 2175,
+    "noKoreanNameCount": 614,
+    "noKoreanNameFullList": [
+      {
+        "pokeapiSlug": "grass-mail"
+      },
+      {
+        "pokeapiSlug": "flame-mail"
+      },
+      {
+        "pokeapiSlug": "bubble-mail"
+      },
+      {
+        "pokeapiSlug": "bloom-mail"
+      },
+      {
+        "pokeapiSlug": "tunnel-mail"
+      },
+      {
+        "pokeapiSlug": "steel-mail"
+      },
+      {
+        "pokeapiSlug": "heart-mail"
+      },
+      {
+        "pokeapiSlug": "snow-mail"
+      },
+      {
+        "pokeapiSlug": "space-mail"
+      },
+      {
+        "pokeapiSlug": "air-mail"
+      },
+      {
+        "pokeapiSlug": "mosaic-mail"
+      },
+      {
+        "pokeapiSlug": "brick-mail"
+      },
+      {
+        "pokeapiSlug": "hm08"
+      },
+      {
+        "pokeapiSlug": "orange-mail"
+      },
+      {
+        "pokeapiSlug": "harbor-mail"
+      },
+      {
+        "pokeapiSlug": "glitter-mail"
+      },
+      {
+        "pokeapiSlug": "mech-mail"
+      },
+      {
+        "pokeapiSlug": "wood-mail"
+      },
+      {
+        "pokeapiSlug": "wave-mail"
+      },
+      {
+        "pokeapiSlug": "bead-mail"
+      },
+      {
+        "pokeapiSlug": "shadow-mail"
+      },
+      {
+        "pokeapiSlug": "tropic-mail"
+      },
+      {
+        "pokeapiSlug": "dream-mail"
+      },
+      {
+        "pokeapiSlug": "fab-mail"
+      },
+      {
+        "pokeapiSlug": "retro-mail"
+      },
+      {
+        "pokeapiSlug": "devon-goods"
+      },
+      {
+        "pokeapiSlug": "pokeblock-case"
+      },
+      {
+        "pokeapiSlug": "rm-1-key"
+      },
+      {
+        "pokeapiSlug": "rm-2-key"
+      },
+      {
+        "pokeapiSlug": "rm-4-key"
+      },
+      {
+        "pokeapiSlug": "rm-6-key"
+      },
+      {
+        "pokeapiSlug": "oaks-parcel"
+      },
+      {
+        "pokeapiSlug": "bike-voucher"
+      },
+      {
+        "pokeapiSlug": "fame-checker"
+      },
+      {
+        "pokeapiSlug": "berry-pouch"
+      },
+      {
+        "pokeapiSlug": "teachy-tv"
+      },
+      {
+        "pokeapiSlug": "tri-pass"
+      },
+      {
+        "pokeapiSlug": "rainbow-pass"
+      },
+      {
+        "pokeapiSlug": "mysticticket"
+      },
+      {
+        "pokeapiSlug": "auroraticket"
+      },
+      {
+        "pokeapiSlug": "powder-jar"
+      },
+      {
+        "pokeapiSlug": "ruby"
+      },
+      {
+        "pokeapiSlug": "sapphire"
+      },
+      {
+        "pokeapiSlug": "magma-emblem"
+      },
+      {
+        "pokeapiSlug": "old-sea-map"
+      },
+      {
+        "pokeapiSlug": "god-stone"
+      },
+      {
+        "pokeapiSlug": "adamant-crystal"
+      },
+      {
+        "pokeapiSlug": "lustrous-globe"
+      },
+      {
+        "pokeapiSlug": "griseous-core"
+      },
+      {
+        "pokeapiSlug": "blank-plate"
+      },
+      {
+        "pokeapiSlug": "strange-ball"
+      },
+      {
+        "pokeapiSlug": "legend-plate"
+      },
+      {
+        "pokeapiSlug": "rotom-phone"
+      },
+      {
+        "pokeapiSlug": "sandwich"
+      },
+      {
+        "pokeapiSlug": "koraidons-poke-ball"
+      },
+      {
+        "pokeapiSlug": "miraidons-poke-ball"
+      },
+      {
+        "pokeapiSlug": "tera-orb"
+      },
+      {
+        "pokeapiSlug": "scarlet-book"
+      },
+      {
+        "pokeapiSlug": "violet-book"
+      },
+      {
+        "pokeapiSlug": "kofus-wallet"
+      },
+      {
+        "pokeapiSlug": "tiny-bamboo-shoot"
+      },
+      {
+        "pokeapiSlug": "big-bamboo-shoot"
+      },
+      {
+        "pokeapiSlug": "scroll-of-darkness"
+      },
+      {
+        "pokeapiSlug": "scroll-of-waters"
+      },
+      {
+        "pokeapiSlug": "malicious-armor"
+      },
+      {
+        "pokeapiSlug": "normal-tera-shard"
+      },
+      {
+        "pokeapiSlug": "fire-tera-shard"
+      },
+      {
+        "pokeapiSlug": "water-tera-shard"
+      },
+      {
+        "pokeapiSlug": "electric-tera-shard"
+      },
+      {
+        "pokeapiSlug": "grass-tera-shard"
+      },
+      {
+        "pokeapiSlug": "ice-tera-shard"
+      },
+      {
+        "pokeapiSlug": "fighting-tera-shard"
+      },
+      {
+        "pokeapiSlug": "poison-tera-shard"
+      },
+      {
+        "pokeapiSlug": "ground-tera-shard"
+      },
+      {
+        "pokeapiSlug": "flying-tera-shard"
+      },
+      {
+        "pokeapiSlug": "psychic-tera-shard"
+      },
+      {
+        "pokeapiSlug": "bug-tera-shard"
+      },
+      {
+        "pokeapiSlug": "rock-tera-shard"
+      },
+      {
+        "pokeapiSlug": "ghost-tera-shard"
+      },
+      {
+        "pokeapiSlug": "dragon-tera-shard"
+      },
+      {
+        "pokeapiSlug": "dark-tera-shard"
+      },
+      {
+        "pokeapiSlug": "steel-tera-shard"
+      },
+      {
+        "pokeapiSlug": "fairy-tera-shard"
+      },
+      {
+        "pokeapiSlug": "booster-energy"
+      },
+      {
+        "pokeapiSlug": "ability-shield"
+      },
+      {
+        "pokeapiSlug": "clear-amulet"
+      },
+      {
+        "pokeapiSlug": "mirror-herb"
+      },
+      {
+        "pokeapiSlug": "punching-glove"
+      },
+      {
+        "pokeapiSlug": "covert-cloak"
+      },
+      {
+        "pokeapiSlug": "loaded-dice"
+      },
+      {
+        "pokeapiSlug": "baguette"
+      },
+      {
+        "pokeapiSlug": "mayonnaise"
+      },
+      {
+        "pokeapiSlug": "ketchup"
+      },
+      {
+        "pokeapiSlug": "mustard"
+      },
+      {
+        "pokeapiSlug": "butter"
+      },
+      {
+        "pokeapiSlug": "peanut-butter"
+      },
+      {
+        "pokeapiSlug": "chili-sauce"
+      },
+      {
+        "pokeapiSlug": "salt"
+      },
+      {
+        "pokeapiSlug": "pepper"
+      },
+      {
+        "pokeapiSlug": "yogurt"
+      },
+      {
+        "pokeapiSlug": "whipped-cream"
+      },
+      {
+        "pokeapiSlug": "cream-cheese"
+      },
+      {
+        "pokeapiSlug": "jam"
+      },
+      {
+        "pokeapiSlug": "marmalade"
+      },
+      {
+        "pokeapiSlug": "olive-oil"
+      },
+      {
+        "pokeapiSlug": "vinegar"
+      },
+      {
+        "pokeapiSlug": "sweet-herba-mystica"
+      },
+      {
+        "pokeapiSlug": "salty-herba-mystica"
+      },
+      {
+        "pokeapiSlug": "sour-herba-mystica"
+      },
+      {
+        "pokeapiSlug": "bitter-herba-mystica"
+      },
+      {
+        "pokeapiSlug": "spicy-herba-mystica"
+      },
+      {
+        "pokeapiSlug": "lettuce"
+      },
+      {
+        "pokeapiSlug": "tomato"
+      },
+      {
+        "pokeapiSlug": "cherry-tomatoes"
+      },
+      {
+        "pokeapiSlug": "cucumber"
+      },
+      {
+        "pokeapiSlug": "pickle"
+      },
+      {
+        "pokeapiSlug": "onion"
+      },
+      {
+        "pokeapiSlug": "red-onion"
+      },
+      {
+        "pokeapiSlug": "green-bell-pepper"
+      },
+      {
+        "pokeapiSlug": "red-bell-pepper"
+      },
+      {
+        "pokeapiSlug": "yellow-bell-pepper"
+      },
+      {
+        "pokeapiSlug": "avocado"
+      },
+      {
+        "pokeapiSlug": "bacon"
+      },
+      {
+        "pokeapiSlug": "ham"
+      },
+      {
+        "pokeapiSlug": "prosciutto"
+      },
+      {
+        "pokeapiSlug": "chorizo"
+      },
+      {
+        "pokeapiSlug": "herbed-sausage"
+      },
+      {
+        "pokeapiSlug": "hamburger"
+      },
+      {
+        "pokeapiSlug": "klawf-stick"
+      },
+      {
+        "pokeapiSlug": "smoked-fillet"
+      },
+      {
+        "pokeapiSlug": "fried-fillet"
+      },
+      {
+        "pokeapiSlug": "egg"
+      },
+      {
+        "pokeapiSlug": "potato-tortilla"
+      },
+      {
+        "pokeapiSlug": "tofu"
+      },
+      {
+        "pokeapiSlug": "rice"
+      },
+      {
+        "pokeapiSlug": "noodles"
+      },
+      {
+        "pokeapiSlug": "potato-salad"
+      },
+      {
+        "pokeapiSlug": "cheese"
+      },
+      {
+        "pokeapiSlug": "banana"
+      },
+      {
+        "pokeapiSlug": "strawberry"
+      },
+      {
+        "pokeapiSlug": "apple"
+      },
+      {
+        "pokeapiSlug": "kiwi"
+      },
+      {
+        "pokeapiSlug": "pineapple"
+      },
+      {
+        "pokeapiSlug": "jalapeno"
+      },
+      {
+        "pokeapiSlug": "horseradish"
+      },
+      {
+        "pokeapiSlug": "curry-powder"
+      },
+      {
+        "pokeapiSlug": "wasabi"
+      },
+      {
+        "pokeapiSlug": "watercress"
+      },
+      {
+        "pokeapiSlug": "basil"
+      },
+      {
+        "pokeapiSlug": "venonat-fang"
+      },
+      {
+        "pokeapiSlug": "diglett-dirt"
+      },
+      {
+        "pokeapiSlug": "meowth-fur"
+      },
+      {
+        "pokeapiSlug": "psyduck-down"
+      },
+      {
+        "pokeapiSlug": "mankey-fur"
+      },
+      {
+        "pokeapiSlug": "growlithe-fur"
+      },
+      {
+        "pokeapiSlug": "slowpoke-claw"
+      },
+      {
+        "pokeapiSlug": "magnemite-screw"
+      },
+      {
+        "pokeapiSlug": "grimer-toxin"
+      },
+      {
+        "pokeapiSlug": "shellder-pearl"
+      },
+      {
+        "pokeapiSlug": "gastly-gas"
+      },
+      {
+        "pokeapiSlug": "drowzee-fur"
+      },
+      {
+        "pokeapiSlug": "voltorb-sparks"
+      },
+      {
+        "pokeapiSlug": "scyther-claw"
+      },
+      {
+        "pokeapiSlug": "tauros-hair"
+      },
+      {
+        "pokeapiSlug": "magikarp-scales"
+      },
+      {
+        "pokeapiSlug": "ditto-goo"
+      },
+      {
+        "pokeapiSlug": "eevee-fur"
+      },
+      {
+        "pokeapiSlug": "dratini-scales"
+      },
+      {
+        "pokeapiSlug": "pichu-fur"
+      },
+      {
+        "pokeapiSlug": "igglybuff-fluff"
+      },
+      {
+        "pokeapiSlug": "mareep-wool"
+      },
+      {
+        "pokeapiSlug": "hoppip-leaf"
+      },
+      {
+        "pokeapiSlug": "sunkern-leaf"
+      },
+      {
+        "pokeapiSlug": "murkrow-bauble"
+      },
+      {
+        "pokeapiSlug": "misdreavus-tears"
+      },
+      {
+        "pokeapiSlug": "girafarig-fur"
+      },
+      {
+        "pokeapiSlug": "pineco-husk"
+      },
+      {
+        "pokeapiSlug": "dunsparce-scales"
+      },
+      {
+        "pokeapiSlug": "qwilfish-spines"
+      },
+      {
+        "pokeapiSlug": "heracross-claw"
+      },
+      {
+        "pokeapiSlug": "sneasel-claw"
+      },
+      {
+        "pokeapiSlug": "teddiursa-claw"
+      },
+      {
+        "pokeapiSlug": "delibird-parcel"
+      },
+      {
+        "pokeapiSlug": "houndour-fang"
+      },
+      {
+        "pokeapiSlug": "phanpy-nail"
+      },
+      {
+        "pokeapiSlug": "stantler-hair"
+      },
+      {
+        "pokeapiSlug": "larvitar-claw"
+      },
+      {
+        "pokeapiSlug": "wingull-feather"
+      },
+      {
+        "pokeapiSlug": "ralts-dust"
+      },
+      {
+        "pokeapiSlug": "surskit-syrup"
+      },
+      {
+        "pokeapiSlug": "shroomish-spores"
+      },
+      {
+        "pokeapiSlug": "slakoth-fur"
+      },
+      {
+        "pokeapiSlug": "makuhita-sweat"
+      },
+      {
+        "pokeapiSlug": "azurill-fur"
+      },
+      {
+        "pokeapiSlug": "sableye-gem"
+      },
+      {
+        "pokeapiSlug": "meditite-sweat"
+      },
+      {
+        "pokeapiSlug": "gulpin-mucus"
+      },
+      {
+        "pokeapiSlug": "numel-lava"
+      },
+      {
+        "pokeapiSlug": "torkoal-coal"
+      },
+      {
+        "pokeapiSlug": "spoink-pearl"
+      },
+      {
+        "pokeapiSlug": "cacnea-needle"
+      },
+      {
+        "pokeapiSlug": "swablu-fluff"
+      },
+      {
+        "pokeapiSlug": "zangoose-claw"
+      },
+      {
+        "pokeapiSlug": "seviper-fang"
+      },
+      {
+        "pokeapiSlug": "barboach-slime"
+      },
+      {
+        "pokeapiSlug": "shuppet-scrap"
+      },
+      {
+        "pokeapiSlug": "tropius-leaf"
+      },
+      {
+        "pokeapiSlug": "snorunt-fur"
+      },
+      {
+        "pokeapiSlug": "luvdisc-scales"
+      },
+      {
+        "pokeapiSlug": "bagon-scales"
+      },
+      {
+        "pokeapiSlug": "starly-feather"
+      },
+      {
+        "pokeapiSlug": "kricketot-shell"
+      },
+      {
+        "pokeapiSlug": "shinx-fang"
+      },
+      {
+        "pokeapiSlug": "combee-honey"
+      },
+      {
+        "pokeapiSlug": "pachirisu-fur"
+      },
+      {
+        "pokeapiSlug": "buizel-fur"
+      },
+      {
+        "pokeapiSlug": "shellos-mucus"
+      },
+      {
+        "pokeapiSlug": "drifloon-gas"
+      },
+      {
+        "pokeapiSlug": "stunky-fur"
+      },
+      {
+        "pokeapiSlug": "bronzor-fragment"
+      },
+      {
+        "pokeapiSlug": "bonsly-tears"
+      },
+      {
+        "pokeapiSlug": "happiny-dust"
+      },
+      {
+        "pokeapiSlug": "spiritomb-fragment"
+      },
+      {
+        "pokeapiSlug": "gible-scales"
+      },
+      {
+        "pokeapiSlug": "riolu-fur"
+      },
+      {
+        "pokeapiSlug": "hippopotas-sand"
+      },
+      {
+        "pokeapiSlug": "croagunk-poison"
+      },
+      {
+        "pokeapiSlug": "finneon-scales"
+      },
+      {
+        "pokeapiSlug": "snover-berries"
+      },
+      {
+        "pokeapiSlug": "rotom-sparks"
+      },
+      {
+        "pokeapiSlug": "petilil-leaf"
+      },
+      {
+        "pokeapiSlug": "basculin-fang"
+      },
+      {
+        "pokeapiSlug": "sandile-claw"
+      },
+      {
+        "pokeapiSlug": "zorua-fur"
+      },
+      {
+        "pokeapiSlug": "gothita-eyelash"
+      },
+      {
+        "pokeapiSlug": "deerling-hair"
+      },
+      {
+        "pokeapiSlug": "foongus-spores"
+      },
+      {
+        "pokeapiSlug": "alomomola-mucus"
+      },
+      {
+        "pokeapiSlug": "tynamo-slime"
+      },
+      {
+        "pokeapiSlug": "axew-scales"
+      },
+      {
+        "pokeapiSlug": "cubchoo-fur"
+      },
+      {
+        "pokeapiSlug": "cryogonal-ice"
+      },
+      {
+        "pokeapiSlug": "pawniard-blade"
+      },
+      {
+        "pokeapiSlug": "rufflet-feather"
+      },
+      {
+        "pokeapiSlug": "deino-scales"
+      },
+      {
+        "pokeapiSlug": "larvesta-fuzz"
+      },
+      {
+        "pokeapiSlug": "fletchling-feather"
+      },
+      {
+        "pokeapiSlug": "scatterbug-powder"
+      },
+      {
+        "pokeapiSlug": "litleo-tuft"
+      },
+      {
+        "pokeapiSlug": "flabebe-pollen"
+      },
+      {
+        "pokeapiSlug": "skiddo-leaf"
+      },
+      {
+        "pokeapiSlug": "skrelp-kelp"
+      },
+      {
+        "pokeapiSlug": "clauncher-claw"
+      },
+      {
+        "pokeapiSlug": "hawlucha-down"
+      },
+      {
+        "pokeapiSlug": "dedenne-fur"
+      },
+      {
+        "pokeapiSlug": "goomy-goo"
+      },
+      {
+        "pokeapiSlug": "klefki-key"
+      },
+      {
+        "pokeapiSlug": "bergmite-ice"
+      },
+      {
+        "pokeapiSlug": "noibat-fur"
+      },
+      {
+        "pokeapiSlug": "yungoos-fur"
+      },
+      {
+        "pokeapiSlug": "crabrawler-shell"
+      },
+      {
+        "pokeapiSlug": "oricorio-feather"
+      },
+      {
+        "pokeapiSlug": "rockruff-rock"
+      },
+      {
+        "pokeapiSlug": "mareanie-spike"
+      },
+      {
+        "pokeapiSlug": "mudbray-mud"
+      },
+      {
+        "pokeapiSlug": "fomantis-leaf"
+      },
+      {
+        "pokeapiSlug": "salandit-gas"
+      },
+      {
+        "pokeapiSlug": "bounsweet-sweat"
+      },
+      {
+        "pokeapiSlug": "oranguru-fur"
+      },
+      {
+        "pokeapiSlug": "passimian-fur"
+      },
+      {
+        "pokeapiSlug": "sandygast-sand"
+      },
+      {
+        "pokeapiSlug": "komala-claw"
+      },
+      {
+        "pokeapiSlug": "mimikyu-scrap"
+      },
+      {
+        "pokeapiSlug": "bruxish-tooth"
+      },
+      {
+        "pokeapiSlug": "chewtle-claw"
+      },
+      {
+        "pokeapiSlug": "skwovet-fur"
+      },
+      {
+        "pokeapiSlug": "arrokuda-scales"
+      },
+      {
+        "pokeapiSlug": "rookidee-feather"
+      },
+      {
+        "pokeapiSlug": "toxel-sparks"
+      },
+      {
+        "pokeapiSlug": "falinks-sweat"
+      },
+      {
+        "pokeapiSlug": "cufant-tarnish"
+      },
+      {
+        "pokeapiSlug": "rolycoly-coal"
+      },
+      {
+        "pokeapiSlug": "silicobra-sand"
+      },
+      {
+        "pokeapiSlug": "indeedee-fur"
+      },
+      {
+        "pokeapiSlug": "pincurchin-spines"
+      },
+      {
+        "pokeapiSlug": "snom-thread"
+      },
+      {
+        "pokeapiSlug": "impidimp-hair"
+      },
+      {
+        "pokeapiSlug": "applin-juice"
+      },
+      {
+        "pokeapiSlug": "sinistea-chip"
+      },
+      {
+        "pokeapiSlug": "hatenna-dust"
+      },
+      {
+        "pokeapiSlug": "stonjourner-stone"
+      },
+      {
+        "pokeapiSlug": "eiscue-down"
+      },
+      {
+        "pokeapiSlug": "dreepy-powder"
+      },
+      {
+        "pokeapiSlug": "lechonk-hair"
+      },
+      {
+        "pokeapiSlug": "tarountula-thread"
+      },
+      {
+        "pokeapiSlug": "nymble-claw"
+      },
+      {
+        "pokeapiSlug": "rellor-mud"
+      },
+      {
+        "pokeapiSlug": "greavard-wax"
+      },
+      {
+        "pokeapiSlug": "flittle-down"
+      },
+      {
+        "pokeapiSlug": "wiglett-sand"
+      },
+      {
+        "pokeapiSlug": "dondozo-whisker"
+      },
+      {
+        "pokeapiSlug": "veluza-fillet"
+      },
+      {
+        "pokeapiSlug": "finizen-mucus"
+      },
+      {
+        "pokeapiSlug": "smoliv-oil"
+      },
+      {
+        "pokeapiSlug": "capsakid-seed"
+      },
+      {
+        "pokeapiSlug": "tadbulb-mucus"
+      },
+      {
+        "pokeapiSlug": "varoom-fume"
+      },
+      {
+        "pokeapiSlug": "orthworm-tarnish"
+      },
+      {
+        "pokeapiSlug": "tandemaus-fur"
+      },
+      {
+        "pokeapiSlug": "cetoddle-grease"
+      },
+      {
+        "pokeapiSlug": "frigibax-scales"
+      },
+      {
+        "pokeapiSlug": "tatsugiri-scales"
+      },
+      {
+        "pokeapiSlug": "cyclizar-scales"
+      },
+      {
+        "pokeapiSlug": "pawmi-fur"
+      },
+      {
+        "pokeapiSlug": "wattrel-feather"
+      },
+      {
+        "pokeapiSlug": "bombirdier-feather"
+      },
+      {
+        "pokeapiSlug": "squawkabilly-feather"
+      },
+      {
+        "pokeapiSlug": "flamigo-down"
+      },
+      {
+        "pokeapiSlug": "klawf-claw"
+      },
+      {
+        "pokeapiSlug": "nacli-salt"
+      },
+      {
+        "pokeapiSlug": "glimmet-crystal"
+      },
+      {
+        "pokeapiSlug": "shroodle-ink"
+      },
+      {
+        "pokeapiSlug": "fidough-fur"
+      },
+      {
+        "pokeapiSlug": "maschiff-fang"
+      },
+      {
+        "pokeapiSlug": "bramblin-twig"
+      },
+      {
+        "pokeapiSlug": "gimmighoul-coin"
+      },
+      {
+        "pokeapiSlug": "tinkatink-hair"
+      },
+      {
+        "pokeapiSlug": "charcadet-soot"
+      },
+      {
+        "pokeapiSlug": "toedscool-flaps"
+      },
+      {
+        "pokeapiSlug": "wooper-slime"
+      },
+      {
+        "pokeapiSlug": "tm101"
+      },
+      {
+        "pokeapiSlug": "tm102"
+      },
+      {
+        "pokeapiSlug": "tm103"
+      },
+      {
+        "pokeapiSlug": "tm104"
+      },
+      {
+        "pokeapiSlug": "tm105"
+      },
+      {
+        "pokeapiSlug": "tm106"
+      },
+      {
+        "pokeapiSlug": "tm107"
+      },
+      {
+        "pokeapiSlug": "tm108"
+      },
+      {
+        "pokeapiSlug": "tm109"
+      },
+      {
+        "pokeapiSlug": "tm110"
+      },
+      {
+        "pokeapiSlug": "tm111"
+      },
+      {
+        "pokeapiSlug": "tm112"
+      },
+      {
+        "pokeapiSlug": "tm113"
+      },
+      {
+        "pokeapiSlug": "tm114"
+      },
+      {
+        "pokeapiSlug": "tm115"
+      },
+      {
+        "pokeapiSlug": "tm116"
+      },
+      {
+        "pokeapiSlug": "tm117"
+      },
+      {
+        "pokeapiSlug": "tm118"
+      },
+      {
+        "pokeapiSlug": "tm119"
+      },
+      {
+        "pokeapiSlug": "tm120"
+      },
+      {
+        "pokeapiSlug": "tm121"
+      },
+      {
+        "pokeapiSlug": "tm122"
+      },
+      {
+        "pokeapiSlug": "tm123"
+      },
+      {
+        "pokeapiSlug": "tm124"
+      },
+      {
+        "pokeapiSlug": "tm125"
+      },
+      {
+        "pokeapiSlug": "tm126"
+      },
+      {
+        "pokeapiSlug": "tm127"
+      },
+      {
+        "pokeapiSlug": "tm128"
+      },
+      {
+        "pokeapiSlug": "tm129"
+      },
+      {
+        "pokeapiSlug": "tm130"
+      },
+      {
+        "pokeapiSlug": "tm131"
+      },
+      {
+        "pokeapiSlug": "tm132"
+      },
+      {
+        "pokeapiSlug": "tm133"
+      },
+      {
+        "pokeapiSlug": "tm134"
+      },
+      {
+        "pokeapiSlug": "tm135"
+      },
+      {
+        "pokeapiSlug": "tm136"
+      },
+      {
+        "pokeapiSlug": "tm137"
+      },
+      {
+        "pokeapiSlug": "tm138"
+      },
+      {
+        "pokeapiSlug": "tm139"
+      },
+      {
+        "pokeapiSlug": "tm140"
+      },
+      {
+        "pokeapiSlug": "tm141"
+      },
+      {
+        "pokeapiSlug": "tm142"
+      },
+      {
+        "pokeapiSlug": "tm143"
+      },
+      {
+        "pokeapiSlug": "tm144"
+      },
+      {
+        "pokeapiSlug": "tm145"
+      },
+      {
+        "pokeapiSlug": "tm146"
+      },
+      {
+        "pokeapiSlug": "tm147"
+      },
+      {
+        "pokeapiSlug": "tm148"
+      },
+      {
+        "pokeapiSlug": "tm149"
+      },
+      {
+        "pokeapiSlug": "tm150"
+      },
+      {
+        "pokeapiSlug": "tm151"
+      },
+      {
+        "pokeapiSlug": "tm152"
+      },
+      {
+        "pokeapiSlug": "tm153"
+      },
+      {
+        "pokeapiSlug": "tm154"
+      },
+      {
+        "pokeapiSlug": "tm155"
+      },
+      {
+        "pokeapiSlug": "tm156"
+      },
+      {
+        "pokeapiSlug": "tm157"
+      },
+      {
+        "pokeapiSlug": "tm158"
+      },
+      {
+        "pokeapiSlug": "tm159"
+      },
+      {
+        "pokeapiSlug": "tm160"
+      },
+      {
+        "pokeapiSlug": "tm161"
+      },
+      {
+        "pokeapiSlug": "tm162"
+      },
+      {
+        "pokeapiSlug": "tm163"
+      },
+      {
+        "pokeapiSlug": "tm164"
+      },
+      {
+        "pokeapiSlug": "tm165"
+      },
+      {
+        "pokeapiSlug": "tm166"
+      },
+      {
+        "pokeapiSlug": "tm167"
+      },
+      {
+        "pokeapiSlug": "tm168"
+      },
+      {
+        "pokeapiSlug": "tm169"
+      },
+      {
+        "pokeapiSlug": "tm170"
+      },
+      {
+        "pokeapiSlug": "tm171"
+      },
+      {
+        "pokeapiSlug": "picnic-set"
+      },
+      {
+        "pokeapiSlug": "academy-bottle"
+      },
+      {
+        "pokeapiSlug": "polka-dot-bottle"
+      },
+      {
+        "pokeapiSlug": "striped-bottle"
+      },
+      {
+        "pokeapiSlug": "diamond-bottle"
+      },
+      {
+        "pokeapiSlug": "academy-cup"
+      },
+      {
+        "pokeapiSlug": "striped-cup"
+      },
+      {
+        "pokeapiSlug": "polka-dot-cup"
+      },
+      {
+        "pokeapiSlug": "flower-pattern-cup"
+      },
+      {
+        "pokeapiSlug": "academy-tablecloth"
+      },
+      {
+        "pokeapiSlug": "whimsical-tablecloth"
+      },
+      {
+        "pokeapiSlug": "leafy-tablecloth"
+      },
+      {
+        "pokeapiSlug": "spooky-tablecloth"
+      },
+      {
+        "pokeapiSlug": "academy-ball"
+      },
+      {
+        "pokeapiSlug": "marill-ball"
+      },
+      {
+        "pokeapiSlug": "yarn-ball"
+      },
+      {
+        "pokeapiSlug": "cyber-ball"
+      },
+      {
+        "pokeapiSlug": "gold-pick"
+      },
+      {
+        "pokeapiSlug": "silver-pick"
+      },
+      {
+        "pokeapiSlug": "red-flag-pick"
+      },
+      {
+        "pokeapiSlug": "blue-flag-pick"
+      },
+      {
+        "pokeapiSlug": "pika-pika-pick"
+      },
+      {
+        "pokeapiSlug": "winking-pika-pick"
+      },
+      {
+        "pokeapiSlug": "vee-vee-pick"
+      },
+      {
+        "pokeapiSlug": "smiling-vee-pick"
+      },
+      {
+        "pokeapiSlug": "blue-poke-ball-pick"
+      },
+      {
+        "pokeapiSlug": "auspicious-armor"
+      },
+      {
+        "pokeapiSlug": "leaders-crest"
+      },
+      {
+        "pokeapiSlug": "pink-bottle"
+      },
+      {
+        "pokeapiSlug": "blue-bottle"
+      },
+      {
+        "pokeapiSlug": "yellow-bottle"
+      },
+      {
+        "pokeapiSlug": "steel-bottle-r"
+      },
+      {
+        "pokeapiSlug": "steel-bottle-y"
+      },
+      {
+        "pokeapiSlug": "steel-bottle-b"
+      },
+      {
+        "pokeapiSlug": "silver-bottle"
+      },
+      {
+        "pokeapiSlug": "barred-cup"
+      },
+      {
+        "pokeapiSlug": "diamond-pattern-cup"
+      },
+      {
+        "pokeapiSlug": "fire-pattern-cup"
+      },
+      {
+        "pokeapiSlug": "pink-cup"
+      },
+      {
+        "pokeapiSlug": "blue-cup"
+      },
+      {
+        "pokeapiSlug": "yellow-cup"
+      },
+      {
+        "pokeapiSlug": "pikachu-cup"
+      },
+      {
+        "pokeapiSlug": "eevee-cup"
+      },
+      {
+        "pokeapiSlug": "slowpoke-cup"
+      },
+      {
+        "pokeapiSlug": "silver-cup"
+      },
+      {
+        "pokeapiSlug": "exercise-ball"
+      },
+      {
+        "pokeapiSlug": "plaid-tablecloth-y"
+      },
+      {
+        "pokeapiSlug": "plaid-tablecloth-b"
+      },
+      {
+        "pokeapiSlug": "plaid-tablecloth-r"
+      },
+      {
+        "pokeapiSlug": "bw-grass-tablecloth"
+      },
+      {
+        "pokeapiSlug": "battle-tablecloth"
+      },
+      {
+        "pokeapiSlug": "monstrous-tablecloth"
+      },
+      {
+        "pokeapiSlug": "striped-tablecloth"
+      },
+      {
+        "pokeapiSlug": "diamond-tablecloth"
+      },
+      {
+        "pokeapiSlug": "polka-dot-tablecloth"
+      },
+      {
+        "pokeapiSlug": "lilac-tablecloth"
+      },
+      {
+        "pokeapiSlug": "mint-tablecloth"
+      },
+      {
+        "pokeapiSlug": "peach-tablecloth"
+      },
+      {
+        "pokeapiSlug": "yellow-tablecloth"
+      },
+      {
+        "pokeapiSlug": "blue-tablecloth"
+      },
+      {
+        "pokeapiSlug": "pink-tablecloth"
+      },
+      {
+        "pokeapiSlug": "gold-bottle"
+      },
+      {
+        "pokeapiSlug": "bronze-bottle"
+      },
+      {
+        "pokeapiSlug": "gold-cup"
+      },
+      {
+        "pokeapiSlug": "bronze-cup"
+      },
+      {
+        "pokeapiSlug": "green-poke-ball-pick"
+      },
+      {
+        "pokeapiSlug": "red-poke-ball-pick"
+      },
+      {
+        "pokeapiSlug": "party-sparkler-pick"
+      },
+      {
+        "pokeapiSlug": "heroic-sword-pick"
+      },
+      {
+        "pokeapiSlug": "magical-star-pick"
+      },
+      {
+        "pokeapiSlug": "magical-heart-pick"
+      },
+      {
+        "pokeapiSlug": "parasol-pick"
+      },
+      {
+        "pokeapiSlug": "blue-sky-flower-pick"
+      },
+      {
+        "pokeapiSlug": "sunset-flower-pick"
+      },
+      {
+        "pokeapiSlug": "sunrise-flower-pick"
+      },
+      {
+        "pokeapiSlug": "blue-dish"
+      },
+      {
+        "pokeapiSlug": "green-dish"
+      },
+      {
+        "pokeapiSlug": "orange-dish"
+      },
+      {
+        "pokeapiSlug": "red-dish"
+      },
+      {
+        "pokeapiSlug": "white-dish"
+      },
+      {
+        "pokeapiSlug": "yellow-dish"
+      },
+      {
+        "pokeapiSlug": "roto-stick"
+      },
+      {
+        "pokeapiSlug": "teal-style-card"
+      },
+      {
+        "pokeapiSlug": "teal-mask"
+      },
+      {
+        "pokeapiSlug": "glimmering-charm"
+      },
+      {
+        "pokeapiSlug": "crystal-cluster"
+      },
+      {
+        "pokeapiSlug": "fairy-feather"
+      },
+      {
+        "pokeapiSlug": "wellspring-mask"
+      },
+      {
+        "pokeapiSlug": "hearthflame-mask"
+      },
+      {
+        "pokeapiSlug": "cornerstone-mask"
+      },
+      {
+        "pokeapiSlug": "syrupy-apple"
+      },
+      {
+        "pokeapiSlug": "unremarkable-teacup"
+      },
+      {
+        "pokeapiSlug": "masterpiece-teacup"
+      },
+      {
+        "pokeapiSlug": "health-mochi"
+      },
+      {
+        "pokeapiSlug": "muscle-mochi"
+      },
+      {
+        "pokeapiSlug": "resist-mochi"
+      },
+      {
+        "pokeapiSlug": "genius-mochi"
+      },
+      {
+        "pokeapiSlug": "clever-mochi"
+      },
+      {
+        "pokeapiSlug": "swift-mochi"
+      },
+      {
+        "pokeapiSlug": "fresh-start-mochi"
+      },
+      {
+        "pokeapiSlug": "ekans-fang"
+      },
+      {
+        "pokeapiSlug": "sandshrew-claw"
+      },
+      {
+        "pokeapiSlug": "cleffa-fur"
+      },
+      {
+        "pokeapiSlug": "vulpix-fur"
+      },
+      {
+        "pokeapiSlug": "poliwag-slime"
+      },
+      {
+        "pokeapiSlug": "bellsprout-vine"
+      },
+      {
+        "pokeapiSlug": "geodude-fragment"
+      },
+      {
+        "pokeapiSlug": "koffing-gas"
+      },
+      {
+        "pokeapiSlug": "munchlax-fang"
+      },
+      {
+        "pokeapiSlug": "sentret-fur"
+      },
+      {
+        "pokeapiSlug": "hoothoot-feather"
+      },
+      {
+        "pokeapiSlug": "spinarak-thread"
+      },
+      {
+        "pokeapiSlug": "aipom-hair"
+      },
+      {
+        "pokeapiSlug": "yanma-spike"
+      },
+      {
+        "pokeapiSlug": "gligar-fang"
+      },
+      {
+        "pokeapiSlug": "slugma-lava"
+      },
+      {
+        "pokeapiSlug": "swinub-hair"
+      },
+      {
+        "pokeapiSlug": "poochyena-fang"
+      },
+      {
+        "pokeapiSlug": "lotad-leaf"
+      },
+      {
+        "pokeapiSlug": "seedot-stem"
+      },
+      {
+        "pokeapiSlug": "nosepass-fragment"
+      },
+      {
+        "pokeapiSlug": "volbeat-fluid"
+      },
+      {
+        "pokeapiSlug": "illumise-fluid"
+      },
+      {
+        "pokeapiSlug": "corphish-shell"
+      },
+      {
+        "pokeapiSlug": "feebas-scales"
+      },
+      {
+        "pokeapiSlug": "duskull-fragment"
+      },
+      {
+        "pokeapiSlug": "chingling-fragment"
+      },
+      {
+        "pokeapiSlug": "timburr-sweat"
+      },
+      {
+        "pokeapiSlug": "sewaddle-leaf"
+      },
+      {
+        "pokeapiSlug": "ducklett-feather"
+      },
+      {
+        "pokeapiSlug": "litwick-soot"
+      },
+      {
+        "pokeapiSlug": "mienfoo-claw"
+      },
+      {
+        "pokeapiSlug": "vullaby-feather"
+      },
+      {
+        "pokeapiSlug": "carbink-jewel"
+      },
+      {
+        "pokeapiSlug": "phantump-twig"
+      },
+      {
+        "pokeapiSlug": "grubbin-thread"
+      },
+      {
+        "pokeapiSlug": "cutiefly-powder"
+      },
+      {
+        "pokeapiSlug": "jangmo-o-scales"
+      },
+      {
+        "pokeapiSlug": "cramorant-down"
+      },
+      {
+        "pokeapiSlug": "morpeko-snack"
+      },
+      {
+        "pokeapiSlug": "poltchageist-powder"
+      },
+      {
+        "pokeapiSlug": "linking-cord"
+      },
+      {
+        "pokeapiSlug": "tm172"
+      },
+      {
+        "pokeapiSlug": "tm173"
+      },
+      {
+        "pokeapiSlug": "tm174"
+      },
+      {
+        "pokeapiSlug": "tm175"
+      },
+      {
+        "pokeapiSlug": "tm176"
+      },
+      {
+        "pokeapiSlug": "tm177"
+      },
+      {
+        "pokeapiSlug": "tm178"
+      },
+      {
+        "pokeapiSlug": "tm179"
+      },
+      {
+        "pokeapiSlug": "tm180"
+      },
+      {
+        "pokeapiSlug": "tm181"
+      },
+      {
+        "pokeapiSlug": "tm182"
+      },
+      {
+        "pokeapiSlug": "tm183"
+      },
+      {
+        "pokeapiSlug": "tm184"
+      },
+      {
+        "pokeapiSlug": "tm185"
+      },
+      {
+        "pokeapiSlug": "tm186"
+      },
+      {
+        "pokeapiSlug": "tm187"
+      },
+      {
+        "pokeapiSlug": "tm188"
+      },
+      {
+        "pokeapiSlug": "tm189"
+      },
+      {
+        "pokeapiSlug": "tm190"
+      },
+      {
+        "pokeapiSlug": "tm191"
+      },
+      {
+        "pokeapiSlug": "tm192"
+      },
+      {
+        "pokeapiSlug": "tm193"
+      },
+      {
+        "pokeapiSlug": "tm194"
+      },
+      {
+        "pokeapiSlug": "tm195"
+      },
+      {
+        "pokeapiSlug": "tm196"
+      },
+      {
+        "pokeapiSlug": "tm197"
+      },
+      {
+        "pokeapiSlug": "tm198"
+      },
+      {
+        "pokeapiSlug": "tm199"
+      },
+      {
+        "pokeapiSlug": "tm200"
+      },
+      {
+        "pokeapiSlug": "tm201"
+      },
+      {
+        "pokeapiSlug": "tm202"
+      },
+      {
+        "pokeapiSlug": "tm203"
+      },
+      {
+        "pokeapiSlug": "tm204"
+      },
+      {
+        "pokeapiSlug": "tm205"
+      },
+      {
+        "pokeapiSlug": "tm206"
+      },
+      {
+        "pokeapiSlug": "tm207"
+      },
+      {
+        "pokeapiSlug": "tm208"
+      },
+      {
+        "pokeapiSlug": "tm209"
+      },
+      {
+        "pokeapiSlug": "tm210"
+      },
+      {
+        "pokeapiSlug": "tm211"
+      },
+      {
+        "pokeapiSlug": "tm212"
+      },
+      {
+        "pokeapiSlug": "tm213"
+      },
+      {
+        "pokeapiSlug": "tm214"
+      },
+      {
+        "pokeapiSlug": "tm215"
+      },
+      {
+        "pokeapiSlug": "tm216"
+      },
+      {
+        "pokeapiSlug": "tm217"
+      },
+      {
+        "pokeapiSlug": "tm218"
+      },
+      {
+        "pokeapiSlug": "tm219"
+      },
+      {
+        "pokeapiSlug": "tm220"
+      },
+      {
+        "pokeapiSlug": "tm221"
+      },
+      {
+        "pokeapiSlug": "tm222"
+      },
+      {
+        "pokeapiSlug": "tm223"
+      },
+      {
+        "pokeapiSlug": "tm224"
+      },
+      {
+        "pokeapiSlug": "tm225"
+      },
+      {
+        "pokeapiSlug": "tm226"
+      },
+      {
+        "pokeapiSlug": "tm227"
+      },
+      {
+        "pokeapiSlug": "tm228"
+      },
+      {
+        "pokeapiSlug": "tm229"
+      },
+      {
+        "pokeapiSlug": "lastrange-ball"
+      },
+      {
+        "pokeapiSlug": "lapoke-ball"
+      },
+      {
+        "pokeapiSlug": "lagreat-ball"
+      },
+      {
+        "pokeapiSlug": "laultra-ball"
+      },
+      {
+        "pokeapiSlug": "laheavy-ball"
+      },
+      {
+        "pokeapiSlug": "laleaden-ball"
+      },
+      {
+        "pokeapiSlug": "lagigaton-ball"
+      },
+      {
+        "pokeapiSlug": "lafeather-ball"
+      },
+      {
+        "pokeapiSlug": "lawing-ball"
+      },
+      {
+        "pokeapiSlug": "lajet-ball"
+      },
+      {
+        "pokeapiSlug": "laorigin-ball"
+      },
+      {
+        "pokeapiSlug": "black-augurite"
+      },
+      {
+        "pokeapiSlug": "peat-block"
+      }
+    ]
+  },
+  "itemsFallbackSummary": {
+    "coveredByExtensionItemKoFallback": 1,
+    "stillNeedKoreanStringCount": 613,
+    "stillNeedSlugList": [
+      "grass-mail",
+      "flame-mail",
+      "bubble-mail",
+      "bloom-mail",
+      "tunnel-mail",
+      "steel-mail",
+      "heart-mail",
+      "snow-mail",
+      "space-mail",
+      "air-mail",
+      "mosaic-mail",
+      "brick-mail",
+      "hm08",
+      "orange-mail",
+      "harbor-mail",
+      "glitter-mail",
+      "mech-mail",
+      "wood-mail",
+      "wave-mail",
+      "bead-mail",
+      "shadow-mail",
+      "tropic-mail",
+      "dream-mail",
+      "fab-mail",
+      "retro-mail",
+      "devon-goods",
+      "pokeblock-case",
+      "rm-1-key",
+      "rm-2-key",
+      "rm-4-key",
+      "rm-6-key",
+      "oaks-parcel",
+      "bike-voucher",
+      "fame-checker",
+      "berry-pouch",
+      "teachy-tv",
+      "tri-pass",
+      "rainbow-pass",
+      "mysticticket",
+      "auroraticket",
+      "powder-jar",
+      "ruby",
+      "sapphire",
+      "magma-emblem",
+      "old-sea-map",
+      "god-stone",
+      "adamant-crystal",
+      "lustrous-globe",
+      "griseous-core",
+      "blank-plate",
+      "strange-ball",
+      "legend-plate",
+      "rotom-phone",
+      "sandwich",
+      "koraidons-poke-ball",
+      "miraidons-poke-ball",
+      "tera-orb",
+      "scarlet-book",
+      "violet-book",
+      "kofus-wallet",
+      "tiny-bamboo-shoot",
+      "big-bamboo-shoot",
+      "scroll-of-darkness",
+      "scroll-of-waters",
+      "malicious-armor",
+      "normal-tera-shard",
+      "fire-tera-shard",
+      "water-tera-shard",
+      "electric-tera-shard",
+      "grass-tera-shard",
+      "ice-tera-shard",
+      "fighting-tera-shard",
+      "poison-tera-shard",
+      "ground-tera-shard",
+      "flying-tera-shard",
+      "psychic-tera-shard",
+      "bug-tera-shard",
+      "rock-tera-shard",
+      "ghost-tera-shard",
+      "dragon-tera-shard",
+      "dark-tera-shard",
+      "steel-tera-shard",
+      "fairy-tera-shard",
+      "booster-energy",
+      "ability-shield",
+      "clear-amulet",
+      "mirror-herb",
+      "covert-cloak",
+      "loaded-dice",
+      "baguette",
+      "mayonnaise",
+      "ketchup",
+      "mustard",
+      "butter",
+      "peanut-butter",
+      "chili-sauce",
+      "salt",
+      "pepper",
+      "yogurt",
+      "whipped-cream",
+      "cream-cheese",
+      "jam",
+      "marmalade",
+      "olive-oil",
+      "vinegar",
+      "sweet-herba-mystica",
+      "salty-herba-mystica",
+      "sour-herba-mystica",
+      "bitter-herba-mystica",
+      "spicy-herba-mystica",
+      "lettuce",
+      "tomato",
+      "cherry-tomatoes",
+      "cucumber",
+      "pickle",
+      "onion",
+      "red-onion",
+      "green-bell-pepper",
+      "red-bell-pepper",
+      "yellow-bell-pepper",
+      "avocado",
+      "bacon",
+      "ham",
+      "prosciutto",
+      "chorizo",
+      "herbed-sausage",
+      "hamburger",
+      "klawf-stick",
+      "smoked-fillet",
+      "fried-fillet",
+      "egg",
+      "potato-tortilla",
+      "tofu",
+      "rice",
+      "noodles",
+      "potato-salad",
+      "cheese",
+      "banana",
+      "strawberry",
+      "apple",
+      "kiwi",
+      "pineapple",
+      "jalapeno",
+      "horseradish",
+      "curry-powder",
+      "wasabi",
+      "watercress",
+      "basil",
+      "venonat-fang",
+      "diglett-dirt",
+      "meowth-fur",
+      "psyduck-down",
+      "mankey-fur",
+      "growlithe-fur",
+      "slowpoke-claw",
+      "magnemite-screw",
+      "grimer-toxin",
+      "shellder-pearl",
+      "gastly-gas",
+      "drowzee-fur",
+      "voltorb-sparks",
+      "scyther-claw",
+      "tauros-hair",
+      "magikarp-scales",
+      "ditto-goo",
+      "eevee-fur",
+      "dratini-scales",
+      "pichu-fur",
+      "igglybuff-fluff",
+      "mareep-wool",
+      "hoppip-leaf",
+      "sunkern-leaf",
+      "murkrow-bauble",
+      "misdreavus-tears",
+      "girafarig-fur",
+      "pineco-husk",
+      "dunsparce-scales",
+      "qwilfish-spines",
+      "heracross-claw",
+      "sneasel-claw",
+      "teddiursa-claw",
+      "delibird-parcel",
+      "houndour-fang",
+      "phanpy-nail",
+      "stantler-hair",
+      "larvitar-claw",
+      "wingull-feather",
+      "ralts-dust",
+      "surskit-syrup",
+      "shroomish-spores",
+      "slakoth-fur",
+      "makuhita-sweat",
+      "azurill-fur",
+      "sableye-gem",
+      "meditite-sweat",
+      "gulpin-mucus",
+      "numel-lava",
+      "torkoal-coal",
+      "spoink-pearl",
+      "cacnea-needle",
+      "swablu-fluff",
+      "zangoose-claw",
+      "seviper-fang",
+      "barboach-slime",
+      "shuppet-scrap",
+      "tropius-leaf",
+      "snorunt-fur",
+      "luvdisc-scales",
+      "bagon-scales",
+      "starly-feather",
+      "kricketot-shell",
+      "shinx-fang",
+      "combee-honey",
+      "pachirisu-fur",
+      "buizel-fur",
+      "shellos-mucus",
+      "drifloon-gas",
+      "stunky-fur",
+      "bronzor-fragment",
+      "bonsly-tears",
+      "happiny-dust",
+      "spiritomb-fragment",
+      "gible-scales",
+      "riolu-fur",
+      "hippopotas-sand",
+      "croagunk-poison",
+      "finneon-scales",
+      "snover-berries",
+      "rotom-sparks",
+      "petilil-leaf",
+      "basculin-fang",
+      "sandile-claw",
+      "zorua-fur",
+      "gothita-eyelash",
+      "deerling-hair",
+      "foongus-spores",
+      "alomomola-mucus",
+      "tynamo-slime",
+      "axew-scales",
+      "cubchoo-fur",
+      "cryogonal-ice",
+      "pawniard-blade",
+      "rufflet-feather",
+      "deino-scales",
+      "larvesta-fuzz",
+      "fletchling-feather",
+      "scatterbug-powder",
+      "litleo-tuft",
+      "flabebe-pollen",
+      "skiddo-leaf",
+      "skrelp-kelp",
+      "clauncher-claw",
+      "hawlucha-down",
+      "dedenne-fur",
+      "goomy-goo",
+      "klefki-key",
+      "bergmite-ice",
+      "noibat-fur",
+      "yungoos-fur",
+      "crabrawler-shell",
+      "oricorio-feather",
+      "rockruff-rock",
+      "mareanie-spike",
+      "mudbray-mud",
+      "fomantis-leaf",
+      "salandit-gas",
+      "bounsweet-sweat",
+      "oranguru-fur",
+      "passimian-fur",
+      "sandygast-sand",
+      "komala-claw",
+      "mimikyu-scrap",
+      "bruxish-tooth",
+      "chewtle-claw",
+      "skwovet-fur",
+      "arrokuda-scales",
+      "rookidee-feather",
+      "toxel-sparks",
+      "falinks-sweat",
+      "cufant-tarnish",
+      "rolycoly-coal",
+      "silicobra-sand",
+      "indeedee-fur",
+      "pincurchin-spines",
+      "snom-thread",
+      "impidimp-hair",
+      "applin-juice",
+      "sinistea-chip",
+      "hatenna-dust",
+      "stonjourner-stone",
+      "eiscue-down",
+      "dreepy-powder",
+      "lechonk-hair",
+      "tarountula-thread",
+      "nymble-claw",
+      "rellor-mud",
+      "greavard-wax",
+      "flittle-down",
+      "wiglett-sand",
+      "dondozo-whisker",
+      "veluza-fillet",
+      "finizen-mucus",
+      "smoliv-oil",
+      "capsakid-seed",
+      "tadbulb-mucus",
+      "varoom-fume",
+      "orthworm-tarnish",
+      "tandemaus-fur",
+      "cetoddle-grease",
+      "frigibax-scales",
+      "tatsugiri-scales",
+      "cyclizar-scales",
+      "pawmi-fur",
+      "wattrel-feather",
+      "bombirdier-feather",
+      "squawkabilly-feather",
+      "flamigo-down",
+      "klawf-claw",
+      "nacli-salt",
+      "glimmet-crystal",
+      "shroodle-ink",
+      "fidough-fur",
+      "maschiff-fang",
+      "bramblin-twig",
+      "gimmighoul-coin",
+      "tinkatink-hair",
+      "charcadet-soot",
+      "toedscool-flaps",
+      "wooper-slime",
+      "tm101",
+      "tm102",
+      "tm103",
+      "tm104",
+      "tm105",
+      "tm106",
+      "tm107",
+      "tm108",
+      "tm109",
+      "tm110",
+      "tm111",
+      "tm112",
+      "tm113",
+      "tm114",
+      "tm115",
+      "tm116",
+      "tm117",
+      "tm118",
+      "tm119",
+      "tm120",
+      "tm121",
+      "tm122",
+      "tm123",
+      "tm124",
+      "tm125",
+      "tm126",
+      "tm127",
+      "tm128",
+      "tm129",
+      "tm130",
+      "tm131",
+      "tm132",
+      "tm133",
+      "tm134",
+      "tm135",
+      "tm136",
+      "tm137",
+      "tm138",
+      "tm139",
+      "tm140",
+      "tm141",
+      "tm142",
+      "tm143",
+      "tm144",
+      "tm145",
+      "tm146",
+      "tm147",
+      "tm148",
+      "tm149",
+      "tm150",
+      "tm151",
+      "tm152",
+      "tm153",
+      "tm154",
+      "tm155",
+      "tm156",
+      "tm157",
+      "tm158",
+      "tm159",
+      "tm160",
+      "tm161",
+      "tm162",
+      "tm163",
+      "tm164",
+      "tm165",
+      "tm166",
+      "tm167",
+      "tm168",
+      "tm169",
+      "tm170",
+      "tm171",
+      "picnic-set",
+      "academy-bottle",
+      "polka-dot-bottle",
+      "striped-bottle",
+      "diamond-bottle",
+      "academy-cup",
+      "striped-cup",
+      "polka-dot-cup",
+      "flower-pattern-cup",
+      "academy-tablecloth",
+      "whimsical-tablecloth",
+      "leafy-tablecloth",
+      "spooky-tablecloth",
+      "academy-ball",
+      "marill-ball",
+      "yarn-ball",
+      "cyber-ball",
+      "gold-pick",
+      "silver-pick",
+      "red-flag-pick",
+      "blue-flag-pick",
+      "pika-pika-pick",
+      "winking-pika-pick",
+      "vee-vee-pick",
+      "smiling-vee-pick",
+      "blue-poke-ball-pick",
+      "auspicious-armor",
+      "leaders-crest",
+      "pink-bottle",
+      "blue-bottle",
+      "yellow-bottle",
+      "steel-bottle-r",
+      "steel-bottle-y",
+      "steel-bottle-b",
+      "silver-bottle",
+      "barred-cup",
+      "diamond-pattern-cup",
+      "fire-pattern-cup",
+      "pink-cup",
+      "blue-cup",
+      "yellow-cup",
+      "pikachu-cup",
+      "eevee-cup",
+      "slowpoke-cup",
+      "silver-cup",
+      "exercise-ball",
+      "plaid-tablecloth-y",
+      "plaid-tablecloth-b",
+      "plaid-tablecloth-r",
+      "bw-grass-tablecloth",
+      "battle-tablecloth",
+      "monstrous-tablecloth",
+      "striped-tablecloth",
+      "diamond-tablecloth",
+      "polka-dot-tablecloth",
+      "lilac-tablecloth",
+      "mint-tablecloth",
+      "peach-tablecloth",
+      "yellow-tablecloth",
+      "blue-tablecloth",
+      "pink-tablecloth",
+      "gold-bottle",
+      "bronze-bottle",
+      "gold-cup",
+      "bronze-cup",
+      "green-poke-ball-pick",
+      "red-poke-ball-pick",
+      "party-sparkler-pick",
+      "heroic-sword-pick",
+      "magical-star-pick",
+      "magical-heart-pick",
+      "parasol-pick",
+      "blue-sky-flower-pick",
+      "sunset-flower-pick",
+      "sunrise-flower-pick",
+      "blue-dish",
+      "green-dish",
+      "orange-dish",
+      "red-dish",
+      "white-dish",
+      "yellow-dish",
+      "roto-stick",
+      "teal-style-card",
+      "teal-mask",
+      "glimmering-charm",
+      "crystal-cluster",
+      "fairy-feather",
+      "wellspring-mask",
+      "hearthflame-mask",
+      "cornerstone-mask",
+      "syrupy-apple",
+      "unremarkable-teacup",
+      "masterpiece-teacup",
+      "health-mochi",
+      "muscle-mochi",
+      "resist-mochi",
+      "genius-mochi",
+      "clever-mochi",
+      "swift-mochi",
+      "fresh-start-mochi",
+      "ekans-fang",
+      "sandshrew-claw",
+      "cleffa-fur",
+      "vulpix-fur",
+      "poliwag-slime",
+      "bellsprout-vine",
+      "geodude-fragment",
+      "koffing-gas",
+      "munchlax-fang",
+      "sentret-fur",
+      "hoothoot-feather",
+      "spinarak-thread",
+      "aipom-hair",
+      "yanma-spike",
+      "gligar-fang",
+      "slugma-lava",
+      "swinub-hair",
+      "poochyena-fang",
+      "lotad-leaf",
+      "seedot-stem",
+      "nosepass-fragment",
+      "volbeat-fluid",
+      "illumise-fluid",
+      "corphish-shell",
+      "feebas-scales",
+      "duskull-fragment",
+      "chingling-fragment",
+      "timburr-sweat",
+      "sewaddle-leaf",
+      "ducklett-feather",
+      "litwick-soot",
+      "mienfoo-claw",
+      "vullaby-feather",
+      "carbink-jewel",
+      "phantump-twig",
+      "grubbin-thread",
+      "cutiefly-powder",
+      "jangmo-o-scales",
+      "cramorant-down",
+      "morpeko-snack",
+      "poltchageist-powder",
+      "linking-cord",
+      "tm172",
+      "tm173",
+      "tm174",
+      "tm175",
+      "tm176",
+      "tm177",
+      "tm178",
+      "tm179",
+      "tm180",
+      "tm181",
+      "tm182",
+      "tm183",
+      "tm184",
+      "tm185",
+      "tm186",
+      "tm187",
+      "tm188",
+      "tm189",
+      "tm190",
+      "tm191",
+      "tm192",
+      "tm193",
+      "tm194",
+      "tm195",
+      "tm196",
+      "tm197",
+      "tm198",
+      "tm199",
+      "tm200",
+      "tm201",
+      "tm202",
+      "tm203",
+      "tm204",
+      "tm205",
+      "tm206",
+      "tm207",
+      "tm208",
+      "tm209",
+      "tm210",
+      "tm211",
+      "tm212",
+      "tm213",
+      "tm214",
+      "tm215",
+      "tm216",
+      "tm217",
+      "tm218",
+      "tm219",
+      "tm220",
+      "tm221",
+      "tm222",
+      "tm223",
+      "tm224",
+      "tm225",
+      "tm226",
+      "tm227",
+      "tm228",
+      "tm229",
+      "lastrange-ball",
+      "lapoke-ball",
+      "lagreat-ball",
+      "laultra-ball",
+      "laheavy-ball",
+      "laleaden-ball",
+      "lagigaton-ball",
+      "lafeather-ball",
+      "lawing-ball",
+      "lajet-ball",
+      "laorigin-ball",
+      "black-augurite",
+      "peat-block"
+    ]
+  },
+  "abilities": {
+    "noKoreanNameCount": 34,
+    "noKoreanNameList": [
+      {
+        "id": 268,
+        "pokeapiSlug": "lingering-aroma"
+      },
+      {
+        "id": 269,
+        "pokeapiSlug": "seed-sower"
+      },
+      {
+        "id": 270,
+        "pokeapiSlug": "thermal-exchange"
+      },
+      {
+        "id": 271,
+        "pokeapiSlug": "anger-shell"
+      },
+      {
+        "id": 272,
+        "pokeapiSlug": "purifying-salt"
+      },
+      {
+        "id": 273,
+        "pokeapiSlug": "well-baked-body"
+      },
+      {
+        "id": 274,
+        "pokeapiSlug": "wind-rider"
+      },
+      {
+        "id": 275,
+        "pokeapiSlug": "guard-dog"
+      },
+      {
+        "id": 276,
+        "pokeapiSlug": "rocky-payload"
+      },
+      {
+        "id": 277,
+        "pokeapiSlug": "wind-power"
+      },
+      {
+        "id": 278,
+        "pokeapiSlug": "zero-to-hero"
+      },
+      {
+        "id": 279,
+        "pokeapiSlug": "commander"
+      },
+      {
+        "id": 280,
+        "pokeapiSlug": "electromorphosis"
+      },
+      {
+        "id": 281,
+        "pokeapiSlug": "protosynthesis"
+      },
+      {
+        "id": 282,
+        "pokeapiSlug": "quark-drive"
+      },
+      {
+        "id": 283,
+        "pokeapiSlug": "good-as-gold"
+      },
+      {
+        "id": 284,
+        "pokeapiSlug": "vessel-of-ruin"
+      },
+      {
+        "id": 285,
+        "pokeapiSlug": "sword-of-ruin"
+      },
+      {
+        "id": 286,
+        "pokeapiSlug": "tablets-of-ruin"
+      },
+      {
+        "id": 287,
+        "pokeapiSlug": "beads-of-ruin"
+      },
+      {
+        "id": 288,
+        "pokeapiSlug": "orichalcum-pulse"
+      },
+      {
+        "id": 289,
+        "pokeapiSlug": "hadron-engine"
+      },
+      {
+        "id": 290,
+        "pokeapiSlug": "opportunist"
+      },
+      {
+        "id": 291,
+        "pokeapiSlug": "cud-chew"
+      },
+      {
+        "id": 292,
+        "pokeapiSlug": "sharpness"
+      },
+      {
+        "id": 293,
+        "pokeapiSlug": "supreme-overlord"
+      },
+      {
+        "id": 294,
+        "pokeapiSlug": "costar"
+      },
+      {
+        "id": 295,
+        "pokeapiSlug": "toxic-debris"
+      },
+      {
+        "id": 296,
+        "pokeapiSlug": "armor-tail"
+      },
+      {
+        "id": 297,
+        "pokeapiSlug": "earth-eater"
+      },
+      {
+        "id": 298,
+        "pokeapiSlug": "mycelium-might"
+      },
+      {
+        "id": 308,
+        "pokeapiSlug": "piercing-drill"
+      },
+      {
+        "id": 310,
+        "pokeapiSlug": "mega-sol"
+      },
+      {
+        "id": 311,
+        "pokeapiSlug": "spicy-spray"
+      }
+    ]
+  },
+  "abilitiesFallbackSummary": {
+    "coveredByExtensionAbilityKoFallback": 21,
+    "stillNeedKoreanStringCount": 13,
+    "stillNeedList": [
+      {
+        "id": 275,
+        "pokeapiSlug": "guard-dog"
+      },
+      {
+        "id": 281,
+        "pokeapiSlug": "protosynthesis"
+      },
+      {
+        "id": 282,
+        "pokeapiSlug": "quark-drive"
+      },
+      {
+        "id": 284,
+        "pokeapiSlug": "vessel-of-ruin"
+      },
+      {
+        "id": 285,
+        "pokeapiSlug": "sword-of-ruin"
+      },
+      {
+        "id": 286,
+        "pokeapiSlug": "tablets-of-ruin"
+      },
+      {
+        "id": 287,
+        "pokeapiSlug": "beads-of-ruin"
+      },
+      {
+        "id": 288,
+        "pokeapiSlug": "orichalcum-pulse"
+      },
+      {
+        "id": 289,
+        "pokeapiSlug": "hadron-engine"
+      },
+      {
+        "id": 292,
+        "pokeapiSlug": "sharpness"
+      },
+      {
+        "id": 308,
+        "pokeapiSlug": "piercing-drill"
+      },
+      {
+        "id": 310,
+        "pokeapiSlug": "mega-sol"
+      },
+      {
+        "id": 311,
+        "pokeapiSlug": "spicy-spray"
+      }
+    ]
+  }
+}

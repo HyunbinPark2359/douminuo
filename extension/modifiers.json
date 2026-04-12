@@ -1,0 +1,466 @@
+{
+  "version": 12,
+  "items": {
+    "choice-band": {
+      "atkMulPhysical": 1.5,
+      "nameKo": "구애머리띠"
+    },
+    "choice-specs": {
+      "spaMulSpecial": 1.5,
+      "nameKo": "구애안경"
+    },
+    "life-orb": {
+      "finalDamageMul": 1.3,
+      "nameKo": "생명의구슬"
+    },
+    "muscle-band": {
+      "powerMulPhysical": 1.1,
+      "nameKo": "힘의머리띠"
+    },
+    "wise-glasses": {
+      "powerMulSpecial": 1.1,
+      "nameKo": "박식안경"
+    },
+    "silk-scarf": {
+      "boostType": "normal",
+      "typedPowerMul": 1.2,
+      "nameKo": "실크스카프"
+    },
+    "charcoal": {
+      "boostType": "fire",
+      "typedPowerMul": 1.2,
+      "nameKo": "목탄"
+    },
+    "mystic-water": {
+      "boostType": "water",
+      "typedPowerMul": 1.2,
+      "nameKo": "신비의물방울"
+    },
+    "magnet": {
+      "boostType": "electric",
+      "typedPowerMul": 1.2,
+      "nameKo": "자석"
+    },
+    "miracle-seed": {
+      "boostType": "grass",
+      "typedPowerMul": 1.2,
+      "nameKo": "기적의씨"
+    },
+    "never-melt-ice": {
+      "boostType": "ice",
+      "typedPowerMul": 1.2,
+      "nameKo": "녹지않는얼음"
+    },
+    "black-belt": {
+      "boostType": "fighting",
+      "typedPowerMul": 1.2,
+      "nameKo": "검은띠"
+    },
+    "poison-barb": {
+      "boostType": "poison",
+      "typedPowerMul": 1.2,
+      "nameKo": "독바늘"
+    },
+    "soft-sand": {
+      "boostType": "ground",
+      "typedPowerMul": 1.2,
+      "nameKo": "부드러운모래"
+    },
+    "sharp-beak": {
+      "boostType": "flying",
+      "typedPowerMul": 1.2,
+      "nameKo": "예리한부리"
+    },
+    "twisted-spoon": {
+      "boostType": "psychic",
+      "typedPowerMul": 1.2,
+      "nameKo": "휘어진스푼"
+    },
+    "silver-powder": {
+      "boostType": "bug",
+      "typedPowerMul": 1.2,
+      "nameKo": "은빛가루"
+    },
+    "hard-stone": {
+      "boostType": "rock",
+      "typedPowerMul": 1.2,
+      "nameKo": "딱딱한돌"
+    },
+    "spell-tag": {
+      "boostType": "ghost",
+      "typedPowerMul": 1.2,
+      "nameKo": "저주의부적"
+    },
+    "dragon-fang": {
+      "boostType": "dragon",
+      "typedPowerMul": 1.2,
+      "nameKo": "용의이빨"
+    },
+    "black-glasses": {
+      "boostType": "dark",
+      "typedPowerMul": 1.2,
+      "nameKo": "검은안경"
+    },
+    "metal-coat": {
+      "boostType": "steel",
+      "typedPowerMul": 1.2,
+      "nameKo": "금속코트"
+    },
+    "fairy-feather": {
+      "boostType": "fairy",
+      "typedPowerMul": 1.2,
+      "nameKo": "요정의깃털"
+    },
+    "assault-vest": {
+      "bulkSpdMul": 1.5,
+      "nameKo": "돌격조끼"
+    },
+    "eviolite": {
+      "bulkDefMul": 1.5,
+      "bulkSpdMul": 1.5,
+      "nameKo": "진화의휘석"
+    },
+    "electric-seed": {
+      "bulkDefMul": 1.5,
+      "nameKo": "일렉트릭시드"
+    },
+    "grassy-seed": {
+      "bulkDefMul": 1.5,
+      "nameKo": "그래스시드"
+    },
+    "psychic-seed": {
+      "bulkSpdMul": 1.5,
+      "nameKo": "사이코시드"
+    },
+    "misty-seed": {
+      "bulkSpdMul": 1.5,
+      "nameKo": "미스트시드"
+    },
+    "ganlon-berry": {
+      "bulkDefMul": 1.5,
+      "nameKo": "용아열매"
+    },
+    "apicot-berry": {
+      "bulkSpdMul": 1.5,
+      "nameKo": "규살열매"
+    },
+    "kee-berry": {
+      "bulkDefMul": 1.5,
+      "nameKo": "악키열매"
+    },
+    "maranga-berry": {
+      "bulkSpdMul": 1.5,
+      "nameKo": "타라프열매"
+    }
+  },
+  "abilities": {
+    "huge-power": {
+      "atkMulPhysical": 2,
+      "nameKo": "천하장사"
+    },
+    "pure-power": {
+      "atkMulPhysical": 2,
+      "nameKo": "순수한힘"
+    },
+    "hustle": {
+      "atkMulPhysical": 1.5,
+      "nameKo": "의욕"
+    },
+    "gorilla-tactics": {
+      "atkMulPhysical": 1.5,
+      "nameKo": "무아지경"
+    },
+    "technician": {
+      "ifBasePowerAtMost": 60,
+      "powerMul": 1.5,
+      "nameKo": "테크니션"
+    },
+    "tough-claws": {
+      "boostIfMoveTags": {
+        "all": [
+          "contact"
+        ],
+        "physicalOnly": true,
+        "powerMul": 1.3
+      },
+      "nameKo": "단단한발톱"
+    },
+    "iron-fist": {
+      "boostIfMoveTags": {
+        "all": [
+          "punch"
+        ],
+        "physicalOnly": true,
+        "powerMul": 1.2
+      },
+      "nameKo": "철주먹"
+    },
+    "strong-jaw": {
+      "boostIfMoveTags": {
+        "all": [
+          "bite"
+        ],
+        "physicalOnly": true,
+        "powerMul": 1.5
+      },
+      "nameKo": "옹골찬턱"
+    },
+    "mega-launcher": {
+      "boostIfMoveTags": {
+        "all": [
+          "pulse"
+        ],
+        "specialOnly": true,
+        "powerMul": 1.5
+      },
+      "nameKo": "메가런처"
+    },
+    "punk-rock": {
+      "boostIfMoveTags": {
+        "all": [
+          "sound"
+        ],
+        "powerMul": 1.3
+      },
+      "nameKo": "펑크록"
+    },
+    "sharpness": {
+      "boostIfMoveTags": {
+        "all": [
+          "slicing"
+        ],
+        "powerMul": 1.5
+      },
+      "nameKo": "예리함"
+    },
+    "sheer-force": {
+      "ifSheerForceMove": true,
+      "sheerForcePowerMul": 1.3,
+      "nameKo": "우격다짐"
+    },
+    "reckless": {
+      "boostIfMoveTags": {
+        "all": [
+          "recoil"
+        ],
+        "powerMul": 1.2
+      },
+      "nameKo": "이판사판"
+    },
+    "adaptability": {
+      "stabMul": 2,
+      "nameKo": "적응력"
+    },
+    "blaze": {
+      "pinchBoostType": "fire",
+      "pinchHpRatioAtMost": 0.333,
+      "pinchPowerMul": 1.5,
+      "nameKo": "맹화"
+    },
+    "overgrow": {
+      "pinchBoostType": "grass",
+      "pinchHpRatioAtMost": 0.333,
+      "pinchPowerMul": 1.5,
+      "nameKo": "심록"
+    },
+    "torrent": {
+      "pinchBoostType": "water",
+      "pinchHpRatioAtMost": 0.333,
+      "pinchPowerMul": 1.5,
+      "nameKo": "급류"
+    },
+    "swarm": {
+      "pinchBoostType": "bug",
+      "pinchHpRatioAtMost": 0.333,
+      "pinchPowerMul": 1.5,
+      "nameKo": "벌레의알림"
+    },
+    "water-bubble": {
+      "boostType": "water",
+      "typedPowerMul": 2,
+      "nameKo": "수포"
+    },
+    "dark-aura": {
+      "boostType": "dark",
+      "typedPowerMul": 1.3333333333333333,
+      "nameKo": "다크오라"
+    },
+    "fairy-aura": {
+      "boostType": "fairy",
+      "typedPowerMul": 1.3333333333333333,
+      "nameKo": "페어리오라"
+    },
+    "dragons-maw": {
+      "boostType": "dragon",
+      "typedPowerMul": 1.5,
+      "nameKo": "용의턱"
+    },
+    "steelworker": {
+      "boostType": "steel",
+      "typedPowerMul": 1.5,
+      "nameKo": "강철술사"
+    },
+    "steely-spirit": {
+      "boostType": "steel",
+      "typedPowerMul": 1.5,
+      "nameKo": "강철정신"
+    },
+    "transistor": {
+      "boostType": "electric",
+      "typedPowerMul": 1.3,
+      "nameKo": "트랜지스터"
+    },
+    "sand-force": {
+      "sandForce": true,
+      "sandForcePowerMul": 1.3,
+      "nameKo": "모래의힘"
+    },
+    "drought": {
+      "setsWeather": "sun",
+      "nameKo": "가뭄"
+    },
+    "drizzle": {
+      "setsWeather": "rain",
+      "nameKo": "잔비"
+    },
+    "sand-stream": {
+      "setsWeather": "sand",
+      "nameKo": "모래날림"
+    },
+    "snow-warning": {
+      "setsWeather": "snow",
+      "nameKo": "눈퍼뜨리기"
+    },
+    "desolate-land": {
+      "setsWeather": "sun",
+      "nameKo": "끝의대지"
+    },
+    "primordial-sea": {
+      "setsWeather": "rain",
+      "nameKo": "시작의바다"
+    },
+    "delta-stream": {
+      "setsWeather": "strongwinds",
+      "nameKo": "델타스트림"
+    },
+    "orichalcum-pulse": {
+      "setsWeather": "sun",
+      "nameKo": "진홍빛고동"
+    },
+    "electric-surge": {
+      "setsTerrain": "electric",
+      "nameKo": "일렉트릭메이커"
+    },
+    "grassy-surge": {
+      "setsTerrain": "grassy",
+      "nameKo": "그래스메이커"
+    },
+    "misty-surge": {
+      "setsTerrain": "misty",
+      "nameKo": "미스트메이커"
+    },
+    "psychic-surge": {
+      "setsTerrain": "psychic",
+      "nameKo": "사이코메이커"
+    },
+    "hadron-engine": {
+      "setsTerrain": "electric",
+      "nameKo": "하드론엔진"
+    },
+    "solar-power": {
+      "spaBoostInSun": 1.5,
+      "nameKo": "선파워"
+    },
+    "aerilate": {
+      "ateType": "flying",
+      "atePowerMul": 1.2,
+      "nameKo": "스카이스킨"
+    },
+    "pixilate": {
+      "ateType": "fairy",
+      "atePowerMul": 1.2,
+      "nameKo": "페어리스킨"
+    },
+    "refrigerate": {
+      "ateType": "ice",
+      "atePowerMul": 1.2,
+      "nameKo": "프리즈스킨"
+    },
+    "galvanize": {
+      "ateType": "electric",
+      "atePowerMul": 1.2,
+      "nameKo": "일렉트릭스킨"
+    },
+    "normalize": {
+      "normalizeAllMoves": true,
+      "normalizePowerMul": 1.2,
+      "nameKo": "노말스킨"
+    },
+    "parental-bond": {
+      "finalDamageMul": 1.25,
+      "nameKo": "부자유친"
+    },
+    "fur-coat": {
+      "bulkDefMul": 2,
+      "nameKo": "퍼코트"
+    },
+    "marvel-scale": {
+      "bulkDefMul": 1.5,
+      "nameKo": "이상한비늘"
+    },
+    "grass-pelt": {
+      "bulkDefMul": 1.5,
+      "nameKo": "풀모피"
+    },
+    "dauntless-shield": {
+      "bulkDefMul": 1.5,
+      "nameKo": "불굴의방패"
+    },
+    "ice-scales": {
+      "bulkSpdMul": 2,
+      "nameKo": "얼음인분"
+    },
+    "protosynthesis": {
+      "bulkHighestOfAtkFamily": true,
+      "bulkHighestDefMul": 1.3,
+      "bulkHighestSpdMul": 1.3,
+      "nameKo": "고대활성"
+    },
+    "quark-drive": {
+      "bulkHighestOfAtkFamily": true,
+      "bulkHighestDefMul": 1.3,
+      "bulkHighestSpdMul": 1.3,
+      "nameKo": "쿼크차지"
+    },
+    "embody-aspect": {
+      "bulkEmbodyAspect": true,
+      "nameKo": "초상투영"
+    },
+    "multiscale": {
+      "bulkDefMul": 2,
+      "bulkSpdMul": 2,
+      "nameKo": "멀티스케일"
+    },
+    "shadow-shield": {
+      "bulkDefMul": 2,
+      "bulkSpdMul": 2,
+      "nameKo": "스펙터가드"
+    },
+    "tablets-of-ruin": {
+      "bulkDefMul": 1.3333333333333333,
+      "nameKo": "재앙의목간"
+    },
+    "vessel-of-ruin": {
+      "bulkSpdMul": 1.3333333333333333,
+      "nameKo": "재앙의그릇"
+    },
+    "sword-of-ruin": {
+      "movePowerFoeDefenseRuinMul": 1.3333333333333333,
+      "nameKo": "재앙의검"
+    },
+    "beads-of-ruin": {
+      "movePowerFoeSpDefenseRuinMul": 1.3333333333333333,
+      "nameKo": "재앙의구슬"
+    }
+  }
+}
