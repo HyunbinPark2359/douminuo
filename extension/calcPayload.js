@@ -139,6 +139,22 @@
     return 1;
   }
 
+  /** 특수(damage_class special)지만 피해 계산 시 방어·방어종족값·방어 노력치를 쓰는 기술 — PokeAPI move `name` slug. */
+  var INCOMING_USES_DEFENSE_ON_SPECIAL_SLUG = Object.create(null);
+  ['psyshock', 'psystrike', 'secret-sword'].forEach(function (s) {
+    INCOMING_USES_DEFENSE_ON_SPECIAL_SLUG[s] = 1;
+  });
+
+  function defenderIncomingUsesDefenseStat(attackerPayload) {
+    if (!attackerPayload || attackerPayload.error) return true;
+    var slug = '';
+    if (attackerPayload.attackerMove && attackerPayload.attackerMove.name) {
+      slug = String(attackerPayload.attackerMove.name).toLowerCase().trim();
+    }
+    if (slug && INCOMING_USES_DEFENSE_ON_SPECIAL_SLUG[slug]) return true;
+    return attackerPayload.physicalMove !== false;
+  }
+
   function natureRowForKo(natureKo, natureKoDoc, natureStatMulDoc) {
     var slug = (natureKoDoc && natureKoDoc.koToSlug && natureKoDoc.koToSlug[natureKo]) || '';
     var row =
@@ -557,7 +573,7 @@
       var defender = pair[1];
       var incPhys = true;
       if (attacker && !attacker.error) {
-        incPhys = attacker.physicalMove !== false;
+        incPhys = defenderIncomingUsesDefenseStat(attacker);
       }
       if (defender && !defender.error) {
         defender.incomingPhysical = incPhys;

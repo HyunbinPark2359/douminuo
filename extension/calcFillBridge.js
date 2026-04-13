@@ -543,11 +543,12 @@
     if (payload.itemKo) vm.$set(vm.defender, 'equipment', payload.itemKo);
   }
 
-  function syncScalars(vm, pa, pd, phys, hasD) {
-    ensureAttackerMovePlaceholder(vm, phys);
-    if (hasD) ensureDefenderMovePlaceholder(vm, phys);
-    if (pa) applyAttackerScalars(vm, pa, phys);
-    if (hasD && pd) applyDefenderScalars(vm, pd, phys);
+  function syncScalars(vm, pa, pd, physAtk, hasD, physDefIncoming) {
+    if (physDefIncoming === undefined || physDefIncoming === null) physDefIncoming = physAtk;
+    ensureAttackerMovePlaceholder(vm, physAtk);
+    if (hasD) ensureDefenderMovePlaceholder(vm, physAtk);
+    if (pa) applyAttackerScalars(vm, pa, physAtk);
+    if (hasD && pd) applyDefenderScalars(vm, pd, physDefIncoming);
   }
 
   function postResult(result, requestId) {
@@ -701,9 +702,16 @@
     var paFull = payloads.attacker && !payloads.attacker.error ? payloads.attacker : null;
     var pdFull = payloads.defender && !payloads.defender.error ? payloads.defender : null;
 
-    var phys = true;
-    if (paFull) phys = paFull.physicalMove !== false;
-    else if (pdFull && typeof pdFull.incomingPhysical === 'boolean') phys = pdFull.incomingPhysical;
+    var physAtk = true;
+    var physDef = true;
+    if (paFull) {
+      physAtk = paFull.physicalMove !== false;
+      if (pdFull && typeof pdFull.incomingPhysical === 'boolean') physDef = pdFull.incomingPhysical;
+      else physDef = physAtk;
+    } else if (pdFull && typeof pdFull.incomingPhysical === 'boolean') {
+      physAtk = pdFull.incomingPhysical;
+      physDef = pdFull.incomingPhysical;
+    }
 
     var hasA = !!paFull && !onlyDefender;
     var hasD = !!pdFull && !onlyAttacker;
@@ -733,7 +741,7 @@
     function scheduleDelayedResyncThenFinish(pax, pdx) {
       setTimeout(function () {
         try {
-          syncScalars(vm, pax, pdx, phys, !!pdx);
+          syncScalars(vm, pax, pdx, physAtk, !!pdx, physDef);
           applyWeatherAndTerrain(vm, pax, pdx);
           trySyncDerived(vm);
           finishSuccess();
@@ -746,33 +754,33 @@
     try {
       if (hasA) {
         vm.$set(vm.attacker, 'name', pickPokemonEn(vm, pa.speciesKo));
-        ensureAttackerMovePlaceholder(vm, phys);
+        ensureAttackerMovePlaceholder(vm, physAtk);
         if (typeof vm.loadAttacker === 'function') vm.loadAttacker();
-        ensureAttackerMovePlaceholder(vm, phys);
+        ensureAttackerMovePlaceholder(vm, physAtk);
         vm.$nextTick(function () {
           try {
-            ensureAttackerMovePlaceholder(vm, phys);
+            ensureAttackerMovePlaceholder(vm, physAtk);
             vm.$set(vm.attacker, 'name', pickPokemonEn(vm, pa.speciesKo));
-            applyAttackerScalars(vm, pa, phys);
+            applyAttackerScalars(vm, pa, physAtk);
             if (pa.attackerMove) applyAttackerMovePayload(vm, pa.attackerMove);
             vm.$nextTick(function () {
               try {
-                ensureAttackerMovePlaceholder(vm, phys);
+                ensureAttackerMovePlaceholder(vm, physAtk);
                 vm.$set(vm.attacker, 'name', pickPokemonEn(vm, pa.speciesKo));
                 if (pa.attackerMove) applyAttackerMovePayload(vm, pa.attackerMove);
                 if (hasD) {
-                  ensureDefenderMovePlaceholder(vm, phys);
+                  ensureDefenderMovePlaceholder(vm, physAtk);
                   vm.$set(vm.defender, 'name', pickPokemonEn(vm, pd.speciesKo));
                   if (typeof vm.loadDefender === 'function') vm.loadDefender();
-                  ensureDefenderMovePlaceholder(vm, phys);
+                  ensureDefenderMovePlaceholder(vm, physAtk);
                   vm.$nextTick(function () {
                     try {
-                      ensureDefenderMovePlaceholder(vm, phys);
+                      ensureDefenderMovePlaceholder(vm, physAtk);
                       vm.$set(vm.defender, 'name', pickPokemonEn(vm, pd.speciesKo));
-                      applyDefenderScalars(vm, pd, phys);
+                      applyDefenderScalars(vm, pd, physDef);
                       vm.$nextTick(function () {
                         try {
-                          syncScalars(vm, pa, pd, phys, true);
+                          syncScalars(vm, pa, pd, physAtk, true, physDef);
                           if (pa.attackerMove) applyAttackerMovePayload(vm, pa.attackerMove);
                           trySyncDerived(vm);
                           scheduleDelayedResyncThenFinish(pa, pd);
@@ -785,7 +793,7 @@
                     }
                   });
                 } else {
-                  syncScalars(vm, pa, null, phys, false);
+                  syncScalars(vm, pa, null, physAtk, false);
                   if (pa.attackerMove) applyAttackerMovePayload(vm, pa.attackerMove);
                   trySyncDerived(vm);
                   scheduleDelayedResyncThenFinish(pa, null);
@@ -800,23 +808,23 @@
         });
       } else if (hasD) {
         var pdOnly = pd;
-        ensureAttackerMovePlaceholder(vm, phys);
-        ensureDefenderMovePlaceholder(vm, phys);
+        ensureAttackerMovePlaceholder(vm, physAtk);
+        ensureDefenderMovePlaceholder(vm, physAtk);
 
         function applyDefenderBranch() {
           vm.$set(vm.defender, 'name', pickPokemonEn(vm, pdOnly.speciesKo));
-          ensureDefenderMovePlaceholder(vm, phys);
+          ensureDefenderMovePlaceholder(vm, physAtk);
           if (typeof vm.loadDefender === 'function') vm.loadDefender();
-          ensureDefenderMovePlaceholder(vm, phys);
+          ensureDefenderMovePlaceholder(vm, physAtk);
           vm.$nextTick(function () {
             try {
-              ensureAttackerMovePlaceholder(vm, phys);
-              ensureDefenderMovePlaceholder(vm, phys);
+              ensureAttackerMovePlaceholder(vm, physAtk);
+              ensureDefenderMovePlaceholder(vm, physAtk);
               vm.$set(vm.defender, 'name', pickPokemonEn(vm, pdOnly.speciesKo));
-              applyDefenderScalars(vm, pdOnly, phys);
+              applyDefenderScalars(vm, pdOnly, physDef);
               vm.$nextTick(function () {
                 try {
-                  syncScalars(vm, null, pdOnly, phys, true);
+                  syncScalars(vm, null, pdOnly, physAtk, true, physDef);
                   trySyncDerived(vm);
                   scheduleDelayedResyncThenFinish(null, pdOnly);
                 } catch (e) {
@@ -836,9 +844,9 @@
             (vm.pokemon_list[0].kr && String(vm.pokemon_list[0].kr).trim()) ||
             'pikachu';
           vm.$set(vm.attacker, 'name', ph);
-          ensureAttackerMovePlaceholder(vm, phys);
+          ensureAttackerMovePlaceholder(vm, physAtk);
           if (typeof vm.loadAttacker === 'function') vm.loadAttacker();
-          ensureAttackerMovePlaceholder(vm, phys);
+          ensureAttackerMovePlaceholder(vm, physAtk);
           vm.$nextTick(function () {
             setTimeout(applyDefenderBranch, 70);
           });

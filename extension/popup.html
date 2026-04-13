@@ -17,8 +17,9 @@
 
     <section id="panelFormat" class="tab-panel" role="tabpanel" aria-labelledby="tabFormat">
       <p class="sub">
-        스마트누오 공유 URL을 요약 샘플 형식으로 변환합니다.<br>
-        한 줄은 파티·샘플 자동 판별, 여러 줄은 샘플 URL만(줄마다 하나).
+        공유 URL을 요약 샘플 형식으로 변환합니다.<br>
+        한 줄이면 샘플/파티 URL을 자동으로 구분합니다.<br>
+        여러 줄일 경우 줄마다 샘플 URL 하나씩 인식합니다.
       </p>
 
       <div class="options-row" role="group" aria-label="출력 옵션">
@@ -48,7 +49,7 @@
         id="urlInput"
         class="url-input"
         rows="4"
-        placeholder="https://smartnuo.com/#ps=... (샘플 여러 개는 줄마다 URL)"
+        placeholder="https://smartnuo.com/#ps=..."
         spellcheck="false"
         autocomplete="off"
       ></textarea>
@@ -79,15 +80,14 @@
 
     <section id="panelCalc" class="tab-panel tab-panel-hidden" role="tabpanel" aria-labelledby="tabCalc" hidden>
       <p class="sub">
-        스마트누오에서 <strong>데미지 계산기</strong> 화면을 연 탭에서 사용합니다.<br>
-        샘플 공유 URL(<code>#ps=</code>)을 넣습니다. 파티 전체 URL은 지원하지 않습니다.<br>
-        첫 번째 피해 기술(변화기 제외)을 PokeAPI로 판별해 공격측 기술·분류를 맞춥니다.
+        스마트누오 데미지 계산기에 샘플을 자동으로 채웁니다.<br>
+        단일 샘플 URL만 지원합니다.
       </p>
 
       <div class="calc-cols" aria-label="공격측 좌, 수비측 우">
         <div class="calc-col calc-col-atk">
           <div class="calc-col-head">
-            <span class="calc-col-title">공격측</span>
+            <span class="calc-col-title calc-col-title-atk">공격측</span>
           </div>
           <label class="sr-only" for="calcAtkUrl">공격측 샘플 URL</label>
           <textarea
@@ -101,7 +101,7 @@
         </div>
         <div class="calc-col calc-col-def">
           <div class="calc-col-head">
-            <span class="calc-col-title">수비측</span>
+            <span class="calc-col-title calc-col-title-def">수비측</span>
           </div>
           <label class="sr-only" for="calcDefUrl">수비측 샘플 URL</label>
           <textarea
@@ -116,12 +116,19 @@
       </div>
 
       <p class="err" id="calcError" hidden></p>
+      <p class="err err-success" id="calcResult" hidden role="status" aria-live="polite"></p>
 
       <div class="calc-actions">
-        <button type="button" class="btn btn-calc-fill" id="calcFillBtn">계산기에 입력</button>
-        <span class="party-spinner" id="calcSpinner" hidden role="status" aria-live="polite"></span>
+        <button
+          type="button"
+          class="btn btn-calc-fill"
+          id="calcFillBtn"
+          aria-busy="false"
+        >
+          <span class="calc-fill-label">입력</span>
+          <span class="calc-fill-spinner" id="calcSpinner" hidden aria-hidden="true"></span>
+        </button>
       </div>
-      <p class="calc-hint" id="calcResult" hidden></p>
     </section>
   </div>
 

@@ -354,6 +354,9 @@
       return '브리지 주입에 실패했습니다. 탭을 새로고침한 뒤 확장을 다시 로드해 보세요.';
     }
     if (c === 'calc_apply_timeout') return '시간 초과. 계산기 탭을 활성화한 뒤 다시 시도해 주세요.';
+    if (c === 'calc_payload_unavailable') {
+      return '계산기용 스크립트를 불러오지 못했습니다. 확장 프로그램을 다시 로드해 주세요.';
+    }
     if (chrome.runtime && chrome.runtime.lastError && String(chrome.runtime.lastError.message || '').indexOf('Receiving end') !== -1) {
       return '탭과 연결되지 않았습니다. 스마트누오 탭을 새로고침해 주세요.';
     }
@@ -366,6 +369,7 @@
       calcErrorEl.textContent = '';
       return;
     }
+    setCalcResult('');
     calcErrorEl.hidden = false;
     calcErrorEl.textContent = msg;
   }
@@ -376,6 +380,7 @@
       calcResultEl.textContent = '';
       return;
     }
+    setCalcError('');
     calcResultEl.hidden = false;
     calcResultEl.textContent = msg;
   }
@@ -425,6 +430,12 @@
     });
   }
 
+  function setCalcLoading(on) {
+    calcSpinnerEl.hidden = !on;
+    calcFillBtn.disabled = !!on;
+    calcFillBtn.setAttribute('aria-busy', on ? 'true' : 'false');
+  }
+
   function runCalcFill() {
     setCalcError('');
     setCalcResult('');
@@ -436,8 +447,7 @@
       return;
     }
 
-    calcSpinnerEl.hidden = false;
-    calcFillBtn.disabled = true;
+    setCalcLoading(true);
 
     chrome.runtime.sendMessage(
       {
@@ -447,8 +457,7 @@
       },
       function (bg) {
         if (!bg || !bg.ok) {
-          calcSpinnerEl.hidden = true;
-          calcFillBtn.disabled = false;
+          setCalcLoading(false);
           setCalcError((bg && bg.error) || '페이로드를 만들지 못했습니다.');
           return;
         }
@@ -457,8 +466,7 @@
         var va = pl.attacker && !pl.attacker.error;
         var vd = pl.defender && !pl.defender.error;
         if (!va && !vd) {
-          calcSpinnerEl.hidden = true;
-          calcFillBtn.disabled = false;
+          setCalcLoading(false);
           var parts = [];
           if (atkUrl && pl.attacker && pl.attacker.error) {
             parts.push('공격측: ' + mapCalcCode(pl.attacker.error));
@@ -475,8 +483,7 @@
 
         findSmartnuoTabId(function (tabId) {
           if (tabId == null) {
-            calcSpinnerEl.hidden = true;
-            calcFillBtn.disabled = false;
+            setCalcLoading(false);
             setCalcError('스마트누오 탭을 연 뒤 다시 시도해 주세요.');
             return;
           }
@@ -491,8 +498,7 @@
               onlyDefender: false,
             },
             function (r) {
-              calcSpinnerEl.hidden = true;
-              calcFillBtn.disabled = false;
+              setCalcLoading(false);
               if (chrome.runtime.lastError) {
                 setCalcError(mapCalcCode(chrome.runtime.lastError.message));
                 return;
@@ -503,9 +509,9 @@
               }
               var w = r.warnings;
               if (Array.isArray(w) && w.length) {
-                setCalcResult('완료. 참고: ' + w.join(' '));
+                setCalcResult('입력을 완료했습니다. 참고: ' + w.join(' '));
               } else {
-                setCalcResult('계산기에 반영했습니다.');
+                setCalcResult('입력을 완료했습니다.');
               }
               persist();
             }
