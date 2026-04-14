@@ -1,7 +1,7 @@
 /**
  * 스마트누오 팀빌더: 우하단 FAB — 파티 대형 버튼, 호버 시 위쪽 6슬롯·왼쪽 설정.
  * 파티/슬롯: 서버·포맷 로직은 기존과 동일. 옵션은 chrome.storage.local(팝업과 동일).
- * 성공: 버튼 위 반투명 오버레이+초록 체크. 오류: FAB 위 토스트.
+ * 성공: 버튼 피드백(스피너→체크 애니메이션 후 페이드). 오류: FAB 위 토스트.
  * 계산기 화면은 calcFill.js 와 같은 본문 휴리스틱으로 플로팅 숨김.
  * 슬롯 갱신: MutationObserver + hashchange.
  */
@@ -120,17 +120,43 @@
     document.body.appendChild(host);
 
     var root = host.attachShadow({ mode: 'open' });
-    var DONE_SVG =
+    var CHECK_SVG =
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
       '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>' +
       '</svg>';
+
+    /** Font Awesome Free v7.2.0 "copy" solid — https://fontawesome.com/icons/copy?f=classic&s=solid — https://fontawesome.com/license/free */
+    var COPY_ICON_SVG =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true">' +
+      '<path d="M288 64C252.7 64 224 92.7 224 128L224 384C224 419.3 252.7 448 288 448L480 448C515.3 448 544 419.3 544 384L544 183.4C544 166 536.9 149.3 524.3 137.2L466.6 81.8C454.7 70.4 438.8 64 422.3 64L288 64zM160 192C124.7 192 96 220.7 96 256L96 512C96 547.3 124.7 576 160 576L352 576C387.3 576 416 547.3 416 512L416 496L352 496L352 512L160 512L160 256L176 256L176 192L160 192z"/>' +
+      '</svg>';
+
+    var SPINNER_SVG =
+      '<span class="fab-spinner-wrap">' +
+      '<svg class="fab-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="9" stroke-linecap="round" stroke-dasharray="14 32"/>' +
+      '</svg></span>';
+    function fabFeedbackHtml() {
+      return (
+        '<span class="fab-btn-feedback" aria-hidden="true">' +
+        '<span class="fab-fb-hover"><span class="fab-fb-hover-bg"></span><span class="fab-fb-hover-ic">' +
+        COPY_ICON_SVG +
+        '</span></span>' +
+        '<span class="fab-fb-busy"><span class="fab-fb-busy-bg"></span><span class="fab-fb-busy-ic">' +
+        SPINNER_SVG +
+        '</span></span>' +
+        '<span class="fab-fb-done"><span class="fab-fb-done-bg"></span><span class="fab-fb-done-ic">' +
+        CHECK_SVG +
+        '</span></span></span>'
+      );
+    }
     root.innerHTML =
       '<style>' +
       ':host { all: initial; }' +
       '* { box-sizing: border-box; font-family: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }' +
       '@keyframes nuo-tb-glow {' +
-      '  0%, 100% { box-shadow: 0 6px 22px rgba(4, 120, 87, 0.32), 0 0 0 1px rgba(52, 211, 153, 0.4); }' +
-      '  50% { box-shadow: 0 10px 28px rgba(5, 150, 105, 0.45), 0 0 0 1px rgba(110, 231, 183, 0.5); }' +
+      '  0%, 100% { box-shadow: 0 4px 14px rgba(156, 207, 229, 0.32), 0 0 0 1px rgba(156, 207, 229, 0.35); }' +
+      '  50% { box-shadow: 0 6px 18px rgba(120, 185, 210, 0.34), 0 0 0 1px rgba(156, 207, 229, 0.48); }' +
       '}' +
       '.fab-root {' +
       '  position: fixed; z-index: 2147483645; right: clamp(24px, 5vw, 48px); bottom: clamp(24px, 5vw, 48px);' +
@@ -176,11 +202,16 @@
       '  justify-content: center; flex-shrink: 0; border-radius: 50%; color: #0f172a;' +
       '}' +
       '.fab-btn:not(:disabled) {' +
-      '  background: linear-gradient(155deg, #ecfdf5 0%, #6ee7b7 42%, #34d399 100%);' +
+      '  background: linear-gradient(155deg, #f7fcfe 0%, #c5e8f4 40%, #9ccfe5 100%);' +
       '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite;' +
       '  transition: transform 0.22s ease, filter 0.2s ease, opacity 0.2s ease;' +
       '}' +
-      '.fab-btn:not(:disabled):hover { transform: scale(1.08); filter: brightness(1.04) saturate(1.05); }' +
+      '.fab-btn.fab-copy-click-pulse:not(:disabled) {' +
+      '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite, fab-click-bounce 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);' +
+      '}' +
+      '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):hover {' +
+      '  transform: scale(1.06); filter: brightness(1.02) saturate(1.03);' +
+      '}' +
       '.fab-btn:disabled {' +
       '  cursor: not-allowed; opacity: 0.72; filter: saturate(0.45) brightness(0.96);' +
       '  animation: none;' +
@@ -195,19 +226,20 @@
       '.fab-settings-morph {' +
       '  position: relative; width: 52px; min-height: 52px; max-height: 52px; border-radius: 26px;' +
       '  overflow: hidden;' +
-      '  background: linear-gradient(155deg, #ecfdf5 0%, #6ee7b7 42%, #34d399 100%);' +
-      '  color: #047857;' +
+      '  background: linear-gradient(155deg, #f7fcfe 0%, #c5e8f4 40%, #9ccfe5 100%);' +
+      '  color: #2a6f8f;' +
       '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite;' +
       '  cursor: pointer;' +
       '  transition: width 0.22s ease, min-height 0.24s ease, max-height 0.24s ease, border-radius 0.2s ease,' +
       '    box-shadow 0.35s ease, filter 0.2s ease, transform 0.22s ease;' +
       '}' +
       '.fab-settings-wrap:hover .fab-settings-morph {' +
-      '  width: min(92vw, 220px); min-height: 168px; max-height: min(52vh, 300px); border-radius: 14px;' +
+      '  display: flex; flex-direction: column; cursor: default;' +
+      '  width: min(92vw, 147px); min-height: 168px; max-height: min(52vh, 300px); border-radius: 14px;' +
       '  overflow: hidden; animation: none;' +
-      '  background: linear-gradient(180deg, #f8fffc 0%, #ffffff 40%, #ecfdf5 100%);' +
+      '  background: linear-gradient(180deg, #f7fcfe 0%, #ffffff 42%, #e8f4fa 100%);' +
       '  color: #0f172a;' +
-      '  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
+      '  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(156, 207, 229, 0.65);' +
       '}' +
       '.fab-settings-gear {' +
       '  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;' +
@@ -216,29 +248,121 @@
       '.fab-settings-wrap:hover .fab-settings-gear {' +
       '  opacity: 0;' +
       '}' +
-      '.fab-settings-morph:focus-visible { outline: 2px solid #047857; outline-offset: 3px; }' +
-      '.fab-btn-label { pointer-events: none; }' +
-      '.fab-done {' +
-      '  position: absolute; inset: 0; border-radius: inherit; background: rgba(255, 255, 255, 0.55);' +
-      '  display: none; align-items: center; justify-content: center; color: #15803d;' +
+      '.fab-settings-morph:focus-visible { outline: 2px solid #6eb0cc; outline-offset: 3px; }' +
+      '.fab-btn-label { pointer-events: none; position: relative; z-index: 0; }' +
+      '@keyframes fab-spin-rot { to { transform: rotate(360deg); } }' +
+      '@keyframes fab-click-bounce {' +
+      '  0% { transform: scale(1); }' +
+      '  40% { transform: scale(0.9); }' +
+      '  100% { transform: scale(1); }' +
       '}' +
-      '.fab-btn.fab-show-done .fab-done { display: flex; }' +
-      '.fab-done svg { width: 52%; height: 52%; max-height: 40px; flex-shrink: 0; }' +
+      '@keyframes fab-fb-busy-out {' +
+      '  from { opacity: 1; }' +
+      '  to { opacity: 0; }' +
+      '}' +
+      '@keyframes fab-fb-spin-ic {' +
+      '  from { transform: scale(1); opacity: 1; }' +
+      '  to { transform: scale(0.32); opacity: 0; }' +
+      '}' +
+      '@keyframes fab-fb-done-layer {' +
+      '  from { opacity: 0; }' +
+      '  to { opacity: 1; }' +
+      '}' +
+      '@keyframes fab-fb-check-pop {' +
+      '  from { transform: scale(0.28); opacity: 0; }' +
+      '  to { transform: scale(1); opacity: 1; }' +
+      '}' +
+      '.fab-btn-feedback {' +
+      '  position: absolute; inset: 0; border-radius: inherit; z-index: 2; pointer-events: none;' +
+      '  overflow: hidden;' +
+      '}' +
+      '.fab-fb-hover, .fab-fb-busy, .fab-fb-done {' +
+      '  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;' +
+      '  border-radius: inherit; opacity: 0;' +
+      '}' +
+      '.fab-fb-hover-bg, .fab-fb-busy-bg, .fab-fb-done-bg {' +
+      '  position: absolute; inset: 0; border-radius: inherit;' +
+      '}' +
+      '.fab-fb-hover-bg { background: rgba(255, 255, 255, 0.52); }' +
+      '.fab-fb-busy-bg { background: rgba(15, 23, 42, 0.28); }' +
+      '.fab-fb-done-bg { background: rgba(255, 255, 255, 0.5); }' +
+      '.fab-fb-hover-ic, .fab-fb-busy-ic, .fab-fb-done-ic {' +
+      '  position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;' +
+      '  width: 100%; height: 100%;' +
+      '}' +
+      '.fab-fb-hover-ic svg, .fab-fb-done-ic svg {' +
+      '  width: 46%; height: 46%; max-width: 34px; max-height: 34px; flex-shrink: 0;' +
+      '}' +
+      '.fab-spinner-wrap {' +
+      '  display: flex; align-items: center; justify-content: center;' +
+      '  width: 100%; height: 100%; flex-shrink: 0;' +
+      '}' +
+      '.fab-spinner-wrap .fab-spinner-svg {' +
+      '  width: 46%; height: 46%; max-width: 34px; max-height: 34px; flex-shrink: 0;' +
+      '  display: block; overflow: visible;' +
+      '  transform-origin: 50% 50%;' +
+      '}' +
+      '.fab-fb-hover-ic svg { color: #475569; }' +
+      '.fab-fb-busy-ic svg, .fab-fb-done-ic svg { color: #64748b; }' +
+      '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):hover .fab-fb-hover {' +
+      '  opacity: 1; transition: opacity 0.14s ease;' +
+      '}' +
+      '.fab-copy-loading .fab-fb-busy { opacity: 1; transition: opacity 0.12s ease; }' +
+      '.fab-copy-loading .fab-spinner-wrap .fab-spinner-svg {' +
+      '  animation: fab-spin-rot 1.1s linear infinite;' +
+      '}' +
+      '.fab-copy-success .fab-fb-busy {' +
+      '  animation: fab-fb-busy-out 0.26s ease forwards;' +
+      '}' +
+      '.fab-copy-success .fab-fb-busy-ic { animation: fab-fb-spin-ic 0.28s ease forwards; }' +
+      '.fab-copy-success .fab-fb-done {' +
+      '  animation: fab-fb-done-layer 0.32s ease 0.1s forwards;' +
+      '}' +
+      '.fab-copy-success .fab-fb-done-ic { animation: fab-fb-check-pop 0.44s cubic-bezier(0.34, 1.45, 0.64, 1) 0.14s both; }' +
+      '.fab-copy-dimout .fab-btn-feedback { opacity: 0; transition: opacity 0.45s ease; }' +
       '.fab-settings-panel {' +
       '  position: absolute; left: 0; top: 0; width: 100%; padding: 0 10px; box-sizing: border-box;' +
       '  opacity: 0; visibility: hidden; pointer-events: none; height: 0; overflow: hidden;' +
       '}' +
       '.fab-settings-wrap:hover .fab-settings-panel {' +
-      '  position: relative; opacity: 1; visibility: visible; pointer-events: auto; height: auto; overflow: visible;' +
+      '  position: relative; height: auto; cursor: default; opacity: 1; visibility: visible; pointer-events: auto; overflow: visible;' +
+      '  flex: 1 1 auto; min-height: 0; margin: 0;' +
+      '  display: flex; flex-direction: column; justify-content: space-evenly; align-items: stretch;' +
       '  padding: 10px 10px 8px;' +
       '}' +
       '.fab-settings-panel .opt-row {' +
-      '  display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: #0f172a; margin: 6px 0; cursor: pointer;' +
+      '  display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: #0f172a;' +
+      '  margin: 0; flex-shrink: 0; cursor: pointer;' +
       '}' +
-      '.fab-settings-panel .opt-row input { width: 15px; height: 15px; accent-color: #059669; cursor: pointer; flex-shrink: 0; }' +
+      '.fab-settings-panel .opt-row input[type="checkbox"] {' +
+      '  -webkit-appearance: none; appearance: none; width: 15px; height: 15px; flex-shrink: 0; margin: 0;' +
+      '  border: 1px solid #cbd5e1; border-radius: 3px; background: #fff; cursor: pointer;' +
+      '  transition: border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease, background-color 0.15s ease;' +
+      '}' +
+      '.fab-settings-panel .opt-row input[type="checkbox"]:enabled:hover {' +
+      '  border-color: #9ccfe5; box-shadow: 0 0 0 2px rgba(156, 207, 229, 0.45); filter: brightness(1.03);' +
+      '}' +
+      '.fab-settings-panel .opt-row input[type="checkbox"]:checked:enabled:hover {' +
+      '  border-color: #7ebad9; box-shadow: 0 0 0 2px rgba(156, 207, 229, 0.4); filter: brightness(1.08);' +
+      '}' +
+      '.fab-settings-panel .opt-row input[type="checkbox"]:checked {' +
+      '  border-color: #5aa8cc; background-color: #5aa8cc;' +
+      '  background-image: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23ffffff%27 stroke-width=%273%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M5 13l4 4L19 7%27/%3E%3C/svg%3E");' +
+      '  background-size: 11px 11px; background-position: center; background-repeat: no-repeat;' +
+      '}' +
+      '.fab-settings-panel .opt-row input[type="checkbox"]:focus-visible {' +
+      '  outline: 2px solid #9ccfe5; outline-offset: 2px;' +
+      '}' +
       '.fab-settings-panel .opt-row.opt-muted { color: #94a3b8; cursor: default; }' +
-      '.fab-settings-panel .opt-row.opt-muted input { cursor: not-allowed; opacity: 0.45; }' +
-      '.settings-hr { border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 8px; }' +
+      '.fab-settings-panel .opt-row.opt-muted input[type="checkbox"] {' +
+      '  cursor: not-allowed; opacity: 0.45; background: #fff; border-color: #e2e8f0;' +
+      '}' +
+      '.fab-settings-panel .opt-row.opt-muted input[type="checkbox"]:checked {' +
+      '  background-color: #94a3b8; border-color: #64748b;' +
+      '  background-image: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23ffffff%27 stroke-width=%273%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M5 13l4 4L19 7%27/%3E%3C/svg%3E");' +
+      '  background-size: 11px 11px; background-position: center; background-repeat: no-repeat;' +
+      '}' +
+      '.settings-hr { border: none; border-top: 1px solid #e2e8f0; margin: 0; flex-shrink: 0; cursor: default; }' +
       '</style>' +
       '<div class="fab-root nuo-tb-off" part="fab">' +
       '  <div class="fab-error-toast nuo-hidden" id="errToast" role="alert" aria-live="assertive"></div>' +
@@ -266,11 +390,9 @@
       '        <div class="fab-party-col">' +
       '          <div class="fab-slots" id="fabSlots"></div>' +
       '          <button type="button" class="fab-btn fab-party" id="fabPartyBtn" disabled' +
-      '            title="현재 팀 전체 샘플(톱니 옵션)을 클립보드에 넣습니다." aria-label="현재 팀 파티 샘플 복사">' +
+      '            aria-label="현재 팀 파티 샘플 복사">' +
       '            <span class="fab-btn-label">파티</span>' +
-      '            <span class="fab-done" aria-hidden="true">' +
-      DONE_SVG +
-      '            </span>' +
+      fabFeedbackHtml() +
       '          </button>' +
       '        </div>' +
       '      </div>' +
@@ -298,12 +420,7 @@
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'fab-btn fab-slot';
-        b.innerHTML =
-          '<span class="fab-btn-label">' +
-          idx1 +
-          '</span><span class="fab-done" aria-hidden="true">' +
-          DONE_SVG +
-          '</span>';
+        b.innerHTML = '<span class="fab-btn-label">' + idx1 + '</span>' + fabFeedbackHtml();
         b.setAttribute('aria-label', '#' + idx1 + ' 슬롯 요약 샘플 복사');
         b.disabled = true;
         b.addEventListener('click', function (ev) {
@@ -505,7 +622,8 @@
 
     var bridgeReady = false;
     var errHideTimer = null;
-    var successHideTimer = null;
+    var successHoldTimer = null;
+    var successFadeTimer = null;
     var successFlashBtn = null;
 
     function setFabVisible(on) {
@@ -532,21 +650,72 @@
       }, 3500);
     }
 
-    function showCopySuccessOnButton(btn) {
-      if (!btn) return;
-      if (successHideTimer) {
-        clearTimeout(successHideTimer);
-        successHideTimer = null;
+    function clearCopyUiTimers() {
+      if (successHoldTimer) {
+        clearTimeout(successHoldTimer);
+        successHoldTimer = null;
       }
+      if (successFadeTimer) {
+        clearTimeout(successFadeTimer);
+        successFadeTimer = null;
+      }
+    }
+
+    function clearCopySuccessVisual(btn) {
+      if (!btn) return;
+      btn.classList.remove('fab-copy-success', 'fab-copy-dimout', 'fab-copy-loading', 'fab-copy-click-pulse');
+      try {
+        btn.removeAttribute('aria-busy');
+      } catch (eAbs) {}
+    }
+
+    function startCopyFeedback(btn) {
+      if (!btn) return;
+      clearCopyUiTimers();
       if (successFlashBtn && successFlashBtn !== btn) {
-        successFlashBtn.classList.remove('fab-show-done');
+        clearCopySuccessVisual(successFlashBtn);
       }
       successFlashBtn = btn;
-      btn.classList.add('fab-show-done');
-      successHideTimer = setTimeout(function () {
-        btn.classList.remove('fab-show-done');
-        successHideTimer = null;
-        successFlashBtn = null;
+      btn.classList.remove('fab-copy-success', 'fab-copy-dimout');
+      btn.classList.add('fab-copy-loading');
+      btn.classList.add('fab-copy-click-pulse');
+      setTimeout(function () {
+        try {
+          btn.classList.remove('fab-copy-click-pulse');
+        } catch (ePulse) {}
+      }, 240);
+      try {
+        btn.setAttribute('aria-busy', 'true');
+      } catch (eBusy) {}
+    }
+
+    function finishCopyError(btn) {
+      if (!btn) return;
+      btn.classList.remove('fab-copy-loading');
+      try {
+        btn.removeAttribute('aria-busy');
+      } catch (eErr) {}
+      if (successFlashBtn === btn) successFlashBtn = null;
+    }
+
+    function finishCopySuccess(btn) {
+      if (!btn) return;
+      clearCopyUiTimers();
+      btn.classList.remove('fab-copy-loading');
+      try {
+        btn.removeAttribute('aria-busy');
+      } catch (eOk) {}
+      btn.classList.remove('fab-copy-dimout');
+      btn.classList.add('fab-copy-success');
+      successFlashBtn = btn;
+      successHoldTimer = setTimeout(function () {
+        successHoldTimer = null;
+        btn.classList.add('fab-copy-dimout');
+        successFadeTimer = setTimeout(function () {
+          successFadeTimer = null;
+          clearCopySuccessVisual(btn);
+          if (successFlashBtn === btn) successFlashBtn = null;
+        }, 480);
       }, 2000);
     }
 
@@ -622,6 +791,8 @@
     function runCopyPartyShareUrl(sourceBtn) {
       clearErrorToast();
       if (isLikelyCalculatorView()) return;
+      var fbBtn = sourceBtn || partyBtn;
+      startCopyFeedback(fbBtn);
 
       getSlotsFromBridge().then(function (r) {
         var partySlots = r && r.ok && r.slots && r.slots.length === 6 ? r.slots : null;
@@ -638,19 +809,22 @@
             function (bg) {
               if (chrome.runtime.lastError) {
                 showErrorToast(chrome.runtime.lastError.message || '오류');
+                finishCopyError(fbBtn);
                 return;
               }
               if (!bg || !bg.ok) {
                 showErrorToast((bg && bg.error) || '처리하지 못했습니다.');
+                finishCopyError(fbBtn);
                 return;
               }
               var t = bg.text != null ? String(bg.text) : '';
               if (!t) {
                 showErrorToast('출력이 비었습니다.');
+                finishCopyError(fbBtn);
                 return;
               }
               copyTextBestEffort(t);
-              showCopySuccessOnButton(sourceBtn || partyBtn);
+              finishCopySuccess(fbBtn);
             }
           );
         });
@@ -660,13 +834,18 @@
     function runCopySlot(idx1, sourceBtn) {
       clearErrorToast();
       if (isLikelyCalculatorView()) return;
+      var fbBtn = sourceBtn || slotBtns[idx1 - 1];
+      startCopyFeedback(fbBtn);
+
       getSlotsFromBridge().then(function (r) {
         if (!r || !r.ok || !r.slots) {
           showErrorToast('슬롯을 읽지 못했습니다.');
+          finishCopyError(fbBtn);
           return;
         }
         if (!r.filled || !r.filled[idx1 - 1]) {
           showErrorToast('빈 슬롯입니다.');
+          finishCopyError(fbBtn);
           return;
         }
         var slotData = r.slots[idx1 - 1];
@@ -683,19 +862,22 @@
             function (bg) {
               if (chrome.runtime.lastError) {
                 showErrorToast(chrome.runtime.lastError.message || '오류');
+                finishCopyError(fbBtn);
                 return;
               }
               if (!bg || !bg.ok) {
                 showErrorToast((bg && bg.error) || '변환 실패');
+                finishCopyError(fbBtn);
                 return;
               }
               var t = bg.text != null ? String(bg.text) : '';
               if (!t) {
                 showErrorToast('출력이 비었습니다.');
+                finishCopyError(fbBtn);
                 return;
               }
               copyTextBestEffort(t);
-              showCopySuccessOnButton(sourceBtn || slotBtns[idx1 - 1]);
+              finishCopySuccess(fbBtn);
             }
           );
         });
@@ -726,6 +908,9 @@
     });
 
     return function teardown() {
+      clearCopyUiTimers();
+      clearCopySuccessVisual(successFlashBtn);
+      successFlashBtn = null;
       cancelFabDockCloseTimer();
       try {
         partyBtn.removeEventListener('mouseenter', openFabDockFromParty);
