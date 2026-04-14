@@ -1,5 +1,8 @@
 /**
  * 스마트누오 팀빌더: #1~#6 버튼으로 슬롯 요약 샘플을 클립보드에 복사.
+ * 파티 URL: 현재 팀 6칸을 POST /api/party/share (all:true)로 올려 받은 id로 #ps= URL 생성.
+ * 계산기 화면은 calcFill.js 와 같은 본문 휴리스틱으로 플로팅 숨김.
+ * 슬롯 갱신: MutationObserver + hashchange (주기 폴링·sync 주기 제거).
  */
 (function () {
   'use strict';
@@ -23,8 +26,11 @@
     return h === 'smartnuo.com' || h === 'www.smartnuo.com';
   }
 
-  function shouldAttachTeamBuilderUi() {
-    return isSmartnuoHost();
+  /** calcFill.js 의 isLikelyCalculatorView 와 동일 */
+  function isLikelyCalculatorView() {
+    var t = document.body && document.body.innerText;
+    if (!t) return false;
+    return t.indexOf('교체') !== -1 && (t.indexOf('계산') !== -1 || t.indexOf('초기화') !== -1);
   }
 
   function injectTeamBridge() {
@@ -132,18 +138,33 @@
       'button.slot:disabled { opacity: 0.35; cursor: not-allowed; }' +
       'button.slot:not(:disabled):hover { background: #475569; }' +
       'button.slot:not(:disabled):active { transform: scale(0.96); }' +
-      '.status { font-size: 11px; color: #cbd5e1; margin-left: 4px; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
+      'button.party-url {' +
+      '  height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.45); cursor: pointer;' +
+      '  font-size: 11px; font-weight: 700; background: transparent; color: #e2e8f0;' +
+      '}' +
+      'button.party-url:disabled { opacity: 0.35; cursor: not-allowed; }' +
+      'button.party-url:not(:disabled):hover { background: rgba(51, 65, 85, 0.85); }' +
+      'button.party-url:not(:disabled):active { transform: scale(0.96); }' +
+      '.status {' +
+      '  font-size: 11px; color: #cbd5e1; margin-left: 4px;' +
+      '  max-width: min(520px, calc(100vw - 200px));' +
+      '  white-space: normal; line-height: 1.35; word-break: keep-all;' +
+      '}' +
       '.status.err { color: #fca5a5; }' +
       '.status.ok { color: #86efac; }' +
       '</style>' +
       '<div class="bar nuo-tb-off" part="bar">' +
       '  <span class="label">샘플 복사</span>' +
       '  <div class="btns" id="btns"></div>' +
+      '  <button type="button" class="party-url" id="partyUrlBtn" disabled' +
+      '    title="현재 팀 구성으로 스마트누오 파티 공유 URL을 만들어 클립보드에 넣습니다."' +
+      '    aria-label="현재 팀으로 파티 공유 URL 만들기">파티 URL</button>' +
       '  <span class="status" id="st" aria-live="polite"></span>' +
       '</div>';
 
     var bar = root.querySelector('.bar');
     var btnsWrap = root.getElementById('btns');
+    var partyUrlBtn = root.getElementById('partyUrlBtn');
     var stEl = root.getElementById('st');
     var slotBtns = [];
 
@@ -166,8 +187,12 @@
       })(bi + 1);
     }
 
+    partyUrlBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      runCopyPartyShareUrl();
+    });
+
     var bridgeReady = false;
-    var pollTimer = null;
 
     function setBarVisible(on) {
       bar.classList.toggle('nuo-tb-off', !on);
@@ -219,20 +244,75 @@
       }
     }
 
+    function setPartyUrlButtonEnabled(on) {
+      partyUrlBtn.disabled = !on;
+    }
+
     function refreshSlots() {
       if (!bridgeReady) return;
+      if (isLikelyCalculatorView()) {
+        setBarVisible(false);
+        setPartyUrlButtonEnabled(false);
+        return;
+      }
       getSlotsFromBridge().then(function (r) {
+        if (isLikelyCalculatorView()) {
+          setBarVisible(false);
+          setPartyUrlButtonEnabled(false);
+          return;
+        }
         if (!r || !r.ok || !r.slots || !Array.isArray(r.filled)) {
           setBarVisible(false);
+          setPartyUrlButtonEnabled(false);
           return;
         }
         setBarVisible(true);
         applyFilledState(r.filled);
+        setPartyUrlButtonEnabled(true);
+      });
+    }
+
+    function runCopyPartyShareUrl() {
+      setStatus('');
+      if (isLikelyCalculatorView()) return;
+
+      getSlotsFromBridge().then(function (r) {
+        var partySlots = r && r.ok && r.slots && r.slots.length === 6 ? r.slots : null;
+
+        chrome.runtime.sendMessage(
+          {
+            type: 'COPY_PARTY_SHARE_URL',
+            origin: location.origin,
+            pathname: location.pathname || '/',
+            partySlots: partySlots,
+          },
+          function (bg) {
+            if (chrome.runtime.lastError) {
+              setStatus(chrome.runtime.lastError.message || '오류', 'err');
+              return;
+            }
+            if (!bg || !bg.ok) {
+              setStatus((bg && bg.error) || '처리하지 못했습니다.', 'err');
+              return;
+            }
+            var pu = bg.partyUrl != null ? String(bg.partyUrl).trim() : '';
+            if (!pu) {
+              setStatus('파티 URL을 받지 못했습니다.', 'err');
+              return;
+            }
+            copyTextBestEffort(pu);
+            setStatus('파티 URL을 클립보드에 넣었습니다.', 'ok');
+            setTimeout(function () {
+              setStatus('');
+            }, 2200);
+          }
+        );
       });
     }
 
     function runCopySlot(idx1) {
       setStatus('');
+      if (isLikelyCalculatorView()) return;
       getSlotsFromBridge().then(function (r) {
         if (!r || !r.ok || !r.slots) {
           setStatus('슬롯을 읽지 못했습니다.', 'err');
@@ -278,34 +358,14 @@
       });
     }
 
-    function startPolling() {
-      if (pollTimer) return;
-      pollTimer = setInterval(refreshSlots, 900);
-    }
-
-    function stopPolling() {
-      if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
-    }
-
     injectTeamBridge()
       .then(function () {
         bridgeReady = true;
-        return getSlotsFromBridge();
-      })
-      .then(function (r) {
-        if (r && r.ok && r.slots && Array.isArray(r.filled)) {
-          setBarVisible(true);
-          applyFilledState(r.filled);
-        } else {
-          setBarVisible(false);
-        }
-        startPolling();
+        refreshSlots();
       })
       .catch(function () {
         setBarVisible(false);
+        setPartyUrlButtonEnabled(false);
       });
 
     var moTimer = null;
@@ -322,7 +382,6 @@
     });
 
     return function teardown() {
-      stopPolling();
       try {
         mo.disconnect();
       } catch (e) {}
@@ -343,7 +402,7 @@
   }
 
   function syncTeamFloatVisibility() {
-    if (!shouldAttachTeamBuilderUi()) {
+    if (!isSmartnuoHost()) {
       removeTeamHost();
       return;
     }
@@ -377,6 +436,4 @@
   } else {
     initTeamBuilderFloating();
   }
-
-  setInterval(syncTeamFloatVisibility, 1200);
 })();

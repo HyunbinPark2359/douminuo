@@ -119,6 +119,72 @@ importScripts('showdownPaste.js');
     return origin + p + '#ps=' + id;
   }
 
+  /**
+   * 파티 전체: POST /api/party/share (동일 path), 본문 { params: { data: { all: true, data: (6칸, 빈칸 null) } } }.
+   * 응답 { id } → #ps= (단일 슬롯과 동일). 단일 슬롯: { params: { data: { slot, data } } }.
+   * 조사: 2026-04 유저 DevTools 캡처.
+   */
+  function postSharePartyAll(origin, pathname, slotsSix) {
+    if (!Array.isArray(slotsSix) || slotsSix.length !== 6) {
+      return Promise.reject(new Error('bad_party_slots'));
+    }
+    var row = [];
+    var anyFilled = false;
+    var i;
+    for (i = 0; i < 6; i++) {
+      var s = slotsSix[i];
+      if (SR.isSlotEmpty(s)) {
+        row.push(null);
+      } else {
+        anyFilled = true;
+        try {
+          row.push(JSON.parse(JSON.stringify(s)));
+        } catch (e) {
+          row.push(s);
+        }
+      }
+    }
+    if (!anyFilled) {
+      return Promise.reject(new Error('empty_party'));
+    }
+    return fetch(origin + '/api/party/share', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        params: {
+          data: {
+            all: true,
+            data: row,
+          },
+        },
+      }),
+    }).then(function (res) {
+      return res.text().then(function (t) {
+        var j = null;
+        try {
+          j = t ? JSON.parse(t) : null;
+        } catch (e) {
+          j = null;
+        }
+        if (!res.ok) {
+          var hint =
+            j && (j.message || j.error)
+              ? String(j.message || j.error).slice(0, 120)
+              : (t || '').slice(0, 100);
+          throw new Error('party_share_post_' + res.status + (hint ? ': ' + hint : ''));
+        }
+        if (!j) throw new Error('empty_response');
+        var sid = j.id != null ? j.id : j.data && j.data.id;
+        if (!sid) throw new Error('empty_response');
+        return buildDisplayPartyUrl(origin, pathname, sid);
+      });
+    });
+  }
+
   function postShareSlot(origin, pathname, slotIndex1Based, slotData) {
     if (slotData == null) return Promise.resolve('');
     if (typeof slotData === 'object' && !Array.isArray(slotData) && Object.keys(slotData).length === 0) {
@@ -330,13 +396,21 @@ importScripts('showdownPaste.js');
     if (m === 'no_party_url' || m === 'bad_url') return 'URL 형식을 확인해 주세요.';
     if (m === 'no_ps_id') return '#ps= 가 포함된 스마트누오 공유 URL인지 확인해 주세요.';
     if (m === 'share_not_found' || m === 'empty_response') {
-      return '공유 데이터를 불러오지 못했습니다. URL·네트워크·스마트누오 서버 상태를 확인해 주세요.';
+      return '공유를 불러오지 못했습니다. URL·로그인·네트워크를 확인하세요.';
     }
     if (m === 'unknown_share_shape') {
-      return '지원하지 않는 공유 형식입니다. 스마트누오 업데이트 시 포맷터 매핑이 필요할 수 있습니다.';
+      return '지원하지 않는 공유 형식입니다.';
     }
     if (m.indexOf('party_on_multiline') !== -1 || m === '파티 공유는 URL을 한 줄만 입력해 주세요.') {
-      return '파티 공유는 URL을 한 줄만 입력해 주세요. 여러 샘플은 각 줄에 샘플 URL만 넣어 주세요.';
+      return '파티는 URL 한 줄만. 여러 샘플은 줄마다 샘플 URL만 넣으세요.';
+    }
+    if (m === 'bad_party_slots') return '파티 슬롯 형식이 올바르지 않습니다.';
+    if (m === 'empty_party') return '비어 있는 파티입니다. 포켓몬을 넣은 뒤 다시 시도하세요.';
+    if (m === 'team_slots_unavailable') {
+      return '팀 슬롯(6칸)을 읽지 못했습니다. 페이지를 새로고침한 뒤 다시 시도하세요.';
+    }
+    if (m.indexOf('party_share_post_') === 0) {
+      return '파티 URL을 서버에 등록하지 못했습니다. 로그인·네트워크를 확인하세요.';
     }
     return m;
   }
@@ -646,6 +720,44 @@ importScripts('showdownPaste.js');
       resolveShareInput(msg.urlText || '')
         .then(function (data) {
           attachResponse(sendResponse, data);
+        })
+        .catch(function (err) {
+          sendResponse({
+            ok: false,
+            error: mapShareError(err),
+          });
+        });
+      return true;
+    }
+
+    if (msg.type === 'COPY_PARTY_SHARE_URL') {
+      var originCp = msg.origin || 'https://smartnuo.com';
+      var pathnameCp = msg.pathname || '/';
+      var slotsCp = msg.partySlots;
+
+      var hasSixSlots = Array.isArray(slotsCp) && slotsCp.length === 6;
+      var hasAnyMon =
+        hasSixSlots &&
+        (function () {
+          var j;
+          for (j = 0; j < 6; j++) {
+            if (!SR.isSlotEmpty(slotsCp[j])) return true;
+          }
+          return false;
+        })();
+
+      if (!hasSixSlots) {
+        sendResponse({ ok: false, error: mapShareError(new Error('team_slots_unavailable')) });
+        return true;
+      }
+      if (!hasAnyMon) {
+        sendResponse({ ok: false, error: mapShareError(new Error('empty_party')) });
+        return true;
+      }
+
+      postSharePartyAll(originCp, pathnameCp, slotsCp)
+        .then(function (partyUrl) {
+          sendResponse({ ok: true, partyUrl: partyUrl });
         })
         .catch(function (err) {
           sendResponse({

@@ -796,20 +796,17 @@
     );
 
     var heuristicTimer = null;
-    function refreshHeuristic() {
-      syncCalcHeuristic();
-    }
 
     var mo = new MutationObserver(function () {
       clearTimeout(heuristicTimer);
-      heuristicTimer = setTimeout(refreshHeuristic, 400);
+      heuristicTimer = setTimeout(syncCalcHeuristic, 400);
     });
     try {
       mo.observe(document.body, { childList: true, subtree: true, characterData: true });
     } catch (e) {}
 
     window.addEventListener('hashchange', function () {
-      setTimeout(refreshHeuristic, 100);
+      setTimeout(syncCalcHeuristic, 100);
     });
   }
 
