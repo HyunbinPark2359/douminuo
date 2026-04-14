@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "스마트누오 샘플 포맷터",
+  "name": "스마트누오 샘플 변환기",
   "version": "0.3.0",
   "description": "스마트누오 공유 URL을 요약 샘플 형식으로 변환합니다.",
   "permissions": ["storage", "tabs", "scripting"],
@@ -14,7 +14,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "샘플 포맷터"
+    "default_title": "샘플 변환기"
   },
   "options_ui": {
     "page": "options.html",

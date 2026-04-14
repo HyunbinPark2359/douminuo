@@ -1,5 +1,5 @@
 /**
- * Showdown/포맷터용 한글·영문 맵 일괄 갱신 (PokeAPI + Showdown moves.ts).
+ * Showdown/변환기용 한글·영문 맵 일괄 갱신 (PokeAPI + Showdown moves.ts).
  *   node scripts/refresh-ko-maps-from-pokeapi.js
  *
  * 순서: moveTags → moveKoMap → itemKoMap → abilityKoMap → moveSlugToEn
