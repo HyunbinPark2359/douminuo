@@ -148,6 +148,31 @@
       '<circle cx="12" cy="12" r="10" />' +
       '<path d="M4.9 4.9l14.2 14.2" />' +
       '</svg>';
+    /** 테이블 + 우하단 포켓볼(사용자 SVG 합성). mask 로 겹치는 격자선 제거, 그림자로 포켓볼 위 레이어 느낌 */
+    var PARTY_ICON_SVG =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4.75 -8 66 88" fill="none" overflow="visible" aria-hidden="true">' +
+      '<defs>' +
+      '<mask id="nuoTbPartyTblMask">' +
+      '<rect x="-4.75" y="-8" width="66" height="88" fill="white"/>' +
+      '<circle cx="41" cy="57.5" r="25" fill="black"/>' +
+      '</mask>' +
+      '<filter id="nuoTbPartyBallLift" x="-40%" y="-40%" width="180%" height="180%">' +
+      '<feDropShadow dx="0" dy="1.25" stdDeviation="1.35" flood-color="#0f172a" flood-opacity="0.3"/>' +
+      '</filter>' +
+      '</defs>' +
+      '<g mask="url(#nuoTbPartyTblMask)">' +
+      '<rect x="4" y="4" width="40" height="56" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>' +
+      '<line x1="4" y1="22.66" x2="44" y2="22.66" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+      '<line x1="4" y1="41.33" x2="44" y2="41.33" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+      '<line x1="24" y1="4" x2="24" y2="60" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+      '</g>' +
+      '<g filter="url(#nuoTbPartyBallLift)" transform="translate(41, 57.5) scale(0.88) translate(-24, -24)">' +
+      '<circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>' +
+      '<line x1="4" y1="24" x2="17" y2="24" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+      '<line x1="31" y1="24" x2="44" y2="24" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+      '<circle cx="24" cy="24" r="6" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>' +
+      '</g>' +
+      '</svg>';
     function fabFeedbackHtml() {
       return (
         '<span class="fab-btn-feedback" aria-hidden="true">' +
@@ -208,7 +233,7 @@
       '}' +
       '.fab-per-btn-toast.nuo-hidden { display: none; }' +
       '.fab-slot-row .fab-per-btn-toast {' +
-      '  max-width: min(220px, calc(100vw - 120px));' +
+      '  max-width: min(220px, calc(100vw - 128px));' +
       '}' +
       '.fab-per-btn-toast--below {' +
       '  max-width: min(280px, calc(100vw - 48px)); width: max-content; align-self: center;' +
@@ -218,17 +243,17 @@
       '}' +
       '.fab-dock { position: relative; display: inline-block; vertical-align: bottom; }' +
       '.fab-dock-main {' +
-      '  position: relative; width: 72px; display: flex; flex-direction: column; align-items: center;' +
+      '  position: relative; width: 80px; display: flex; flex-direction: column; align-items: center;' +
       '}' +
       '.fab-party-col {' +
-      '  position: relative; width: 72px; min-height: 72px; display: flex; flex-direction: column;' +
+      '  position: relative; width: 80px; min-height: 80px; display: flex; flex-direction: column;' +
       '  align-items: center; justify-content: flex-end;' +
       '}' +
       '.fab-party-wrap {' +
-      '  position: relative; display: flex; flex-direction: column; align-items: center; width: 72px;' +
+      '  position: relative; display: flex; flex-direction: column; align-items: center; width: 80px;' +
       '}' +
       '.fab-slot-row {' +
-      '  position: relative; width: 72px; height: 56px; display: flex; align-items: center; justify-content: center;' +
+      '  position: relative; width: 80px; height: 62px; display: flex; align-items: center; justify-content: center;' +
       '  flex-shrink: 0; overflow: visible;' +
       '}' +
       '.fab-slot-row .fab-per-btn-toast {' +
@@ -240,10 +265,10 @@
       '}' +
       '.fab-slots {' +
       '  position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 1;' +
-      '  display: flex; flex-direction: column; align-items: center; gap: 8px; width: 72px;' +
+      '  display: flex; flex-direction: column; align-items: center; gap: 8px; width: 80px;' +
       '  overflow: visible;' +
       '  opacity: 0; visibility: hidden; pointer-events: none;' +
-      '  transition: opacity 0.15s ease, visibility 0.15s;' +
+      '  transition: opacity 0.09s ease, visibility 0.09s;' +
       '}' +
       '.fab-dock--open .fab-slots {' +
       '  opacity: 1; visibility: visible; pointer-events: auto;' +
@@ -251,7 +276,7 @@
       '.fab-settings-wrap {' +
       '  position: absolute; right: calc(100% + 12px); bottom: 0; z-index: 2;' +
       '  opacity: 0; visibility: hidden; pointer-events: none;' +
-      '  transition: opacity 0.15s ease, visibility 0.15s;' +
+      '  transition: opacity 0.09s ease, visibility 0.09s;' +
       '}' +
       '.fab-dock--open .fab-settings-wrap {' +
       '  opacity: 1; visibility: visible; pointer-events: auto;' +
@@ -289,7 +314,7 @@
       '  background: linear-gradient(155deg, #f8fafc 0%, #e2e8f0 55%, #cbd5e1 100%);' +
       '  color: #64748b; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
       '}' +
-      '.fab-slot { width: 56px; height: 56px; border-radius: 50%; font-size: 15px; font-weight: 700; overflow: hidden; }' +
+      '.fab-slot { width: 62px; height: 62px; border-radius: 50%; font-size: 16px; font-weight: 700; overflow: hidden; }' +
       '.fab-slot-label { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }' +
       '.fab-slot-mon {' +
       '  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);' +
@@ -323,8 +348,17 @@
       '  color: #64748b; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
       '}' +
       '.fab-party {' +
-      '  width: 72px; height: 72px; border-radius: 50%; font-size: 12px; font-weight: 800;' +
-      '  letter-spacing: -0.02em;' +
+      '  width: 80px; height: 80px; border-radius: 50%; overflow: visible;' +
+      '}' +
+      '.fab-btn.fab-party:not(:disabled) {' +
+      '  color: #2a6f8f;' +
+      '}' +
+      '.fab-party .fab-party-icon {' +
+      '  display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; overflow: visible;' +
+      '}' +
+      '.fab-party .fab-party-icon svg {' +
+      '  display: block; width: auto; height: 52px; max-height: 65%; flex-shrink: 0; margin: 0 auto;' +
+      '  color: inherit; overflow: visible;' +
       '}' +
       '.fab-settings-morph {' +
       '  position: relative; width: 52px; min-height: 52px; max-height: 52px; border-radius: 26px;' +
@@ -415,14 +449,14 @@
       '  width: 100%; height: 100%;' +
       '}' +
       '.fab-fb-hover-ic svg, .fab-fb-done-ic svg, .fab-fb-err-ic svg {' +
-      '  width: 46%; height: 46%; max-width: 34px; max-height: 34px; flex-shrink: 0;' +
+      '  width: 46%; height: 46%; max-width: 38px; max-height: 38px; flex-shrink: 0;' +
       '}' +
       '.fab-spinner-wrap {' +
       '  display: flex; align-items: center; justify-content: center;' +
       '  width: 100%; height: 100%; flex-shrink: 0;' +
       '}' +
       '.fab-spinner-wrap .fab-spinner-svg {' +
-      '  width: 46%; height: 46%; max-width: 34px; max-height: 34px; flex-shrink: 0;' +
+      '  width: 46%; height: 46%; max-width: 38px; max-height: 38px; flex-shrink: 0;' +
       '  display: block; overflow: visible;' +
       '  transform-origin: 50% 50%;' +
       '}' +
@@ -526,7 +560,9 @@
         '          <div class="fab-party-wrap">' +
         '          <button type="button" class="fab-btn fab-party" id="fabPartyBtn" disabled' +
         '            aria-label="현재 팀 파티 샘플 복사">' +
-        '            <span class="fab-btn-label">파티</span>' +
+        '            <span class="fab-btn-label fab-party-icon">' +
+      PARTY_ICON_SVG +
+        '            </span>' +
       fabFeedbackHtml() +
         '          </button>' +
         '          <div class="fab-per-btn-toast fab-per-btn-toast--below nuo-hidden" id="fabPartyErrToast" role="alert" aria-live="assertive"></div>' +
@@ -678,7 +714,7 @@
       dockCloseTimer = setTimeout(function () {
         dockCloseTimer = null;
         if (fabDock) fabDock.classList.remove('fab-dock--open');
-      }, 260);
+      }, 90);
     }
     function onFabDockMouseOut(ev) {
       if (!fabDock) return;
