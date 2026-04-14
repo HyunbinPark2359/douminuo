@@ -1,7 +1,9 @@
 importScripts('shareToRaw.js');
 importScripts('fmtCommon.js');
+importScripts('formatter.js');
 importScripts('calcPayload.js');
 importScripts('simpleMovePower.js');
+importScripts('showdownPaste.js');
 
 /**
  * GET /api/party/share/:id → 파티(6슬롯) 또는 단일 샘플.
@@ -444,6 +446,109 @@ importScripts('simpleMovePower.js');
       });
   }
 
+  function mergeByKoPaste(baseDoc, fallbackDoc) {
+    var base = baseDoc && baseDoc.byKo;
+    var fb = fallbackDoc && fallbackDoc.byKo;
+    if (!base || !fb) return;
+    var k;
+    for (k in fb) {
+      if (!Object.prototype.hasOwnProperty.call(fb, k)) continue;
+      if (base[k] == null) base[k] = fb[k];
+    }
+  }
+
+  function loadPasteBundleDocs() {
+    return Promise.all([
+      loadJsonUrl('moveKoMap.json', { byKo: {} }),
+      loadJsonUrl('moveKoFallback.json', { version: 0, byKo: {} }),
+      loadJsonUrl('moveSlugToEn.json', { bySlug: {} }),
+      loadJsonUrl('natureKoMap.json', { koToSlug: {} }),
+      loadJsonUrl('itemKoMap.json', { byKo: {} }),
+      loadJsonUrl('abilityKoMap.json', { byKo: {} }),
+      loadJsonUrl('typeKoMap.json', { byKo: {} }),
+      loadJsonUrl('modifiers.json', { version: 0, items: {}, abilities: {} }),
+    ]).then(function (arr) {
+      mergeByKoPaste(arr[0], arr[1]);
+      return {
+        moveKoDoc: arr[0],
+        moveSlugToEnDoc: arr[2],
+        natureKoDoc: arr[3],
+        itemKoDoc: arr[4],
+        abilityKoDoc: arr[5],
+        typeKoDoc: arr[6],
+        modifiersDocument: arr[7],
+      };
+    });
+  }
+
+  function mapBuilderFormatError(err) {
+    var m = err && err.message ? String(err.message) : String(err);
+    if (m === 'empty_slot') return '빈 슬롯입니다.';
+    if (m === 'bad_index') return '슬롯 번호가 올바르지 않습니다.';
+    return mapShareError(err);
+  }
+
+  function formatBuilderSlotFromPage(msg) {
+    var slotIndex = msg.slotIndex | 0;
+    var slotData = msg.slotData;
+    var origin = msg.origin || 'https://smartnuo.com';
+    var pathname = msg.pathname || '/';
+    var fo = msg.formatOptions || {};
+
+    if (slotIndex < 1 || slotIndex > 6) {
+      return Promise.reject(new Error('bad_index'));
+    }
+    if (!slotData || SR.isSlotEmpty(slotData)) {
+      return Promise.reject(new Error('empty_slot'));
+    }
+
+    return computeBlockPowersForSlot(slotData).then(function (pack) {
+      return postShareSlot(origin, pathname, slotIndex, slotData).then(function (sampleUrl) {
+        var urlStr = sampleUrl ? String(sampleUrl).trim() : '';
+        var pasteRaw = SR.shareSlotToRaw(slotData, 1, { numberedTitle: false });
+        var modP = ensureModifiersLoaded();
+
+        if (fo.showdownPaste) {
+          return Promise.all([modP, loadPasteBundleDocs()]).then(function (twice) {
+            var mod = twice[0];
+            var docs = twice[1];
+            var slotsOne = [cloneShareSlot(slotData)];
+            var BSP = globalThis.buildShowdownPaste;
+            if (typeof BSP !== 'function') return pasteRaw;
+            var out = BSP(slotsOne, {
+              modifiersDocument: mod,
+              moveKoDoc: docs.moveKoDoc,
+              moveSlugToEnDoc: docs.moveSlugToEnDoc,
+              natureKoDoc: docs.natureKoDoc,
+              itemKoDoc: docs.itemKoDoc,
+              abilityKoDoc: docs.abilityKoDoc,
+              typeKoDoc: docs.typeKoDoc,
+            });
+            return out || pasteRaw;
+          });
+        }
+
+        return modP.then(function (mod) {
+          var fmt = globalThis.formatSample;
+          if (typeof fmt !== 'function') return pasteRaw;
+          var sampleUrls = urlStr ? [urlStr] : [''];
+          var opts = {
+            includeUrls: fo.includeUrls !== false,
+            includeRealStats: !!fo.includeRealStats,
+            includeMovePowers: !!fo.includeMovePowers,
+            includeBulkStats: !!fo.includeBulkStats,
+            partyUrl: '',
+            sampleUrls: sampleUrls,
+            blockMovePowers: [pack.movePowers],
+            blockSpeciesTypes: [pack.speciesTypesEn],
+            modifiersDocument: mod,
+          };
+          return fmt(pasteRaw, opts) || '';
+        });
+      });
+    });
+  }
+
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
     if (!msg) return;
 
@@ -464,6 +569,41 @@ importScripts('simpleMovePower.js');
         })
         .catch(function (e) {
           sendResponse({ ok: false, error: String((e && e.message) || e) });
+        });
+      return true;
+    }
+
+    if (msg.type === 'INJECT_TEAM_BUILDER_BRIDGE') {
+      var tbTabId = _sender && _sender.tab && _sender.tab.id;
+      if (tbTabId == null) {
+        sendResponse({ ok: false, error: 'no_sender_tab' });
+        return true;
+      }
+      chrome.scripting
+        .executeScript({
+          target: { tabId: tbTabId },
+          world: 'MAIN',
+          files: ['teamBuilderBridge.js'],
+        })
+        .then(function () {
+          sendResponse({ ok: true });
+        })
+        .catch(function (e) {
+          sendResponse({ ok: false, error: String((e && e.message) || e) });
+        });
+      return true;
+    }
+
+    if (msg.type === 'FORMAT_BUILDER_SLOT') {
+      formatBuilderSlotFromPage(msg)
+        .then(function (text) {
+          sendResponse({ ok: true, text: text != null ? String(text) : '' });
+        })
+        .catch(function (err) {
+          sendResponse({
+            ok: false,
+            error: mapBuilderFormatError(err),
+          });
         });
       return true;
     }

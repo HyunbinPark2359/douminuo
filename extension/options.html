@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>샘플 포맷터 — 옵션</title>
+  <link rel="stylesheet" href="popup.css" />
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="wrap options-wrap">
+    <h1>스마트누오 샘플 포맷터</h1>
+    <p class="sub">확장 프로그램 옵션</p>
+
+    <section class="options-section" aria-labelledby="theme-heading">
+      <h2 id="theme-heading" class="options-heading">팝업 테마</h2>
+      <p class="sub options-desc">툴바 아이콘을 눌렀을 때 열리는 팝업 창의 밝기입니다.</p>
+      <fieldset class="options-fieldset">
+        <legend class="sr-only">테마 선택</legend>
+        <label class="options-radio">
+          <input type="radio" name="theme" value="system" />
+          <span>시스템 설정에 맞춤</span>
+        </label>
+        <label class="options-radio">
+          <input type="radio" name="theme" value="light" />
+          <span>라이트</span>
+        </label>
+        <label class="options-radio">
+          <input type="radio" name="theme" value="dark" />
+          <span>다크</span>
+        </label>
+      </fieldset>
+    </section>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

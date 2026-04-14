@@ -8,7 +8,22 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>스마트누오 샘플 포맷터</h1>
+    <div class="popup-head">
+      <h1 class="popup-title">스마트누오 샘플 포맷터</h1>
+      <div class="head-floating-wrap">
+        <span class="head-floating-label" id="calcFloatingLabel">플로팅 버튼</span>
+        <label class="calc-toggle calc-toggle--compact">
+          <input
+            type="checkbox"
+            id="calcFloatingEnabled"
+            class="calc-toggle-input"
+            role="switch"
+            aria-labelledby="calcFloatingLabel"
+          />
+          <span class="calc-toggle-ui" aria-hidden="true"></span>
+        </label>
+      </div>
+    </div>
 
     <div class="tab-row" role="tablist" aria-label="기능 선택">
       <button type="button" class="tab-btn" role="tab" id="tabFormat" data-panel="panelFormat" aria-selected="true">샘플 변환</button>
@@ -136,6 +151,7 @@
   <script src="fmtCommon.js"></script>
   <script src="formatter.js"></script>
   <script src="showdownPaste.js"></script>
+  <script src="calcFillShared.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

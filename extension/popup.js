@@ -1,6 +1,33 @@
 (function () {
   'use strict';
 
+  var LK = {
+    showCalcFloating: 'nuo_fmt_showCalcFloating',
+    theme: 'nuo_fmt_theme',
+  };
+
+  function normalizeTheme(v) {
+    if (v === 'light' || v === 'dark' || v === 'system') return v;
+    return 'system';
+  }
+
+  function applyPopupTheme(mode) {
+    document.documentElement.setAttribute('data-theme', normalizeTheme(mode));
+  }
+
+  chrome.storage.local.get([LK.theme], function (got) {
+    if (chrome.runtime.lastError) {
+      applyPopupTheme('system');
+      return;
+    }
+    applyPopupTheme(got[LK.theme]);
+  });
+
+  chrome.storage.onChanged.addListener(function (changes, area) {
+    if (area !== 'local' || !changes[LK.theme]) return;
+    applyPopupTheme(changes[LK.theme].newValue);
+  });
+
   var SK = {
     urlInput: 'nuo_fmt_urlInput',
     includeUrls: 'nuo_fmt_includeUrls',
@@ -35,6 +62,7 @@
   var calcErrorEl = document.getElementById('calcError');
   var calcSpinnerEl = document.getElementById('calcSpinner');
   var calcResultEl = document.getElementById('calcResult');
+  var calcFloatingEl = document.getElementById('calcFloatingEnabled');
 
   function emptyResolved() {
     return {
@@ -336,33 +364,6 @@
     panelCalc.hidden = !on;
   }
 
-  function mapCalcCode(code) {
-    var c = String(code || '');
-    if (c === 'party_url_not_supported') {
-      return '파티 공유 URL은 계산기 입력에 사용할 수 없습니다. 샘플 URL만 넣어 주세요.';
-    }
-    if (c === 'empty_url') return '해당 칸에 URL을 입력해 주세요.';
-    if (c === 'no_ps_id') return '#ps= 가 포함된 스마트누오 URL인지 확인해 주세요.';
-    if (c === 'empty_slot' || c === 'no_species') return '샘플이 비어 있거나 종 이름을 읽지 못했습니다.';
-    if (c === 'unknown_share_shape') return '지원하지 않는 공유 형식입니다.';
-    if (c === 'vue_calc_not_found') return '계산기 화면의 Vue 인스턴스를 찾지 못했습니다.';
-    if (c === 'calc_dex_not_ready') return '도감(종 목록)이 아직 로드 중입니다. 잠시 후 다시 시도해 주세요.';
-    if (c === 'calc_broadcast_all_failed') return '계산기 인스턴스 모두에 반영하지 못했습니다. 탭을 새로고침한 뒤 다시 시도해 주세요.';
-    if (c === 'not_calculator_view') return '데미지 계산기 화면인지 확인해 주세요.';
-    if (c === 'no_valid_payload') return '적용할 수 있는 페이로드가 없습니다.';
-    if (c === 'bridge_inject_failed' || c.indexOf('inject') !== -1) {
-      return '브리지 주입에 실패했습니다. 탭을 새로고침한 뒤 확장을 다시 로드해 보세요.';
-    }
-    if (c === 'calc_apply_timeout') return '시간 초과. 계산기 탭을 활성화한 뒤 다시 시도해 주세요.';
-    if (c === 'calc_payload_unavailable') {
-      return '계산기용 스크립트를 불러오지 못했습니다. 확장 프로그램을 다시 로드해 주세요.';
-    }
-    if (chrome.runtime && chrome.runtime.lastError && String(chrome.runtime.lastError.message || '').indexOf('Receiving end') !== -1) {
-      return '탭과 연결되지 않았습니다. 스마트누오 탭을 새로고침해 주세요.';
-    }
-    return c || '알 수 없는 오류';
-  }
-
   function setCalcError(msg) {
     if (!msg) {
       calcErrorEl.hidden = true;
@@ -469,10 +470,10 @@
           setCalcLoading(false);
           var parts = [];
           if (atkUrl && pl.attacker && pl.attacker.error) {
-            parts.push('공격측: ' + mapCalcCode(pl.attacker.error));
+            parts.push('공격측: ' + mapCalcFillError(pl.attacker.error));
           }
           if (defUrl && pl.defender && pl.defender.error) {
-            parts.push('수비측: ' + mapCalcCode(pl.defender.error));
+            parts.push('수비측: ' + mapCalcFillError(pl.defender.error));
           }
           if (!parts.length) {
             parts.push('적용할 수 있는 페이로드가 없습니다.');
@@ -500,11 +501,11 @@
             function (r) {
               setCalcLoading(false);
               if (chrome.runtime.lastError) {
-                setCalcError(mapCalcCode(chrome.runtime.lastError.message));
+                setCalcError(mapCalcFillError(chrome.runtime.lastError.message));
                 return;
               }
               if (!r || !r.ok) {
-                setCalcError(mapCalcCode(r && r.error));
+                setCalcError(mapCalcFillError(r && r.error));
                 return;
               }
               var w = r.warnings;
@@ -536,6 +537,28 @@
   calcFillBtn.addEventListener('click', function () {
     runCalcFill();
   });
+
+  function syncCalcFloatingSwitchA11y() {
+    if (!calcFloatingEl) return;
+    calcFloatingEl.setAttribute('aria-checked', calcFloatingEl.checked ? 'true' : 'false');
+  }
+
+  if (calcFloatingEl) {
+    chrome.storage.local.get([LK.showCalcFloating], function (got) {
+      if (chrome.runtime.lastError) {
+        calcFloatingEl.checked = true;
+      } else {
+        calcFloatingEl.checked = got[LK.showCalcFloating] !== false;
+      }
+      syncCalcFloatingSwitchA11y();
+    });
+    calcFloatingEl.addEventListener('change', function () {
+      syncCalcFloatingSwitchA11y();
+      try {
+        chrome.storage.local.set({ [LK.showCalcFloating]: calcFloatingEl.checked });
+      } catch (e) {}
+    });
+  }
 
   chrome.storage.session.get(
     [
