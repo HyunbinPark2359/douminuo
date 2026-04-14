@@ -148,7 +148,8 @@
       '<circle cx="12" cy="12" r="10" />' +
       '<path d="M4.9 4.9l14.2 14.2" />' +
       '</svg>';
-    /** 테이블 + 우하단 포켓볼(사용자 SVG 합성). mask 로 겹치는 격자선 제거, 그림자로 포켓볼 위 레이어 느낌 */
+    /** 보존용(주석): 파티 버튼 테이블+포켓볼 SVG. 사용 시 아래 블록 해제 후 PARTY_ICON_STACK_HTML 대체 */
+    /*
     var PARTY_ICON_SVG =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4.75 -8 66 88" fill="none" overflow="visible" aria-hidden="true">' +
       '<defs>' +
@@ -173,6 +174,17 @@
       '<circle cx="24" cy="24" r="6" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>' +
       '</g>' +
       '</svg>';
+    */
+    /** 파티 버튼: 1~6슬롯 도트 img 겹침(빈 슬롯은 src 없음) */
+    var PARTY_ICON_STACK_HTML =
+      '<span class="fab-party-mon-stack" aria-hidden="true">' +
+      '<img class="fab-party-mon fab-party-mon--i1" alt="" decoding="async" />' +
+      '<img class="fab-party-mon fab-party-mon--i2" alt="" decoding="async" />' +
+      '<img class="fab-party-mon fab-party-mon--i3" alt="" decoding="async" />' +
+      '<img class="fab-party-mon fab-party-mon--i4" alt="" decoding="async" />' +
+      '<img class="fab-party-mon fab-party-mon--i5" alt="" decoding="async" />' +
+      '<img class="fab-party-mon fab-party-mon--i6" alt="" decoding="async" />' +
+      '</span>';
     function fabFeedbackHtml() {
       return (
         '<span class="fab-btn-feedback" aria-hidden="true">' +
@@ -354,11 +366,44 @@
       '  color: #2a6f8f;' +
       '}' +
       '.fab-party .fab-party-icon {' +
-      '  display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; overflow: visible;' +
+      '  position: relative; display: block; width: 100%; height: 100%; overflow: hidden;' +
+      '  border-radius: 50%;' +
+      '  clip-path: circle(50% at 50% 50%); -webkit-clip-path: circle(50% at 50% 50%);' +
       '}' +
-      '.fab-party .fab-party-icon svg {' +
-      '  display: block; width: auto; height: 52px; max-height: 65%; flex-shrink: 0; margin: 0 auto;' +
-      '  color: inherit; overflow: visible;' +
+      '.fab-party-mon-stack {' +
+      '  position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 50%;' +
+      '}' +
+      '.fab-party-mon {' +
+      '  position: absolute; display: block; left: 50%; top: 50%; width: auto; height: auto; margin: 0;' +
+      '  object-fit: contain; image-rendering: crisp-edges; pointer-events: none;' +
+      '  opacity: 0; transition: opacity 0.12s ease;' +
+      '}' +
+      '.fab-party-mon.fab-party-mon--has-art {' +
+      '  opacity: 1;' +
+      '}' +
+      '.fab-party-mon--i6 {' +
+      '  z-index: 1; width: 54px; max-height: 54px;' +
+      '  transform: translate(calc(-50% - 10px), calc(-50% - 23px));' +
+      '}' +
+      '.fab-party-mon--i5 {' +
+      '  z-index: 2; width: 58px; max-height: 58px;' +
+      '  transform: translate(calc(-50% + 14px), calc(-50% - 21px));' +
+      '}' +
+      '.fab-party-mon--i4 {' +
+      '  z-index: 3; width: 64px; max-height: 64px;' +
+      '  transform: translate(calc(-50% + 26px), calc(-50% - 8px));' +
+      '}' +
+      '.fab-party-mon--i3 {' +
+      '  z-index: 4; width: 68px; max-height: 68px;' +
+      '  transform: translate(calc(-50% + 27px), calc(-50% + 11px));' +
+      '}' +
+      '.fab-party-mon--i2 {' +
+      '  z-index: 5; width: 74px; max-height: 74px;' +
+      '  transform: translate(calc(-50% - 17px), calc(-50% + 15px));' +
+      '}' +
+      '.fab-party-mon--i1 {' +
+      '  z-index: 6; width: 84px; max-height: 86px;' +
+      '  transform: translate(calc(-50% + 8px), calc(-50% + 24px));' +
       '}' +
       '.fab-settings-morph {' +
       '  position: relative; width: 52px; min-height: 52px; max-height: 52px; border-radius: 26px;' +
@@ -387,7 +432,7 @@
       '}' +
       '.fab-settings-morph:focus-visible { outline: 2px solid #6eb0cc; outline-offset: 3px; }' +
       '.fab-btn-label { pointer-events: none; position: relative; z-index: 0; }' +
-      '.fab-slot .fab-btn-label { position: absolute; inset: 0; }' +
+      '.fab-slot .fab-btn-label, .fab-party .fab-btn-label { position: absolute; inset: 0; }' +
       '@keyframes fab-click-bounce {' +
       '  0% { transform: scale(1); }' +
       '  9% { transform: scale(0.993); }' +
@@ -561,7 +606,7 @@
         '          <button type="button" class="fab-btn fab-party" id="fabPartyBtn" disabled' +
         '            aria-label="현재 팀 파티 샘플 복사">' +
         '            <span class="fab-btn-label fab-party-icon">' +
-      PARTY_ICON_SVG +
+      PARTY_ICON_STACK_HTML +
         '            </span>' +
       fabFeedbackHtml() +
         '          </button>' +
@@ -578,6 +623,14 @@
     var fabDock = root.getElementById('fabDock');
     var fabSlotsWrap = root.getElementById('fabSlots');
     var partyBtn = root.getElementById('fabPartyBtn');
+    var partyMonImgs = (function () {
+      if (!partyBtn) return [null, null, null, null, null, null];
+      var stack = partyBtn.querySelector('.fab-party-mon-stack');
+      if (!stack) return [null, null, null, null, null, null];
+      return [1, 2, 3, 4, 5, 6].map(function (n) {
+        return stack.querySelector('.fab-party-mon--i' + n);
+      });
+    })();
     var settingsMorph = root.getElementById('settingsMorph');
     var settingsWrap = root.querySelector('.fab-settings-wrap');
     var optUrls = root.getElementById('optUrls');
@@ -1099,6 +1152,42 @@
           if (img.complete && img.naturalWidth > 0) btn.classList.add('fab-slot--has-mon');
         } else {
           img.src = url;
+        }
+      }
+      applyPartyMonVisuals(slotArt, filled);
+    }
+
+    /** 파티 버튼 도트: 슬롯 i와 .fab-party-mon--i{i} 동기화 */
+    function applyPartyMonVisuals(slotArt, filled) {
+      var j;
+      for (j = 0; j < 6; j++) {
+        var pimg = partyMonImgs[j];
+        if (!pimg) continue;
+        pimg.classList.remove('fab-party-mon--has-art');
+        pimg.onload = null;
+        pimg.onerror = null;
+        var hasFill = filled && filled[j] === true;
+        var purl = hasFill && slotArt && slotArt[j] ? String(slotArt[j]).trim() : '';
+        if (!purl) {
+          pimg.removeAttribute('src');
+          continue;
+        }
+        pimg.onload = (function (im, u) {
+          return function () {
+            if (im.getAttribute('src') !== u) return;
+            if (im.naturalWidth > 0) im.classList.add('fab-party-mon--has-art');
+          };
+        })(pimg, purl);
+        pimg.onerror = (function (im) {
+          return function () {
+            im.removeAttribute('src');
+            im.classList.remove('fab-party-mon--has-art');
+          };
+        })(pimg);
+        if (pimg.getAttribute('src') === purl) {
+          if (pimg.complete && pimg.naturalWidth > 0) pimg.classList.add('fab-party-mon--has-art');
+        } else {
+          pimg.src = purl;
         }
       }
     }
