@@ -183,14 +183,16 @@
     try {
       chrome.storage.session.set({
         [SK.urlInput]: urlInputEl.value,
+        [SK.calcAtkUrl]: calcAtkUrlEl ? calcAtkUrlEl.value : '',
+        [SK.calcDefUrl]: calcDefUrlEl ? calcDefUrlEl.value : '',
+        [SK.activeTab]: tabCalc && tabCalc.getAttribute('aria-selected') === 'true' ? 'calc' : 'format',
+      });
+      chrome.storage.local.set({
         [SK.includeUrls]: includeUrlsEl.checked,
         [SK.includeRealStats]: includeRealEl.checked,
         [SK.includeMovePowers]: includeMovePowersEl.checked,
         [SK.includeBulkStats]: includeBulkStatsEl.checked,
         [SK.showdownPaste]: showdownPasteEl.checked,
-        [SK.calcAtkUrl]: calcAtkUrlEl ? calcAtkUrlEl.value : '',
-        [SK.calcDefUrl]: calcDefUrlEl ? calcDefUrlEl.value : '',
-        [SK.activeTab]: tabCalc && tabCalc.getAttribute('aria-selected') === 'true' ? 'calc' : 'format',
       });
     } catch (e) {}
   }
@@ -332,6 +334,84 @@
   showdownPasteEl.addEventListener('change', function () {
     persist();
     renderOutput();
+  });
+
+  var FORMAT_LOCAL_OPT_KEYS = [
+    SK.includeUrls,
+    SK.includeRealStats,
+    SK.includeMovePowers,
+    SK.includeBulkStats,
+    SK.showdownPaste,
+  ];
+
+  function applyFormatOptionsFromLocal(got) {
+    if (typeof got[SK.includeUrls] === 'boolean') includeUrlsEl.checked = got[SK.includeUrls];
+    else includeUrlsEl.checked = true;
+    if (typeof got[SK.includeRealStats] === 'boolean') includeRealEl.checked = got[SK.includeRealStats];
+    if (typeof got[SK.includeMovePowers] === 'boolean') includeMovePowersEl.checked = got[SK.includeMovePowers];
+    else includeMovePowersEl.checked = false;
+    if (typeof got[SK.includeBulkStats] === 'boolean') includeBulkStatsEl.checked = got[SK.includeBulkStats];
+    else includeBulkStatsEl.checked = false;
+    if (typeof got[SK.showdownPaste] === 'boolean') showdownPasteEl.checked = got[SK.showdownPaste];
+    else showdownPasteEl.checked = false;
+  }
+
+  function migrateSessionFormatToLocalIfNeeded(done) {
+    chrome.storage.local.get(FORMAT_LOCAL_OPT_KEYS, function (lg) {
+      if (chrome.runtime.lastError) {
+        if (typeof done === 'function') done();
+        return;
+      }
+      var has = false;
+      var i;
+      for (i = 0; i < FORMAT_LOCAL_OPT_KEYS.length; i++) {
+        if (typeof lg[FORMAT_LOCAL_OPT_KEYS[i]] === 'boolean') {
+          has = true;
+          break;
+        }
+      }
+      if (has) {
+        if (typeof done === 'function') done();
+        return;
+      }
+      chrome.storage.session.get(FORMAT_LOCAL_OPT_KEYS, function (sg) {
+        if (chrome.runtime.lastError) {
+          if (typeof done === 'function') done();
+          return;
+        }
+        var patch = {};
+        var j;
+        for (j = 0; j < FORMAT_LOCAL_OPT_KEYS.length; j++) {
+          var k = FORMAT_LOCAL_OPT_KEYS[j];
+          if (typeof sg[k] === 'boolean') patch[k] = sg[k];
+        }
+        if (Object.keys(patch).length === 0) {
+          if (typeof done === 'function') done();
+          return;
+        }
+        chrome.storage.local.set(patch, function () {
+          if (typeof done === 'function') done();
+        });
+      });
+    });
+  }
+
+  chrome.storage.onChanged.addListener(function (changes, area) {
+    if (area !== 'local') return;
+    var hit = false;
+    var fi;
+    for (fi = 0; fi < FORMAT_LOCAL_OPT_KEYS.length; fi++) {
+      if (changes[FORMAT_LOCAL_OPT_KEYS[fi]]) {
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) return;
+    chrome.storage.local.get(FORMAT_LOCAL_OPT_KEYS, function (got) {
+      if (chrome.runtime.lastError) return;
+      applyFormatOptionsFromLocal(got);
+      renderOutput();
+    });
   });
 
   copyBtn.addEventListener('click', function () {
@@ -560,44 +640,32 @@
     });
   }
 
-  chrome.storage.session.get(
-    [
-      SK.urlInput,
-      SK.includeUrls,
-      SK.includeRealStats,
-      SK.includeMovePowers,
-      SK.includeBulkStats,
-      SK.showdownPaste,
-      SK.calcAtkUrl,
-      SK.calcDefUrl,
-      SK.activeTab,
-    ],
-    function (got) {
-      if (chrome.runtime.lastError) {
-        return;
+  migrateSessionFormatToLocalIfNeeded(function () {
+    chrome.storage.local.get(FORMAT_LOCAL_OPT_KEYS, function (lgot) {
+      if (!chrome.runtime.lastError) {
+        applyFormatOptionsFromLocal(lgot);
       }
-      if (got[SK.urlInput] != null) urlInputEl.value = got[SK.urlInput];
-      if (typeof got[SK.includeUrls] === 'boolean') includeUrlsEl.checked = got[SK.includeUrls];
-      else includeUrlsEl.checked = true;
-      if (typeof got[SK.includeRealStats] === 'boolean') includeRealEl.checked = got[SK.includeRealStats];
-      if (typeof got[SK.includeMovePowers] === 'boolean') includeMovePowersEl.checked = got[SK.includeMovePowers];
-      else includeMovePowersEl.checked = false;
-      if (typeof got[SK.includeBulkStats] === 'boolean') includeBulkStatsEl.checked = got[SK.includeBulkStats];
-      else includeBulkStatsEl.checked = false;
-      if (typeof got[SK.showdownPaste] === 'boolean') showdownPasteEl.checked = got[SK.showdownPaste];
-      else showdownPasteEl.checked = false;
+      chrome.storage.session.get(
+        [SK.urlInput, SK.calcAtkUrl, SK.calcDefUrl, SK.activeTab],
+        function (got) {
+          if (chrome.runtime.lastError) {
+            return;
+          }
+          if (got[SK.urlInput] != null) urlInputEl.value = got[SK.urlInput];
 
-      if (got[SK.calcAtkUrl] != null) calcAtkUrlEl.value = got[SK.calcAtkUrl];
-      if (got[SK.calcDefUrl] != null) calcDefUrlEl.value = got[SK.calcDefUrl];
-      if (got[SK.activeTab] === 'calc') {
-        setCalcPanel(true);
-      }
+          if (got[SK.calcAtkUrl] != null) calcAtkUrlEl.value = got[SK.calcAtkUrl];
+          if (got[SK.calcDefUrl] != null) calcDefUrlEl.value = got[SK.calcDefUrl];
+          if (got[SK.activeTab] === 'calc') {
+            setCalcPanel(true);
+          }
 
-      if (urlInputEl.value.trim()) {
-        scheduleResolve();
-      } else {
-        renderOutput();
-      }
-    }
-  );
+          if (urlInputEl.value.trim()) {
+            scheduleResolve();
+          } else {
+            renderOutput();
+          }
+        }
+      );
+    });
+  });
 })();

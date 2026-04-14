@@ -412,6 +412,9 @@ importScripts('showdownPaste.js');
     if (m.indexOf('party_share_post_') === 0) {
       return '파티 URL을 서버에 등록하지 못했습니다. 로그인·네트워크를 확인하세요.';
     }
+    if (m === 'party_resolve_empty') {
+      return '파티를 등록했지만 변환용 데이터를 받지 못했습니다. 잠시 후 다시 시도해 주세요.';
+    }
     return m;
   }
 
@@ -619,7 +622,57 @@ importScripts('showdownPaste.js');
           };
           return fmt(pasteRaw, opts) || '';
         });
+        });
+    });
+  }
+
+  /** resolveShareInput 결과(파티) + 팀빌더 formatOptions → 팝업과 동일한 샘플/Showdown 문자열 */
+  function formatResolvedPartyShare(data, fo) {
+    fo = fo || {};
+    var pasteRaw = data && data.pasteRaw != null ? String(data.pasteRaw) : '';
+    var partyUrl = data && data.partyUrl != null ? String(data.partyUrl).trim() : '';
+    if (!partyUrl) {
+      return Promise.reject(new Error('party_resolve_empty'));
+    }
+
+    if (fo.showdownPaste) {
+      var slots = data.shareSlots;
+      if (!Array.isArray(slots) || slots.length === 0) {
+        return Promise.resolve(pasteRaw);
+      }
+      return Promise.all([ensureModifiersLoaded(), loadPasteBundleDocs()]).then(function (twice) {
+        var mod = twice[0];
+        var docs = twice[1];
+        var BSP = globalThis.buildShowdownPaste;
+        if (typeof BSP !== 'function') return pasteRaw;
+        var out = BSP(slots, {
+          modifiersDocument: mod,
+          moveKoDoc: docs.moveKoDoc,
+          moveSlugToEnDoc: docs.moveSlugToEnDoc,
+          natureKoDoc: docs.natureKoDoc,
+          itemKoDoc: docs.itemKoDoc,
+          abilityKoDoc: docs.abilityKoDoc,
+          typeKoDoc: docs.typeKoDoc,
+        });
+        return out || pasteRaw;
       });
+    }
+
+    return ensureModifiersLoaded().then(function (mod) {
+      var fmt = globalThis.formatSample;
+      if (typeof fmt !== 'function') return pasteRaw;
+      var opts = {
+        includeUrls: fo.includeUrls !== false,
+        includeRealStats: !!fo.includeRealStats,
+        includeMovePowers: !!fo.includeMovePowers,
+        includeBulkStats: !!fo.includeBulkStats,
+        partyUrl: partyUrl,
+        sampleUrls: Array.isArray(data.sampleUrls) ? data.sampleUrls : [],
+        blockMovePowers: data.blockMovePowers,
+        blockSpeciesTypes: data.blockSpeciesTypes,
+        modifiersDocument: mod,
+      };
+      return fmt(pasteRaw, opts) || '';
     });
   }
 
@@ -757,7 +810,16 @@ importScripts('showdownPaste.js');
 
       postSharePartyAll(originCp, pathnameCp, slotsCp)
         .then(function (partyUrl) {
-          sendResponse({ ok: true, partyUrl: partyUrl });
+          return resolveShareInput(partyUrl).then(function (data) {
+            var pu = data && data.partyUrl != null ? String(data.partyUrl).trim() : '';
+            if (!pu) {
+              return Promise.reject(new Error('party_resolve_empty'));
+            }
+            return formatResolvedPartyShare(data, msg.formatOptions || {});
+          });
+        })
+        .then(function (text) {
+          sendResponse({ ok: true, text: text != null ? String(text) : '' });
         })
         .catch(function (err) {
           sendResponse({
