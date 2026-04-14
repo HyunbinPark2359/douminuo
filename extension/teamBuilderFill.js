@@ -4,6 +4,7 @@
  * 성공: 버튼 피드백(스피너→체크 애니메이션 후 페이드). 오류: FAB 위 토스트.
  * 계산기 화면은 calcFill.js 와 같은 본문 휴리스틱으로 플로팅 숨김.
  * 슬롯 갱신: MutationObserver + hashchange.
+ * 슬롯 썸네일: teamBuilderBridge가 슬롯별 `pokemon.sprite`(PokeAPI raw)로 slotArt[6] 제공.
  */
 (function () {
   'use strict';
@@ -64,6 +65,7 @@
           ok: !!d.ok,
           slots: d.slots,
           filled: d.filled,
+          slotArt: d.slotArt,
           error: d.error,
         });
       }
@@ -136,6 +138,16 @@
       '<svg class="fab-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
       '<circle cx="12" cy="12" r="9" stroke-linecap="round" stroke-dasharray="14 32"/>' +
       '</svg></span>';
+    var BAN_SVG =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="9" />' +
+      '<path stroke-linecap="round" d="M7 7l10 10" />' +
+      '</svg>';
+    var BAN_SVG_SLIM =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="10" />' +
+      '<path d="M4.9 4.9l14.2 14.2" />' +
+      '</svg>';
     function fabFeedbackHtml() {
       return (
         '<span class="fab-btn-feedback" aria-hidden="true">' +
@@ -147,6 +159,31 @@
         '</span></span>' +
         '<span class="fab-fb-done"><span class="fab-fb-done-bg"></span><span class="fab-fb-done-ic">' +
         CHECK_SVG +
+        '</span></span>' +
+        '<span class="fab-fb-err"><span class="fab-fb-err-bg"></span><span class="fab-fb-err-ic">' +
+        BAN_SVG +
+        '</span></span></span>'
+      );
+    }
+    /** 슬롯만: 호버 시 복사 대신 회색 금지 아이콘(빈 칸용) */
+    function fabSlotFeedbackHtml() {
+      return (
+        '<span class="fab-btn-feedback" aria-hidden="true">' +
+        '<span class="fab-fb-hover"><span class="fab-fb-hover-bg"></span>' +
+        '<span class="fab-fb-hover-ic">' +
+        COPY_ICON_SVG +
+        '</span>' +
+        '<span class="fab-fb-hover-ban-ic">' +
+        BAN_SVG_SLIM +
+        '</span></span>' +
+        '<span class="fab-fb-busy"><span class="fab-fb-busy-bg"></span><span class="fab-fb-busy-ic">' +
+        SPINNER_SVG +
+        '</span></span>' +
+        '<span class="fab-fb-done"><span class="fab-fb-done-bg"></span><span class="fab-fb-done-ic">' +
+        CHECK_SVG +
+        '</span></span>' +
+        '<span class="fab-fb-err"><span class="fab-fb-err-bg"></span><span class="fab-fb-err-ic">' +
+        BAN_SVG +
         '</span></span></span>'
       );
     }
@@ -163,12 +200,19 @@
       '  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;' +
       '}' +
       '.fab-root.nuo-tb-off { opacity: 0; pointer-events: none; visibility: hidden; }' +
-      '.fab-error-toast {' +
-      '  max-width: min(280px, calc(100vw - 32px)); padding: 8px 10px; font-size: 12px; line-height: 1.35;' +
+      '.fab-per-btn-toast {' +
+      '  padding: 8px 10px; font-size: 12px; line-height: 1.35;' +
       '  color: #991b1b; background: #fff1f2; border: 1px solid #fecaca;' +
-      '  border-radius: 10px; word-break: keep-all; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);' +
+      '  border-radius: 10px; word-break: keep-all; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);' +
+      '  flex-shrink: 0; z-index: 6;' +
       '}' +
-      '.fab-error-toast.nuo-hidden { display: none; }' +
+      '.fab-per-btn-toast.nuo-hidden { display: none; }' +
+      '.fab-slot-row .fab-per-btn-toast {' +
+      '  max-width: min(220px, calc(100vw - 120px));' +
+      '}' +
+      '.fab-per-btn-toast--below {' +
+      '  max-width: min(280px, calc(100vw - 48px)); width: max-content; align-self: center;' +
+      '}' +
       '.fab-inner {' +
       '  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;' +
       '}' +
@@ -180,9 +224,24 @@
       '  position: relative; width: 72px; min-height: 72px; display: flex; flex-direction: column;' +
       '  align-items: center; justify-content: flex-end;' +
       '}' +
+      '.fab-party-wrap {' +
+      '  position: relative; display: flex; flex-direction: column; align-items: center; width: 72px;' +
+      '}' +
+      '.fab-slot-row {' +
+      '  position: relative; width: 72px; height: 56px; display: flex; align-items: center; justify-content: center;' +
+      '  flex-shrink: 0; overflow: visible;' +
+      '}' +
+      '.fab-slot-row .fab-per-btn-toast {' +
+      '  position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%);' +
+      '  text-align: left;' +
+      '}' +
+      '.fab-per-btn-toast--below {' +
+      '  position: static; margin-top: 8px; transform: none; text-align: center;' +
+      '}' +
       '.fab-slots {' +
       '  position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 1;' +
       '  display: flex; flex-direction: column; align-items: center; gap: 8px; width: 72px;' +
+      '  overflow: visible;' +
       '  opacity: 0; visibility: hidden; pointer-events: none;' +
       '  transition: opacity 0.15s ease, visibility 0.15s;' +
       '}' +
@@ -206,11 +265,23 @@
       '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite;' +
       '  transition: transform 0.22s ease, filter 0.2s ease, opacity 0.2s ease;' +
       '}' +
-      '.fab-btn.fab-copy-click-pulse:not(:disabled) {' +
-      '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite, fab-click-bounce 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);' +
-      '}' +
-      '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):hover {' +
+      '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):hover {' +
       '  transform: scale(1.06); filter: brightness(1.02) saturate(1.03);' +
+      '}' +
+      '/* 슬롯 빈/안빈·파티 동일: nuo-tb-glow + fab-click-bounce. 빈슬롯 기본 animation:none 은 !important 로 덮음 */' +
+      '.fab-btn.fab-copy-click-pulse:not(:disabled):not(.fab-copy-error) {' +
+      '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite, fab-click-bounce 0.1s cubic-bezier(0.22, 1, 0.36, 1) !important;' +
+      '}' +
+      '/* 눌림: 즉시 축소. 뗌 후에는 fab-copy-click-pulse 바운스로 복귀 */' +
+      '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):active,' +
+      '.fab-btn.fab-btn--press:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error) {' +
+      '  transform: scale(0.92); filter: brightness(0.98) saturate(0.98);' +
+      '  transition: none !important;' +
+      '}' +
+      '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):hover:active,' +
+      '.fab-btn.fab-btn--press:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):hover {' +
+      '  transform: scale(0.975); filter: brightness(1) saturate(1.01);' +
+      '  transition: none !important;' +
       '}' +
       '.fab-btn:disabled {' +
       '  cursor: not-allowed; opacity: 0.72; filter: saturate(0.45) brightness(0.96);' +
@@ -218,7 +289,39 @@
       '  background: linear-gradient(155deg, #f8fafc 0%, #e2e8f0 55%, #cbd5e1 100%);' +
       '  color: #64748b; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
       '}' +
-      '.fab-slot { width: 56px; height: 56px; border-radius: 50%; font-size: 15px; font-weight: 700; }' +
+      '.fab-slot { width: 56px; height: 56px; border-radius: 50%; font-size: 15px; font-weight: 700; overflow: hidden; }' +
+      '.fab-slot-label { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }' +
+      '.fab-slot-mon {' +
+      '  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);' +
+      '  max-width: 82%; max-height: 82%; width: auto; height: auto;' +
+      '  object-fit: contain; display: none; pointer-events: none;' +
+      '}' +
+      '.fab-slot.fab-slot--has-mon .fab-slot-mon { display: block; }' +
+      '.fab-slot.fab-slot--has-mon .fab-slot-fallback-num { display: none; }' +
+      '.fab-slot-fallback-num { pointer-events: none; }' +
+      '.fab-fb-hover-ban-ic {' +
+      '  display: none; position: relative; z-index: 1; align-items: center; justify-content: center;' +
+      '  width: 100%; height: 100%;' +
+      '}' +
+      '.fab-fb-hover-ban-ic svg {' +
+      '  width: 105%; height: 105%; max-width: none; max-height: none; flex-shrink: 0; color: #a8b3c4;' +
+      '}' +
+      '.fab-btn.fab-slot:not(.fab-slot--empty) .fab-fb-hover-ban-ic {' +
+      '  display: none !important;' +
+      '}' +
+      '.fab-btn.fab-slot.fab-slot--empty .fab-fb-hover-ic {' +
+      '  display: none !important;' +
+      '}' +
+      '.fab-btn.fab-slot.fab-slot--empty .fab-fb-hover-ban-ic {' +
+      '  display: flex;' +
+      '}' +
+      '.fab-btn.fab-slot.fab-slot--empty {' +
+      '  cursor: pointer;' +
+      '  animation: none !important;' +
+      '  opacity: 0.72; filter: saturate(0.45) brightness(0.96);' +
+      '  background: linear-gradient(155deg, #f8fafc 0%, #e2e8f0 55%, #cbd5e1 100%);' +
+      '  color: #64748b; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
+      '}' +
       '.fab-party {' +
       '  width: 72px; height: 72px; border-radius: 50%; font-size: 12px; font-weight: 800;' +
       '  letter-spacing: -0.02em;' +
@@ -250,12 +353,21 @@
       '}' +
       '.fab-settings-morph:focus-visible { outline: 2px solid #6eb0cc; outline-offset: 3px; }' +
       '.fab-btn-label { pointer-events: none; position: relative; z-index: 0; }' +
-      '@keyframes fab-spin-rot { to { transform: rotate(360deg); } }' +
+      '.fab-slot .fab-btn-label { position: absolute; inset: 0; }' +
       '@keyframes fab-click-bounce {' +
       '  0% { transform: scale(1); }' +
-      '  40% { transform: scale(0.9); }' +
+      '  9% { transform: scale(0.993); }' +
+      '  20% { transform: scale(0.982); }' +
+      '  32% { transform: scale(0.972); }' +
+      '  44% { transform: scale(0.964); }' +
+      '  52% { transform: scale(0.96); }' +
+      '  62% { transform: scale(0.966); }' +
+      '  73% { transform: scale(0.976); }' +
+      '  84% { transform: scale(0.988); }' +
+      '  93% { transform: scale(0.996); }' +
       '  100% { transform: scale(1); }' +
       '}' +
+      '@keyframes fab-spin-rot { to { transform: rotate(360deg); } }' +
       '@keyframes fab-fb-busy-out {' +
       '  from { opacity: 1; }' +
       '  to { opacity: 0; }' +
@@ -272,25 +384,37 @@
       '  from { transform: scale(0.28); opacity: 0; }' +
       '  to { transform: scale(1); opacity: 1; }' +
       '}' +
+      '@keyframes fab-err-shake-btn {' +
+      '  0%, 100% { transform: translateX(0); }' +
+      '  9% { transform: translateX(-9px); }' +
+      '  21% { transform: translateX(8px); }' +
+      '  33% { transform: translateX(-4.5px); }' +
+      '  45% { transform: translateX(3.5px); }' +
+      '  57% { transform: translateX(-2px); }' +
+      '  69% { transform: translateX(1.2px); }' +
+      '  81% { transform: translateX(-0.55px); }' +
+      '  91% { transform: translateX(0.25px); }' +
+      '}' +
       '.fab-btn-feedback {' +
       '  position: absolute; inset: 0; border-radius: inherit; z-index: 2; pointer-events: none;' +
       '  overflow: hidden;' +
       '}' +
-      '.fab-fb-hover, .fab-fb-busy, .fab-fb-done {' +
+      '.fab-fb-hover, .fab-fb-busy, .fab-fb-done, .fab-fb-err {' +
       '  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;' +
       '  border-radius: inherit; opacity: 0;' +
       '}' +
-      '.fab-fb-hover-bg, .fab-fb-busy-bg, .fab-fb-done-bg {' +
+      '.fab-fb-hover-bg, .fab-fb-busy-bg, .fab-fb-done-bg, .fab-fb-err-bg {' +
       '  position: absolute; inset: 0; border-radius: inherit;' +
       '}' +
       '.fab-fb-hover-bg { background: rgba(255, 255, 255, 0.52); }' +
       '.fab-fb-busy-bg { background: rgba(15, 23, 42, 0.28); }' +
       '.fab-fb-done-bg { background: rgba(255, 255, 255, 0.5); }' +
-      '.fab-fb-hover-ic, .fab-fb-busy-ic, .fab-fb-done-ic {' +
+      '.fab-fb-err-bg { background: rgba(15, 23, 42, 0.28); }' +
+      '.fab-fb-hover-ic, .fab-fb-busy-ic, .fab-fb-done-ic, .fab-fb-err-ic {' +
       '  position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;' +
       '  width: 100%; height: 100%;' +
       '}' +
-      '.fab-fb-hover-ic svg, .fab-fb-done-ic svg {' +
+      '.fab-fb-hover-ic svg, .fab-fb-done-ic svg, .fab-fb-err-ic svg {' +
       '  width: 46%; height: 46%; max-width: 34px; max-height: 34px; flex-shrink: 0;' +
       '}' +
       '.fab-spinner-wrap {' +
@@ -303,7 +427,9 @@
       '  transform-origin: 50% 50%;' +
       '}' +
       '.fab-fb-hover-ic svg { color: #475569; }' +
-      '.fab-fb-busy-ic svg, .fab-fb-done-ic svg { color: #64748b; }' +
+      '.fab-fb-busy-ic svg { color: #475569; }' +
+      '.fab-fb-done-ic svg { color: #16a34a; }' +
+      '.fab-fb-err-ic svg { color: #dc2626; }' +
       '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):hover .fab-fb-hover {' +
       '  opacity: 1; transition: opacity 0.14s ease;' +
       '}' +
@@ -319,6 +445,15 @@
       '  animation: fab-fb-done-layer 0.32s ease 0.1s forwards;' +
       '}' +
       '.fab-copy-success .fab-fb-done-ic { animation: fab-fb-check-pop 0.44s cubic-bezier(0.34, 1.45, 0.64, 1) 0.14s both; }' +
+      '.fab-btn.fab-copy-error:not(.fab-copy-dimout) {' +
+      '  animation: fab-err-shake-btn 0.42s cubic-bezier(0.32, 0.72, 0.27, 1) forwards;' +
+      '}' +
+      '.fab-copy-error .fab-fb-err {' +
+      '  opacity: 1; transition: opacity 0.1s ease;' +
+      '}' +
+      '.fab-copy-error .fab-fb-hover, .fab-copy-error .fab-fb-busy, .fab-copy-error .fab-fb-done {' +
+      '  opacity: 0 !important;' +
+      '}' +
       '.fab-copy-dimout .fab-btn-feedback { opacity: 0; transition: opacity 0.45s ease; }' +
       '.fab-settings-panel {' +
       '  position: absolute; left: 0; top: 0; width: 100%; padding: 0 10px; box-sizing: border-box;' +
@@ -365,7 +500,6 @@
       '.settings-hr { border: none; border-top: 1px solid #e2e8f0; margin: 0; flex-shrink: 0; cursor: default; }' +
       '</style>' +
       '<div class="fab-root nuo-tb-off" part="fab">' +
-      '  <div class="fab-error-toast nuo-hidden" id="errToast" role="alert" aria-live="assertive"></div>' +
       '  <div class="fab-inner" tabindex="-1">' +
       '    <div class="fab-dock" id="fabDock">' +
       '      <div class="fab-dock-main">' +
@@ -387,21 +521,24 @@
       '            </div>' +
       '          </div>' +
       '        </div>' +
-      '        <div class="fab-party-col">' +
-      '          <div class="fab-slots" id="fabSlots"></div>' +
-      '          <button type="button" class="fab-btn fab-party" id="fabPartyBtn" disabled' +
-      '            aria-label="현재 팀 파티 샘플 복사">' +
-      '            <span class="fab-btn-label">파티</span>' +
+        '        <div class="fab-party-col">' +
+        '          <div class="fab-slots" id="fabSlots"></div>' +
+        '          <div class="fab-party-wrap">' +
+        '          <button type="button" class="fab-btn fab-party" id="fabPartyBtn" disabled' +
+        '            aria-label="현재 팀 파티 샘플 복사">' +
+        '            <span class="fab-btn-label">파티</span>' +
       fabFeedbackHtml() +
-      '          </button>' +
-      '        </div>' +
+        '          </button>' +
+        '          <div class="fab-per-btn-toast fab-per-btn-toast--below nuo-hidden" id="fabPartyErrToast" role="alert" aria-live="assertive"></div>' +
+        '          </div>' +
+        '        </div>' +
       '      </div>' +
       '    </div>' +
       '  </div>' +
       '</div>';
 
     var fabRoot = root.querySelector('.fab-root');
-    var errToastEl = root.getElementById('errToast');
+    var partyToastEl = root.getElementById('fabPartyErrToast');
     var fabDock = root.getElementById('fabDock');
     var fabSlotsWrap = root.getElementById('fabSlots');
     var partyBtn = root.getElementById('fabPartyBtn');
@@ -413,22 +550,103 @@
     var optBulk = root.getElementById('optBulk');
     var optSd = root.getElementById('optSd');
     var slotBtns = [];
+    var slotToastEls = [];
+    var fabPressAnchor = null;
+    function fabPressAllowed(btn) {
+      if (!btn || btn.disabled) return false;
+      return (
+        !btn.classList.contains('fab-copy-loading') &&
+        !btn.classList.contains('fab-copy-success') &&
+        !btn.classList.contains('fab-copy-error')
+      );
+    }
+    function fabPressEnd() {
+      if (fabPressAnchor) {
+        try {
+          fabPressAnchor.classList.remove('fab-btn--press');
+        } catch (ePr) {}
+        fabPressAnchor = null;
+      }
+      document.removeEventListener('pointerup', fabPressEnd, true);
+      document.removeEventListener('pointercancel', fabPressEnd, true);
+    }
+    function fabPressDetachIf(btn) {
+      if (!btn) return;
+      if (fabPressAnchor === btn) fabPressEnd();
+      else {
+        try {
+          btn.classList.remove('fab-btn--press');
+        } catch (ePd) {}
+      }
+    }
+    function bindFabPressBehavior(btn) {
+      btn.addEventListener(
+        'pointerdown',
+        function (ev) {
+          if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+          if (!fabPressAllowed(btn)) return;
+          if (fabPressAnchor && fabPressAnchor !== btn) fabPressEnd();
+          fabPressAnchor = btn;
+          btn.classList.add('fab-btn--press');
+          document.addEventListener('pointerup', fabPressEnd, true);
+          document.addEventListener('pointercancel', fabPressEnd, true);
+        },
+        true
+      );
+    }
+
+    /** 클릭 바운스(안빈슬롯·빈슬롯·파티 공통): 리플로우로 연타 시에도 애니 재시작 */
+    function fabTriggerClickBounce(btn) {
+      if (!btn || btn.disabled || btn.classList.contains('fab-copy-error')) return;
+      try {
+        btn.classList.remove('fab-copy-click-pulse');
+      } catch (eTb) {}
+      try {
+        void btn.offsetWidth;
+      } catch (eOf) {}
+      try {
+        btn.classList.add('fab-copy-click-pulse');
+      } catch (eAdd) {}
+      setTimeout(function () {
+        try {
+          btn.classList.remove('fab-copy-click-pulse');
+        } catch (eRm) {}
+      }, 130);
+    }
 
     var bi;
     for (bi = 0; bi < 6; bi++) {
       (function (idx1) {
+        var row = document.createElement('div');
+        row.className = 'fab-slot-row';
+        var toastEl = document.createElement('div');
+        toastEl.className = 'fab-per-btn-toast nuo-hidden';
+        toastEl.setAttribute('role', 'alert');
+        toastEl.setAttribute('aria-live', 'assertive');
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'fab-btn fab-slot';
-        b.innerHTML = '<span class="fab-btn-label">' + idx1 + '</span>' + fabFeedbackHtml();
+        b.innerHTML =
+          '<span class="fab-btn-label fab-slot-label">' +
+          '<img class="fab-slot-mon" alt="" decoding="async" />' +
+          '<span class="fab-slot-fallback-num">' +
+          idx1 +
+          '</span></span>' +
+          fabSlotFeedbackHtml();
         b.setAttribute('aria-label', '#' + idx1 + ' 슬롯 요약 샘플 복사');
         b.disabled = true;
         b.addEventListener('click', function (ev) {
           ev.stopPropagation();
-          if (b.disabled) return;
+          if (b.classList.contains('fab-slot--empty')) {
+            fabTriggerClickBounce(b);
+            return;
+          }
           runCopySlot(idx1, b);
         });
-        fabSlotsWrap.appendChild(b);
+        row.appendChild(toastEl);
+        row.appendChild(b);
+        fabSlotsWrap.appendChild(row);
+        slotToastEls.push(toastEl);
         slotBtns.push(b);
       })(bi + 1);
     }
@@ -437,6 +655,10 @@
       ev.stopPropagation();
       runCopyPartyShareUrl(partyBtn);
     });
+    bindFabPressBehavior(partyBtn);
+    for (bi = 0; bi < slotBtns.length; bi++) {
+      bindFabPressBehavior(slotBtns[bi]);
+    }
 
     var dockCloseTimer = null;
     function cancelFabDockCloseTimer() {
@@ -621,7 +843,10 @@
     syncFormatOptionsFromLocal();
 
     var bridgeReady = false;
-    var errHideTimer = null;
+    var errTimerMap = new Map();
+    /** 금지 아이콘 전체 표시(흔들림 후 유지) 후 dimout까지 — 성공 체크보다 0.5s 짧게 */
+    var ERR_FEEDBACK_HOLD_MS = 1500;
+    var ERR_FEEDBACK_FADE_MS = 480;
     var successHoldTimer = null;
     var successFadeTimer = null;
     var successFlashBtn = null;
@@ -630,24 +855,66 @@
       fabRoot.classList.toggle('nuo-tb-off', !on);
     }
 
-    function clearErrorToast() {
-      if (errHideTimer) {
-        clearTimeout(errHideTimer);
-        errHideTimer = null;
-      }
-      errToastEl.textContent = '';
-      errToastEl.classList.add('nuo-hidden');
+    function getToastByButton(btn) {
+      if (!btn) return null;
+      if (btn === partyBtn) return partyToastEl;
+      var ix = slotBtns.indexOf(btn);
+      return ix >= 0 ? slotToastEls[ix] : null;
     }
 
-    function showErrorToast(msg) {
-      clearErrorToast();
-      errToastEl.textContent = msg != null ? String(msg) : '';
-      errToastEl.classList.remove('nuo-hidden');
-      errHideTimer = setTimeout(function () {
-        errHideTimer = null;
-        errToastEl.textContent = '';
-        errToastEl.classList.add('nuo-hidden');
-      }, 3500);
+    function clearErrTimersForButton(btn) {
+      if (!btn) return;
+      var t = errTimerMap.get(btn);
+      if (!t) return;
+      if (t.hold) clearTimeout(t.hold);
+      if (t.fade) clearTimeout(t.fade);
+      errTimerMap.delete(btn);
+    }
+
+    /** 해당 버튼의 오류 토스트·금지 아이콘만 정리 (다른 슬롯은 유지) */
+    function clearErrorVisualForButton(btn) {
+      clearErrTimersForButton(btn);
+      var toastEl = getToastByButton(btn);
+      if (toastEl) {
+        toastEl.textContent = '';
+        toastEl.classList.add('nuo-hidden');
+      }
+      if (btn) {
+        btn.classList.remove('fab-copy-error', 'fab-copy-dimout');
+      }
+    }
+
+    function clearAllErrorToasts() {
+      var i;
+      for (i = 0; i < slotBtns.length; i++) {
+        clearErrorVisualForButton(slotBtns[i]);
+      }
+      clearErrorVisualForButton(partyBtn);
+    }
+
+    /**
+     * 버튼별 독립 토스트 + 금지 아이콘. 토스트는 홀드 종료 시 바로 숨김(페이드 없음).
+     * 금지 레이어는 ERR_FEEDBACK_HOLD_MS 후 dimout → ERR_FEEDBACK_FADE_MS 후 정리.
+     */
+    function showErrorToastNearButton(anchorBtn, msg) {
+      if (!anchorBtn) return;
+      var toastEl = getToastByButton(anchorBtn);
+      if (!toastEl) return;
+      clearErrTimersForButton(anchorBtn);
+      anchorBtn.classList.remove('fab-copy-dimout');
+      anchorBtn.classList.add('fab-copy-error');
+      toastEl.textContent = msg != null ? String(msg) : '';
+      toastEl.classList.remove('nuo-hidden');
+      var hold = setTimeout(function () {
+        toastEl.textContent = '';
+        toastEl.classList.add('nuo-hidden');
+        anchorBtn.classList.add('fab-copy-dimout');
+        var fade = setTimeout(function () {
+          clearErrorVisualForButton(anchorBtn);
+        }, ERR_FEEDBACK_FADE_MS);
+        errTimerMap.set(anchorBtn, { hold: null, fade: fade });
+      }, ERR_FEEDBACK_HOLD_MS);
+      errTimerMap.set(anchorBtn, { hold: hold, fade: null });
     }
 
     function clearCopyUiTimers() {
@@ -663,7 +930,14 @@
 
     function clearCopySuccessVisual(btn) {
       if (!btn) return;
-      btn.classList.remove('fab-copy-success', 'fab-copy-dimout', 'fab-copy-loading', 'fab-copy-click-pulse');
+      fabPressDetachIf(btn);
+      btn.classList.remove(
+        'fab-copy-success',
+        'fab-copy-dimout',
+        'fab-copy-loading',
+        'fab-copy-click-pulse',
+        'fab-copy-error'
+      );
       try {
         btn.removeAttribute('aria-busy');
       } catch (eAbs) {}
@@ -671,19 +945,16 @@
 
     function startCopyFeedback(btn) {
       if (!btn) return;
+      fabPressDetachIf(btn);
       clearCopyUiTimers();
+      clearErrorVisualForButton(btn);
       if (successFlashBtn && successFlashBtn !== btn) {
         clearCopySuccessVisual(successFlashBtn);
       }
       successFlashBtn = btn;
-      btn.classList.remove('fab-copy-success', 'fab-copy-dimout');
+      btn.classList.remove('fab-copy-success', 'fab-copy-dimout', 'fab-copy-error');
       btn.classList.add('fab-copy-loading');
-      btn.classList.add('fab-copy-click-pulse');
-      setTimeout(function () {
-        try {
-          btn.classList.remove('fab-copy-click-pulse');
-        } catch (ePulse) {}
-      }, 240);
+      fabTriggerClickBounce(btn);
       try {
         btn.setAttribute('aria-busy', 'true');
       } catch (eBusy) {}
@@ -701,7 +972,7 @@
     function finishCopySuccess(btn) {
       if (!btn) return;
       clearCopyUiTimers();
-      btn.classList.remove('fab-copy-loading');
+      btn.classList.remove('fab-copy-loading', 'fab-copy-error');
       try {
         btn.removeAttribute('aria-busy');
       } catch (eOk) {}
@@ -756,7 +1027,43 @@
       var i;
       for (i = 0; i < 6; i++) {
         var on = filled && filled[i] === true;
-        slotBtns[i].disabled = !on;
+        slotBtns[i].disabled = false;
+        slotBtns[i].classList.toggle('fab-slot--empty', !on);
+      }
+    }
+
+    function applySlotVisuals(slotArt, filled) {
+      var i;
+      for (i = 0; i < 6; i++) {
+        var btn = slotBtns[i];
+        var img = btn.querySelector('.fab-slot-mon');
+        if (!img) continue;
+        var hasFill = filled && filled[i] === true;
+        var url = hasFill && slotArt && slotArt[i] ? String(slotArt[i]).trim() : '';
+        btn.classList.remove('fab-slot--has-mon');
+        img.onload = null;
+        img.onerror = null;
+        if (!url) {
+          img.removeAttribute('src');
+          continue;
+        }
+        img.onload = (function (im, b, u) {
+          return function () {
+            if (im.getAttribute('src') !== u) return;
+            if (im.naturalWidth > 0) b.classList.add('fab-slot--has-mon');
+          };
+        })(img, btn, url);
+        img.onerror = (function (im, b) {
+          return function () {
+            im.removeAttribute('src');
+            b.classList.remove('fab-slot--has-mon');
+          };
+        })(img, btn);
+        if (img.getAttribute('src') === url) {
+          if (img.complete && img.naturalWidth > 0) btn.classList.add('fab-slot--has-mon');
+        } else {
+          img.src = url;
+        }
       }
     }
 
@@ -784,12 +1091,12 @@
         }
         setFabVisible(true);
         applyFilledState(r.filled);
+        applySlotVisuals(r.slotArt, r.filled);
         setPartyButtonEnabled(true);
       });
     }
 
     function runCopyPartyShareUrl(sourceBtn) {
-      clearErrorToast();
       if (isLikelyCalculatorView()) return;
       var fbBtn = sourceBtn || partyBtn;
       startCopyFeedback(fbBtn);
@@ -808,19 +1115,19 @@
             },
             function (bg) {
               if (chrome.runtime.lastError) {
-                showErrorToast(chrome.runtime.lastError.message || '오류');
                 finishCopyError(fbBtn);
+                showErrorToastNearButton(fbBtn, chrome.runtime.lastError.message || '오류');
                 return;
               }
               if (!bg || !bg.ok) {
-                showErrorToast((bg && bg.error) || '처리하지 못했습니다.');
                 finishCopyError(fbBtn);
+                showErrorToastNearButton(fbBtn, (bg && bg.error) || '처리하지 못했습니다.');
                 return;
               }
               var t = bg.text != null ? String(bg.text) : '';
               if (!t) {
-                showErrorToast('출력이 비었습니다.');
                 finishCopyError(fbBtn);
+                showErrorToastNearButton(fbBtn, '출력이 비었습니다.');
                 return;
               }
               copyTextBestEffort(t);
@@ -832,20 +1139,19 @@
     }
 
     function runCopySlot(idx1, sourceBtn) {
-      clearErrorToast();
       if (isLikelyCalculatorView()) return;
       var fbBtn = sourceBtn || slotBtns[idx1 - 1];
       startCopyFeedback(fbBtn);
 
       getSlotsFromBridge().then(function (r) {
         if (!r || !r.ok || !r.slots) {
-          showErrorToast('슬롯을 읽지 못했습니다.');
           finishCopyError(fbBtn);
+          showErrorToastNearButton(fbBtn, '슬롯을 읽지 못했습니다.');
           return;
         }
         if (!r.filled || !r.filled[idx1 - 1]) {
-          showErrorToast('빈 슬롯입니다.');
           finishCopyError(fbBtn);
+          showErrorToastNearButton(fbBtn, '빈 슬롯입니다.');
           return;
         }
         var slotData = r.slots[idx1 - 1];
@@ -861,19 +1167,19 @@
             },
             function (bg) {
               if (chrome.runtime.lastError) {
-                showErrorToast(chrome.runtime.lastError.message || '오류');
                 finishCopyError(fbBtn);
+                showErrorToastNearButton(fbBtn, chrome.runtime.lastError.message || '오류');
                 return;
               }
               if (!bg || !bg.ok) {
-                showErrorToast((bg && bg.error) || '변환 실패');
                 finishCopyError(fbBtn);
+                showErrorToastNearButton(fbBtn, (bg && bg.error) || '변환 실패');
                 return;
               }
               var t = bg.text != null ? String(bg.text) : '';
               if (!t) {
-                showErrorToast('출력이 비었습니다.');
                 finishCopyError(fbBtn);
+                showErrorToastNearButton(fbBtn, '출력이 비었습니다.');
                 return;
               }
               copyTextBestEffort(t);
@@ -908,6 +1214,7 @@
     });
 
     return function teardown() {
+      clearAllErrorToasts();
       clearCopyUiTimers();
       clearCopySuccessVisual(successFlashBtn);
       successFlashBtn = null;

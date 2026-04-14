@@ -1,5 +1,6 @@
 /**
  * 팀빌더(MAIN). Vue2/3 + store 깊이 스캔으로 파티 슬롯(최대 6) 후보를 찾음.
+ * NUO_TEAM_SLOTS_REPLY.slotArt: PokeAPI raw PNG 우선, 없으면 smartnuo.com/upload/sprite/… 허용. 빈 칸은 ''.
  */
 (function () {
   if (window.__NUO_TEAM_BUILDER_BRIDGE_V3__) return;
@@ -323,6 +324,116 @@
     }
   }
 
+  /**
+   * 누오가 주는 스프라이트는 보통
+   * raw.githubusercontent.com/PokeAPI/sprites/master/.../sprites/pokemon/.../*.png
+   * 이지만 메가·폼 등은 pokemon/ 아래 서브디렉터리나 http·// 프로토콜일 수 있어 넓게 허용한다.
+   */
+  function normalizeAndValidatePokeapiRawSpriteUrl(raw) {
+    if (raw == null || typeof raw !== 'string') return '';
+    var u = raw.trim();
+    if (!u || u.length > 900) return '';
+    if (u.indexOf('//') === 0) {
+      u = (typeof location !== 'undefined' && location.protocol ? location.protocol : 'https:') + u;
+    }
+    try {
+      var parsed = new URL(u);
+      if ((parsed.protocol || '').toLowerCase() !== 'http:' && (parsed.protocol || '').toLowerCase() !== 'https:') {
+        return '';
+      }
+      if ((parsed.hostname || '').toLowerCase() !== 'raw.githubusercontent.com') return '';
+      var path = parsed.pathname || '';
+      if (!/\/sprites\/pokemon\//i.test(path)) return '';
+      if (!/\.png$/i.test(path)) return '';
+      return parsed.href;
+    } catch (e0) {
+      return '';
+    }
+  }
+
+  /** 신규 포켓몬 등 PokeAPI에 없을 때 누오 자체 업로드 스프라이트 (upload/sprite/...png) */
+  function normalizeAndValidateSmartnuoSpriteUrl(raw) {
+    if (raw == null || typeof raw !== 'string') return '';
+    var u = raw.trim();
+    if (!u || u.length > 900) return '';
+    if (u.indexOf('//') === 0) {
+      u = (typeof location !== 'undefined' && location.protocol ? location.protocol : 'https:') + u;
+    }
+    try {
+      var parsed = new URL(u);
+      if ((parsed.protocol || '').toLowerCase() !== 'http:' && (parsed.protocol || '').toLowerCase() !== 'https:') {
+        return '';
+      }
+      var host = (parsed.hostname || '').toLowerCase();
+      if (host !== 'smartnuo.com' && host !== 'www.smartnuo.com') return '';
+      var path = parsed.pathname || '';
+      if (path.indexOf('..') !== -1) return '';
+      var pl = path.toLowerCase();
+      if (pl.indexOf('/upload/sprite/') !== 0) return '';
+      if (!/\.png$/i.test(path)) return '';
+      return parsed.href;
+    } catch (eSn) {
+      return '';
+    }
+  }
+
+  function pushIfString(arr, v) {
+    if (v != null && typeof v === 'string' && v.trim()) arr.push(v);
+  }
+
+  function spriteCandidateStringsFromSlot(slot) {
+    var out = [];
+    var p = pokemonBlockFromSlot(slot);
+    if (p) {
+      pushIfString(out, p.sprite);
+      pushIfString(out, p.customSprite);
+      pushIfString(out, p.custom_sprite);
+      pushIfString(out, p.dotSprite);
+      pushIfString(out, p.dot_sprite);
+      pushIfString(out, p.spriteUrl);
+      pushIfString(out, p.sprite_url);
+    }
+    if (slot && typeof slot === 'object') {
+      pushIfString(out, slot.sprite);
+      pushIfString(out, slot.customSprite);
+      pushIfString(out, slot.custom_sprite);
+    }
+    return out;
+  }
+
+  function pokemonBlockFromSlot(slot) {
+    if (!slot || typeof slot !== 'object') return null;
+    var p = slot.pokemon || slot.mon || slot.poke;
+    if (!p && slot.data && typeof slot.data === 'object' && !Array.isArray(slot.data)) {
+      p = slot.data.pokemon || slot.data.mon || slot.data.poke;
+    }
+    if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
+    return p;
+  }
+
+  /** 슬롯 i → 누오 스프라이트 URL(PokeAPI raw 우선, 없으면 smartnuo.com/upload/sprite/). 빈/무효는 ''. */
+  function spriteUrlFromSlot(slot) {
+    if (slotEmpty(slot)) return '';
+    var cand = spriteCandidateStringsFromSlot(slot);
+    var i;
+    for (i = 0; i < cand.length; i++) {
+      var gh = normalizeAndValidatePokeapiRawSpriteUrl(cand[i]);
+      if (gh) return gh;
+      var sn = normalizeAndValidateSmartnuoSpriteUrl(cand[i]);
+      if (sn) return sn;
+    }
+    return '';
+  }
+
+  function buildSlotArtUrls(slots) {
+    var out = [];
+    var i;
+    for (i = 0; i < 6; i++) {
+      out.push(spriteUrlFromSlot(slots[i]));
+    }
+    return out;
+  }
+
   window.addEventListener('message', function (ev) {
     var d = ev.data;
     if (!d || d.source !== MSG_EXT || d.type !== 'NUO_TEAM_GET_SLOTS') return;
@@ -364,6 +475,12 @@
     for (i = 0; i < 6; i++) {
       filled.push(!slotEmpty(slots[i]));
     }
+    var slotArt;
+    try {
+      slotArt = buildSlotArtUrls(slots);
+    } catch (eArt) {
+      slotArt = ['', '', '', '', '', ''];
+    }
     window.postMessage(
       {
         source: MSG_BRIDGE,
@@ -372,6 +489,7 @@
         ok: true,
         slots: cloned,
         filled: filled,
+        slotArt: slotArt,
       },
       '*'
     );
@@ -381,6 +499,13 @@
     var s = pickBestSlots();
     console.log('[nuo-fmt] team slots picked, filled:', s ? filledCount(s) : 0, s);
     return s;
+  };
+
+  window.__NUO_DUMP_SLOT_ART = function () {
+    var s = pickBestSlots();
+    var art = s ? buildSlotArtUrls(s) : null;
+    console.log('[nuo-fmt] slotArt (pokemon.sprite only):', art);
+    return art;
   };
 
   /** 콘솔 디버그: 점수 상위 후보 배열과 첫 원소 키 요약 */
