@@ -735,6 +735,61 @@ importScripts('showdownPaste.js');
       return true;
     }
 
+    if (msg.type === 'ANNOTATE_BUILDER_SLOT') {
+      var slotAn = msg.slotData;
+      if (!slotAn || SR.isSlotEmpty(slotAn)) {
+        sendResponse({
+          ok: true,
+          empty: true,
+          movePowerSuffixes: [null, null, null, null],
+          bulkText: '',
+          bulkCompact: '',
+        });
+        return true;
+      }
+      computeBlockPowersForSlot(slotAn)
+        .then(function (pack) {
+          return ensureModifiersLoaded().then(function (mod) {
+            var FBL = globalThis.formatBulkLinesFromReals;
+            var MPS = globalThis.movePowerSuffixFormatter;
+            var reals = SR.realByLetterFromSlot(slotAn);
+            var flat = SR.flattenSlot(slotAn);
+            var itemRaw = SR.str(flat.equipment || flat.item || flat.Item || flat.hold);
+            var abilityRaw = SR.str(flat.ability || flat.ab || flat.Ability);
+            var titleCtx =
+              SR.str(SR.titleRest(flat)) + '\n' + SR.str(SR.speciesNameLine(flat));
+            var bulkText =
+              typeof FBL === 'function'
+                ? FBL(reals, true, mod, itemRaw, abilityRaw, titleCtx, pack.speciesTypesEn) || ''
+                : '';
+            var FBCS = globalThis.formatBulkCompactSlash;
+            var bulkCompact =
+              typeof FBCS === 'function'
+                ? FBCS(reals, true, mod, itemRaw, abilityRaw, titleCtx, pack.speciesTypesEn) || ''
+                : '';
+            var suff = [];
+            var mp = pack.movePowers || [];
+            var mi;
+            for (mi = 0; mi < 4; mi++) {
+              suff.push(typeof MPS === 'function' ? MPS(mp[mi]) : null);
+            }
+            sendResponse({
+              ok: true,
+              movePowerSuffixes: suff,
+              bulkText: bulkText,
+              bulkCompact: bulkCompact,
+            });
+          });
+        })
+        .catch(function (err) {
+          sendResponse({
+            ok: false,
+            error: mapShareError(err) || String((err && err.message) || err),
+          });
+        });
+      return true;
+    }
+
     if (msg.type === 'GET_CALC_PAYLOADS') {
       var CP = globalThis.nuoCalcPayload;
       if (!CP || typeof CP.buildSidePayloads !== 'function') {

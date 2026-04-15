@@ -5,6 +5,7 @@
  * 계산기 화면은 calcFill.js 와 같은 본문 휴리스틱으로 플로팅 숨김.
  * 슬롯 갱신: MutationObserver + hashchange.
  * 슬롯 썸네일: teamBuilderBridge가 슬롯별 `pokemon.sprite`(PokeAPI raw)로 slotArt[6] 제공.
+ * 좌측 샘플 목록: 슬롯 스프라이트 URL로 카드 매칭 후 기술명 옆 결정력·하단 내구력 인라인 주입(FAB 토글과 무관).
  */
 (function () {
   'use strict';
@@ -1368,6 +1369,404 @@
     };
   }
 
+  /** ─── 팀빌더 좌측 샘플 카드 인라인: 결정력(기술명 직후) · 우상단 물리/특수 내구 ─── */
+  var TB_INLINE_STYLE_ID = 'nuo-fmt-tb-inline-annot-style';
+  var LOCAL_TB_INLINE = 'nuo_fmt_teamBuilderInlineAnnotate';
+  var tbInlineGen = 0;
+  var tbInlineTimer = null;
+  var tbInlineMo = null;
+  var tbInlineAnnotInited = false;
+  var tbInlineHandlersWired = false;
+  var tbInlineOptEnabled = true;
+
+  function refreshTbInlineOpt(done) {
+    chrome.storage.local.get([LOCAL_TB_INLINE], function (got) {
+      if (chrome.runtime.lastError) {
+        tbInlineOptEnabled = true;
+      } else {
+        tbInlineOptEnabled = got[LOCAL_TB_INLINE] !== false;
+      }
+      if (typeof done === 'function') done();
+    });
+  }
+
+  function ensureTbInlineStyle() {
+    if (document.getElementById(TB_INLINE_STYLE_ID)) return;
+    var st = document.createElement('style');
+    st.id = TB_INLINE_STYLE_ID;
+    st.textContent =
+      '.nuo-fmt-tb-ann{font-size:9px;font-weight:400;color:#64748b;white-space:nowrap;display:inline;}' +
+      '.nuo-fmt-tb-bulk-corner{position:absolute;top:4px;right:6px;font-size:9px;font-weight:400;color:#64748b;line-height:1.2;text-align:right;white-space:nowrap;pointer-events:none;z-index:4;}';
+    document.head.appendChild(st);
+  }
+
+  function clearTbInlineAnnotations() {
+    document.querySelectorAll('[data-nuo-tb-ann="1"]').forEach(function (n) {
+      try {
+        if (n.parentNode) n.parentNode.removeChild(n);
+      } catch (e) {}
+    });
+  }
+
+  function tbExtHostSelector() {
+    return '#nuo-fmt-team-float-host, #nuo-fmt-calc-panel-host';
+  }
+
+  function isInTbExtHost(el) {
+    if (!el || typeof el.closest !== 'function') return false;
+    return !!el.closest(tbExtHostSelector());
+  }
+
+  function normalizeSpritePath(u) {
+    if (!u) return '';
+    try {
+      var a = document.createElement('a');
+      a.href = u;
+      return (a.pathname || '') + (a.search || '');
+    } catch (e) {
+      return String(u).replace(/\?[^#]*$/, '');
+    }
+  }
+
+  function srcMatchesSprite(imgSrc, targetUrl) {
+    if (!imgSrc || !targetUrl) return false;
+    var a = normalizeSpritePath(imgSrc);
+    var b = normalizeSpritePath(targetUrl);
+    if (a === b) return true;
+    var fa = a.split('/').pop() || '';
+    var fb = b.split('/').pop() || '';
+    return (
+      (fa && fb && fa === fb) ||
+      (fa && b.indexOf(fa) !== -1) ||
+      (fb && a.indexOf(fb) !== -1)
+    );
+  }
+
+  function tbAllPageImgs() {
+    return Array.prototype.slice
+      .call(document.querySelectorAll('img[src]'))
+      .filter(function (im) {
+        return !isInTbExtHost(im);
+      });
+  }
+
+  function tbImgsMatchingUrl(wantUrl) {
+    return tbAllPageImgs().filter(function (im) {
+      return srcMatchesSprite(im.getAttribute('src') || im.src || '', wantUrl);
+    });
+  }
+
+  function compareTbImgPosition(a, b) {
+    var ra = a.getBoundingClientRect();
+    var rb = b.getBoundingClientRect();
+    if (Math.abs(ra.top - rb.top) > 10) return ra.top - rb.top;
+    return ra.left - rb.left;
+  }
+
+  /** 슬롯 0..5 → 해당 스프라이트 img(동종 연속 URL은 화면 위→좌 순으로 매칭) */
+  function mapSlotsToSampleImgs(slotArt, filled) {
+    var slotToUrl = [];
+    var i;
+    for (i = 0; i < 6; i++) {
+      slotToUrl[i] = filled[i] && slotArt && slotArt[i] ? String(slotArt[i]).trim() : '';
+    }
+    var byUrl = {};
+    for (i = 0; i < 6; i++) {
+      var u = slotToUrl[i];
+      if (!u) continue;
+      if (!byUrl[u]) byUrl[u] = [];
+      byUrl[u].push(i);
+    }
+    var out = [null, null, null, null, null, null];
+    for (var url in byUrl) {
+      if (!Object.prototype.hasOwnProperty.call(byUrl, url)) continue;
+      var indices = byUrl[url];
+      var imgs = tbImgsMatchingUrl(url).sort(compareTbImgPosition);
+      var j;
+      for (j = 0; j < indices.length && j < imgs.length; j++) {
+        out[indices[j]] = imgs[j];
+      }
+    }
+    return out;
+  }
+
+  function moveDisplayNamesFromSlot(slotData) {
+    var s =
+      slotData && slotData.pokemon && typeof slotData.pokemon === 'object'
+        ? Object.assign({}, slotData.pokemon, slotData)
+        : slotData || {};
+    if (s.movesKr && Array.isArray(s.movesKr) && s.movesKr.length) {
+      var ok = ['', '', '', ''];
+      var k;
+      for (k = 0; k < 4 && k < s.movesKr.length; k++) ok[k] = String(s.movesKr[k] || '').trim();
+      return ok;
+    }
+    var poke = slotData && slotData.pokemon;
+    if (!poke || !Array.isArray(poke.moves)) return ['', '', '', ''];
+    var out = ['', '', '', ''];
+    var i;
+    for (i = 0; i < 4 && i < poke.moves.length; i++) {
+      var mv = poke.moves[i];
+      if (mv == null) {
+        out[i] = '';
+        continue;
+      }
+      if (typeof mv === 'string') {
+        out[i] = String(mv).trim();
+        continue;
+      }
+      out[i] = String(
+        mv.name_ko ||
+          mv.nameKo ||
+          mv.name_kr ||
+          mv.nameKr ||
+          mv.koName ||
+          mv.label ||
+          mv.name ||
+          mv.title ||
+          ''
+      ).trim();
+    }
+    return out;
+  }
+
+  function findExactTextNodeHost(root, text) {
+    var want = String(text || '').trim();
+    if (!want || want === '--' || want.length > 48) return null;
+    var nodes = root.querySelectorAll('span, div, button, a, p, td, li, label, h3, h4, strong, em');
+    var i;
+    for (i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (isInTbExtHost(el)) continue;
+      if (el.querySelector('.nuo-fmt-tb-ann')) continue;
+      if (el.textContent.trim() !== want) continue;
+      if (el.children.length > 6) continue;
+      return el;
+    }
+    return null;
+  }
+
+  function findBestCardRootForMoves(imgEl, moveNames) {
+    var want = moveNames.filter(function (x) {
+      return x && x !== '--';
+    });
+    if (!want.length) return imgEl.parentElement || imgEl;
+    var p = imgEl;
+    var depth = 0;
+    var best = imgEl.parentElement || imgEl;
+    var bestScore = -1;
+    while (p && p !== document.body && depth < 14) {
+      var score = 0;
+      var w;
+      for (w = 0; w < want.length; w++) {
+        if (findExactTextNodeHost(p, want[w])) score++;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = p;
+      }
+      p = p.parentElement;
+      depth++;
+    }
+    return best;
+  }
+
+  function requestSlotAnnot(slotData) {
+    return new Promise(function (resolve) {
+      chrome.runtime.sendMessage({ type: 'ANNOTATE_BUILDER_SLOT', slotData: slotData }, function (r) {
+        if (chrome.runtime.lastError) {
+          resolve(null);
+          return;
+        }
+        resolve(r && r.ok ? r : null);
+      });
+    });
+  }
+
+  function applyMovePowerSuffixes(cardRoot, moveNames, suff) {
+    if (!Array.isArray(suff)) return;
+    var mi;
+    for (mi = 0; mi < 4; mi++) {
+      var suf = suff[mi];
+      if (!suf) continue;
+      var name = moveNames[mi];
+      if (!name || name === '--') continue;
+      var el = findExactTextNodeHost(cardRoot, name);
+      if (!el) continue;
+      if (el.querySelector('.nuo-fmt-tb-ann')) continue;
+      var span = document.createElement('span');
+      span.className = 'nuo-fmt-tb-ann';
+      span.setAttribute('data-nuo-tb-ann', '1');
+      span.textContent = '\u00a0' + suf;
+      el.appendChild(span);
+    }
+  }
+
+  /** 물리내구/특수내구 최종값만 `숫자/숫자`, 슬롯 카드 우상단 */
+  function applyBulkCorner(cardRoot, bulkCompact) {
+    if (!bulkCompact || !String(bulkCompact).trim()) return;
+    try {
+      var cs = window.getComputedStyle(cardRoot);
+      if (cs.position === 'static') {
+        cardRoot.style.position = 'relative';
+        cardRoot.setAttribute('data-nuo-tb-rel', '1');
+      }
+    } catch (ePos) {}
+    var div = document.createElement('div');
+    div.className = 'nuo-fmt-tb-bulk-corner';
+    div.setAttribute('data-nuo-tb-ann', '1');
+    div.textContent = String(bulkCompact).trim();
+    cardRoot.appendChild(div);
+  }
+
+  function scheduleTeamBuilderInlineAnnotate() {
+    if (!isSmartnuoHost()) return;
+    if (!tbInlineOptEnabled) return;
+    clearTimeout(tbInlineTimer);
+    tbInlineTimer = setTimeout(function () {
+      runTeamBuilderInlineAnnotate();
+    }, 520);
+  }
+
+  function tbReconnectMo() {
+    try {
+      if (tbInlineMo && document.body) {
+        tbInlineMo.observe(document.body, { childList: true, subtree: true, characterData: true });
+      }
+    } catch (eRe) {}
+  }
+
+  function runTeamBuilderInlineAnnotate() {
+    if (!isSmartnuoHost()) return;
+    if (!tbInlineOptEnabled) {
+      clearTbInlineAnnotations();
+      return;
+    }
+    if (isLikelyCalculatorView()) {
+      clearTbInlineAnnotations();
+      return;
+    }
+    var mo = tbInlineMo;
+    if (mo) {
+      try {
+        mo.disconnect();
+      } catch (eDisc) {}
+    }
+    var myGen = ++tbInlineGen;
+    injectTeamBridge()
+      .then(function () {
+        return getSlotsFromBridge();
+      })
+      .then(function (r) {
+        if (myGen !== tbInlineGen) return;
+        if (isLikelyCalculatorView()) {
+          clearTbInlineAnnotations();
+          return;
+        }
+        if (!r || !r.ok || !r.slots) {
+          clearTbInlineAnnotations();
+          return;
+        }
+        clearTbInlineAnnotations();
+        ensureTbInlineStyle();
+        var filled = r.filled || [];
+        var art = r.slotArt || [];
+        var imgMap = mapSlotsToSampleImgs(art, filled);
+        var tasks = [];
+        var si;
+        for (si = 0; si < 6; si++) {
+          if (!filled[si]) continue;
+          var sd = r.slots[si];
+          var im = imgMap[si];
+          if (!im) continue;
+          (function (slotData, imgEl) {
+            tasks.push(
+              requestSlotAnnot(slotData).then(function (ann) {
+                if (myGen !== tbInlineGen) return;
+                if (!ann || ann.empty) return;
+                var names = moveDisplayNamesFromSlot(slotData);
+                var card = findBestCardRootForMoves(imgEl, names);
+                if (!card) return;
+                applyMovePowerSuffixes(card, names, ann.movePowerSuffixes || []);
+                applyBulkCorner(card, ann.bulkCompact || '');
+              })
+            );
+          })(sd, im);
+        }
+        return Promise.all(tasks);
+      })
+      .catch(function () {
+        if (myGen === tbInlineGen) clearTbInlineAnnotations();
+      })
+      .then(function () {
+        if (myGen !== tbInlineGen) return;
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            tbReconnectMo();
+          });
+        });
+      });
+  }
+
+  function wireTbInlineObserverHandlers() {
+    if (tbInlineHandlersWired) return;
+    tbInlineHandlersWired = true;
+    var onDom = function () {
+      scheduleTeamBuilderInlineAnnotate();
+    };
+    window.addEventListener('hashchange', onDom);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) scheduleTeamBuilderInlineAnnotate();
+    });
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', onDom);
+    } else {
+      scheduleTeamBuilderInlineAnnotate();
+    }
+  }
+
+  function tbEnsureMutationObserver() {
+    if (!tbInlineOptEnabled || tbInlineMo) return;
+    tbInlineMo = new MutationObserver(function () {
+      scheduleTeamBuilderInlineAnnotate();
+    });
+    try {
+      tbInlineMo.observe(document.body, { childList: true, subtree: true, characterData: true });
+    } catch (eMo) {}
+  }
+
+  function initTeamBuilderInlineAnnotate() {
+    if (!isSmartnuoHost()) return;
+    if (tbInlineAnnotInited) return;
+    tbInlineAnnotInited = true;
+
+    wireTbInlineObserverHandlers();
+
+    refreshTbInlineOpt(function () {
+      tbEnsureMutationObserver();
+      if (tbInlineOptEnabled) scheduleTeamBuilderInlineAnnotate();
+    });
+
+    try {
+      chrome.storage.onChanged.addListener(function (changes, area) {
+        if (area !== 'local' || !Object.prototype.hasOwnProperty.call(changes, LOCAL_TB_INLINE)) {
+          return;
+        }
+        tbInlineOptEnabled = changes[LOCAL_TB_INLINE].newValue !== false;
+        if (!tbInlineOptEnabled) {
+          try {
+            if (tbInlineMo) tbInlineMo.disconnect();
+          } catch (e0) {}
+          tbInlineMo = null;
+          clearTbInlineAnnotations();
+          return;
+        }
+        tbEnsureMutationObserver();
+        scheduleTeamBuilderInlineAnnotate();
+      });
+    } catch (eSt) {}
+  }
+
   var teardownFn = null;
 
   function removeTeamHost() {
@@ -1412,7 +1811,9 @@
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initTeamBuilderFloating);
+    document.addEventListener('DOMContentLoaded', initTeamBuilderInlineAnnotate);
   } else {
     initTeamBuilderFloating();
+    initTeamBuilderInlineAnnotate();
   }
 })();

@@ -1,9 +1,12 @@
 /**
  * 결정력: 위력(테크니션→태그→우격→노말스킨/-ate→타입특성→[조건부:맹화·모래의힘·날씨·필드·선파워]→도구)→STAB→실수치×배율→최종배율
  * computeMovePowers: { base, buffed } — base 는 조건부 특성 효과 제외(표기용).
- * 한글 기술명 → moveTags 조회: moveKoMap.json (PokeAPI 공식 한글명 + 소수 별칭).
+ * 한글 기술명 → moveKoMap.json 조회 (PokeAPI 공식 한글명 + 소수 별칭).
  * 맹화·모래의힘·선파워: HP·실제 날씨는 보지 않고 배율만 적용.
  * 날씨·필드: 이 포켓몬 특성의 setsWeather / setsTerrain 만 반영.
+ *
+ * 비표준 공격 스탯(분자): Body Press(bodypress)=방어 실수치, 물리·STAB 등은 그대로.
+ * Photon Geyser(photongeyser)=공격·특공 중 더 큰 쪽; 동률(atk<=spa)은 특수 취급. 유효 물리/특수에 맞춰 도구·맹화 등 분기.
  */
 (function (global) {
   'use strict';
@@ -194,10 +197,25 @@
     );
   }
 
+  /** 재앙·절운 등 루인 배율: Photon Geyser는 유효 물리/특수 기준 */
+  function effectiveDamageClassForRuin(mv, atkReal, spaReal, moveKoMap) {
+    if (!mv || typeof mv !== 'object') return String(mv && mv.damage_class ? mv.damage_class : '').toLowerCase();
+    if (showdownMoveIdFromMove(mv, moveKoMap) !== 'photongeyser') {
+      return String(mv.damage_class || '').toLowerCase();
+    }
+    var pa = atkReal != null && !isNaN(atkReal) ? atkReal : null;
+    var ps = spaReal != null && !isNaN(spaReal) ? spaReal : null;
+    if (pa == null && ps == null) return String(mv.damage_class || '').toLowerCase();
+    if (pa == null) return 'special';
+    if (ps == null) return 'physical';
+    return pa > ps ? 'physical' : 'special';
+  }
+
   function oneMovePowerInternal(
     mv,
     atkReal,
     spaReal,
+    defReal,
     speciesTypesEn,
     itemRule,
     abilityRule,
@@ -218,8 +236,36 @@
     var isSpec = cls === 'special';
     if (!isPhys && !isSpec) return null;
 
-    var stat = isPhys ? atkReal : spaReal;
-    if (stat == null || isNaN(stat)) return null;
+    var moveId = showdownMoveIdFromMove(mv, moveKoMap);
+    var stat;
+    if (moveId === 'photongeyser') {
+      var pa = atkReal != null && !isNaN(atkReal) ? atkReal : null;
+      var ps = spaReal != null && !isNaN(spaReal) ? spaReal : null;
+      if (pa == null && ps == null) return null;
+      if (pa == null) {
+        isPhys = false;
+        isSpec = true;
+        stat = ps;
+      } else if (ps == null) {
+        isPhys = true;
+        isSpec = false;
+        stat = pa;
+      } else if (pa > ps) {
+        isPhys = true;
+        isSpec = false;
+        stat = pa;
+      } else {
+        isPhys = false;
+        isSpec = true;
+        stat = ps;
+      }
+    } else if (moveId === 'bodypress') {
+      stat = defReal;
+      if (stat == null || isNaN(stat)) return null;
+    } else {
+      stat = isPhys ? atkReal : spaReal;
+      if (stat == null || isNaN(stat)) return null;
+    }
 
     var moveTypeEn = normalizeTypeToEn(mv.type);
     if (!moveTypeEn) return null;
@@ -381,8 +427,11 @@
       stats.special_attack && stats.special_attack.real != null
         ? parseInt(stats.special_attack.real, 10)
         : null;
+    var def =
+      stats.defense && stats.defense.real != null ? parseInt(stats.defense.real, 10) : null;
     if (atk != null && isNaN(atk)) atk = null;
     if (spa != null && isNaN(spa)) spa = null;
+    if (def != null && isNaN(def)) def = null;
 
     var moves = poke.moves;
     var i;
@@ -391,6 +440,7 @@
         moves[i],
         atk,
         spa,
+        def,
         speciesTypesEn || [],
         itemRule,
         abilityRule,
@@ -408,6 +458,7 @@
           moves[i],
           atk,
           spa,
+          def,
           speciesTypesEn || [],
           itemRule,
           abilityRule,
@@ -417,7 +468,7 @@
         );
       }
       var ar0 = abilityRule || {};
-      var cls0 = String(moves[i].damage_class || '').toLowerCase();
+      var cls0 = effectiveDamageClassForRuin(moves[i], atk, spa, moveKoMap);
       var ruinM = 1;
       if (cls0 === 'physical') {
         ruinM = num(ar0.movePowerFoeDefenseRuinMul, 1);

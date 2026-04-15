@@ -264,6 +264,21 @@
     return t.indexOf('교체') !== -1 && (t.indexOf('계산') !== -1 || t.indexOf('초기화') !== -1);
   }
 
+  /**
+   * 스마트누오 도감: 샘플은 실드폼 한글명만 오는데, 공격측은 블레이드폼 엔트리를 써야 할 종.
+   * 수비측은 원본 speciesKo 그대로(pickPokemonEn 에 defender 만 넘김).
+   */
+  var ATTACKER_SPECIES_KO_REMAP = {
+    킬가르도: '킬가르도 (블레이드)',
+  };
+
+  function speciesKoForAttacker(speciesKo) {
+    var k = String(speciesKo || '').trim();
+    if (!k) return speciesKo;
+    var mapped = ATTACKER_SPECIES_KO_REMAP[k];
+    return mapped || speciesKo;
+  }
+
   function pickPokemonEn(vm, speciesKo) {
     if (!speciesKo || !vm.pokemon_list) return speciesKo;
     var pl = vm.pokemon_list;
@@ -753,20 +768,20 @@
 
     try {
       if (hasA) {
-        vm.$set(vm.attacker, 'name', pickPokemonEn(vm, pa.speciesKo));
+        vm.$set(vm.attacker, 'name', pickPokemonEn(vm, speciesKoForAttacker(pa.speciesKo)));
         ensureAttackerMovePlaceholder(vm, physAtk);
         if (typeof vm.loadAttacker === 'function') vm.loadAttacker();
         ensureAttackerMovePlaceholder(vm, physAtk);
         vm.$nextTick(function () {
           try {
             ensureAttackerMovePlaceholder(vm, physAtk);
-            vm.$set(vm.attacker, 'name', pickPokemonEn(vm, pa.speciesKo));
+            vm.$set(vm.attacker, 'name', pickPokemonEn(vm, speciesKoForAttacker(pa.speciesKo)));
             applyAttackerScalars(vm, pa, physAtk);
             if (pa.attackerMove) applyAttackerMovePayload(vm, pa.attackerMove);
             vm.$nextTick(function () {
               try {
                 ensureAttackerMovePlaceholder(vm, physAtk);
-                vm.$set(vm.attacker, 'name', pickPokemonEn(vm, pa.speciesKo));
+                vm.$set(vm.attacker, 'name', pickPokemonEn(vm, speciesKoForAttacker(pa.speciesKo)));
                 if (pa.attackerMove) applyAttackerMovePayload(vm, pa.attackerMove);
                 if (hasD) {
                   ensureDefenderMovePlaceholder(vm, physAtk);

@@ -201,6 +201,26 @@
     return str(t);
   }
 
+  var REAL_LETTERS_SIX = ['H', 'A', 'B', 'C', 'D', 'S'];
+
+  /**
+   * 팀빌더 슬롯 → formatter.formatBulkLinesFromReals 용 실수치 맵.
+   * @param {object} slot
+   * @returns {Record<string, number>}
+   */
+  function realByLetterFromSlot(slot) {
+    if (isSlotEmpty(slot)) return {};
+    var s = flattenSlot(slot);
+    var out = {};
+    var i;
+    for (i = 0; i < 6; i++) {
+      var pr = getRealEvSmartnuo(s, i);
+      var n = pr && pr.real;
+      if (n != null && !isNaN(n)) out[REAL_LETTERS_SIX[i]] = n;
+    }
+    return out;
+  }
+
   /**
    * @param {object} slot
    * @param {number} blockIndex1Based 파티 슬롯 번호(빈 슬롯 표기용). 비넘버 제목일 때는 1 넘겨도 됨.
@@ -278,6 +298,9 @@
     getMoves: getMoves,
     getEvValuesSix: getEvValuesSix,
     teraLine: teraLine,
+    realByLetterFromSlot: realByLetterFromSlot,
+    titleRest: titleRest,
+    speciesNameLine: speciesNameLine,
     str: str,
     asInt: asInt,
     extractPsId: extractPsId,

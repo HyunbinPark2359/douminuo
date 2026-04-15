@@ -154,20 +154,21 @@
     return title + ':' + base + ' (' + buffed + ')';
   }
 
-  function formatBulkLinesFromReals(
+  /**
+   * @returns {{ physBase: number, specBase: number, physBuffed: number, specBuffed: number }|null}
+   */
+  function computeBulkPhysSpecBuffed(
     realByLetter,
-    enabled,
     modifiersDoc,
     itemRaw,
     abilityRaw,
     speciesTitleContext,
     speciesTypesEn
   ) {
-    if (!enabled) return '';
     var h = realByLetter.H;
     var b = realByLetter.B;
     var d = realByLetter.D;
-    if (h == null || b == null || d == null) return '';
+    if (h == null || b == null || d == null) return null;
     var physBase = Math.round((h * b) / BULK_REAL_DIVISOR);
     var specBase = Math.round((h * d) / BULK_REAL_DIVISOR);
 
@@ -206,11 +207,56 @@
     var physBuffed = Math.round((h * bEff) / BULK_REAL_DIVISOR);
     var specBuffed = Math.round((h * dEff) / BULK_REAL_DIVISOR);
 
-    return (
-      formatOneBulkLine('물리내구력', physBase, physBuffed) +
-      '\n' +
-      formatOneBulkLine('특수내구력', specBase, specBuffed)
+    return { physBase: physBase, specBase: specBase, physBuffed: physBuffed, specBuffed: specBuffed };
+  }
+
+  function formatBulkLinesFromReals(
+    realByLetter,
+    enabled,
+    modifiersDoc,
+    itemRaw,
+    abilityRaw,
+    speciesTitleContext,
+    speciesTypesEn
+  ) {
+    if (!enabled) return '';
+    var comp = computeBulkPhysSpecBuffed(
+      realByLetter,
+      modifiersDoc,
+      itemRaw,
+      abilityRaw,
+      speciesTitleContext,
+      speciesTypesEn
     );
+    if (!comp) return '';
+    return (
+      formatOneBulkLine('물리내구력', comp.physBase, comp.physBuffed) +
+      '\n' +
+      formatOneBulkLine('특수내구력', comp.specBase, comp.specBuffed)
+    );
+  }
+
+  /** 팀빌더 인라인: 물리·특수 내구 최종값만 `물리/특수` */
+  function formatBulkCompactSlash(
+    realByLetter,
+    enabled,
+    modifiersDoc,
+    itemRaw,
+    abilityRaw,
+    speciesTitleContext,
+    speciesTypesEn
+  ) {
+    if (!enabled) return '';
+    var comp = computeBulkPhysSpecBuffed(
+      realByLetter,
+      modifiersDoc,
+      itemRaw,
+      abilityRaw,
+      speciesTitleContext,
+      speciesTypesEn
+    );
+    if (!comp) return '';
+    return String(comp.physBuffed) + '/' + String(comp.specBuffed);
   }
 
   function trimOrDash(s) {
@@ -509,4 +555,7 @@
   }
 
   global.formatSample = formatSample;
+  global.formatBulkLinesFromReals = formatBulkLinesFromReals;
+  global.formatBulkCompactSlash = formatBulkCompactSlash;
+  global.movePowerSuffixFormatter = movePowerSuffix;
 })(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : this);
