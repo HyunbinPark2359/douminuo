@@ -824,20 +824,6 @@ importScripts('showdownPaste.js');
       return true;
     }
 
-    if (msg.type === 'RESOLVE_SHARE_INPUT') {
-      resolveShareInput(msg.urlText || '')
-        .then(function (data) {
-          attachResponse(sendResponse, data);
-        })
-        .catch(function (err) {
-          sendResponse({
-            ok: false,
-            error: mapShareError(err),
-          });
-        });
-      return true;
-    }
-
     if (msg.type === 'COPY_PARTY_SHARE_URL') {
       var originCp = msg.origin || 'https://smartnuo.com';
       var pathnameCp = msg.pathname || '/';
