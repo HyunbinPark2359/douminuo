@@ -198,59 +198,6 @@
     return out;
   }
 
-  function describeCalcVmEntry(entry, bestVm) {
-    var vm = entry.vm;
-    var opts = vm.$options || {};
-    var el = vm.$el;
-    var m = entry.metrics || {};
-    var pn = vm.$parent;
-    var pOpts = pn && pn.$options;
-    return {
-      pickedHere: vm === bestVm,
-      treeDepth: entry.depth,
-      domOnlyFind: !!entry.fromDomScan,
-      vueUid: vm._uid,
-      optName: opts.name || '',
-      optFile: opts.__file || '',
-      ctor: vm.constructor && vm.constructor.name,
-      parentName: (pOpts && pOpts.name) || '',
-      isRoot: vm.$root === vm,
-      score: Math.round(scoreEntry(entry) * 10) / 10,
-      vpArea: Math.round(m.viewportArea || 0),
-      pxArea: Math.round(m.pixelArea || 0),
-      metricsOk: !!m.ok,
-      atkName: String((vm.attacker && vm.attacker.name) || '').slice(0, 40),
-      defName: String((vm.defender && vm.defender.name) || '').slice(0, 40),
-      plLen: vm.pokemon_list ? vm.pokemon_list.length : 0,
-      elTag: el && el.tagName,
-      elId: (el && el.id) || '',
-      elClass: el && el.className && String(el.className).replace(/\s+/g, ' ').slice(0, 96),
-    };
-  }
-
-  /**
-   * 스마트누오 계산기 탭에서 DevTools 콘솔에 실행: 후보별 Vue 메타·레이아웃·현재 공/수 이름.
-   * 확장이 브리지를 주입한 뒤(계산기 입력 한 번 실행 후)에 호출하는 것이 안전.
-   */
-  window.__NUO_DUMP_CALC_VMS = function () {
-    var entries = collectCalcVmEntriesMerged();
-    var best = pickBestCalcEntry(entries.slice());
-    var bestVm = best && best.vm;
-    var rows = entries.map(function (e) {
-      return describeCalcVmEntry(e, bestVm);
-    });
-    rows.sort(function (a, b) {
-      return b.score - a.score;
-    });
-    console.log(
-      '[nuo-fmt] damage-calc Vue candidates:',
-      rows.length,
-      '| pickedHere = 확장이 고르는 VM'
-    );
-    console.table(rows);
-    return rows;
-  };
-
   function findCalcVm() {
     var out = collectAllCalcVmEntries();
     if (out.length === 0) return null;

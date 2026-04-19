@@ -13,9 +13,8 @@
 
   var FC = global.nuoFmtCommon;
   var readLabel = FC.readLabel;
-  var normalizeMatchKey = FC.normalizeMatchKey;
-  var slugifyForMatch = FC.slugifyForMatch;
   var collectHoldLabels = FC.collectHoldLabels;
+  var findRuleAndSlugInMap = FC.findRuleAndSlugInMap;
 
   /** 한글 타입명 → PokeAPI type.name */
   var TYPE_KO_TO_EN = {
@@ -55,37 +54,8 @@
   }
 
   function findRuleInMap(map, label) {
-    var lab = readLabel(label);
-    if (!lab || lab === '--') return null;
-    if (!map || typeof map !== 'object') return null;
-
-    var want = normalizeMatchKey(lab);
-    var wantSlug = slugifyForMatch(lab);
-
-    var slug;
-    for (slug in map) {
-      if (!Object.prototype.hasOwnProperty.call(map, slug)) continue;
-      var slugAsWords = normalizeMatchKey(String(slug).replace(/-/g, ' '));
-      if (
-        normalizeMatchKey(slug) === want ||
-        slugAsWords === want ||
-        slugifyForMatch(slug) === wantSlug
-      ) {
-        return map[slug];
-      }
-      var rule = map[slug];
-      if (rule && rule.nameKo && normalizeMatchKey(rule.nameKo) === want) {
-        return rule;
-      }
-      var aliases = rule && Array.isArray(rule.aliases) ? rule.aliases : [];
-      var ai;
-      for (ai = 0; ai < aliases.length; ai++) {
-        if (normalizeMatchKey(aliases[ai]) === want) {
-          return rule;
-        }
-      }
-    }
-    return null;
+    var r = findRuleAndSlugInMap(map, label);
+    return r ? r.rule : null;
   }
 
   function findRuleFromLabels(rules, sectionKey, raw) {

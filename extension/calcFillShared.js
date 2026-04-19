@@ -1,8 +1,36 @@
 /**
- * 계산기 기입 오류 코드 → 사용자 메시지 (popup / calcFill content 공통).
+ * 계산기 기입 오류 코드 → 사용자 메시지 + calcFill·teamBuilderFill 공용 유틸.
  */
 (function (g) {
   'use strict';
+
+  /** body 텍스트 기반: 계산기 화면 여부(계산기·팀빌더 플로팅 공용 숨김 조건). */
+  function isLikelyCalculatorView() {
+    var t = document.body && document.body.innerText;
+    if (!t) return false;
+    return t.indexOf('교체') !== -1 && (t.indexOf('계산') !== -1 || t.indexOf('초기화') !== -1);
+  }
+
+  /**
+   * background 에게 MAIN 월드 브리지 주입 요청.
+   * @param {string} type INJECT_CALC_BRIDGE | INJECT_TEAM_BUILDER_BRIDGE
+   * @param {string=} fallbackError 백그라운드가 에러 문자열을 안 주었을 때 쓸 코드
+   */
+  function requestBridgeInject(type, fallbackError) {
+    return new Promise(function (resolve, reject) {
+      chrome.runtime.sendMessage({ type: type }, function (r) {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message || 'runtime'));
+          return;
+        }
+        if (!r || !r.ok) {
+          reject(new Error((r && r.error) || fallbackError || 'bridge_inject_failed'));
+          return;
+        }
+        resolve();
+      });
+    });
+  }
 
   function mapCalcFillError(code) {
     try {
@@ -40,4 +68,8 @@
   }
 
   g.mapCalcFillError = mapCalcFillError;
+  g.nuoCsCommon = {
+    isLikelyCalculatorView: isLikelyCalculatorView,
+    requestBridgeInject: requestBridgeInject,
+  };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

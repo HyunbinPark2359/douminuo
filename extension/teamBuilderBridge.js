@@ -495,44 +495,4 @@
     );
   });
 
-  window.__NUO_DUMP_TEAM_SLOTS = function () {
-    var s = pickBestSlots();
-    console.log('[nuo-fmt] team slots picked, filled:', s ? filledCount(s) : 0, s);
-    return s;
-  };
-
-  window.__NUO_DUMP_SLOT_ART = function () {
-    var s = pickBestSlots();
-    var art = s ? buildSlotArtUrls(s) : null;
-    console.log('[nuo-fmt] slotArt (pokemon.sprite only):', art);
-    return art;
-  };
-
-  /** 콘솔 디버그: 점수 상위 후보 배열과 첫 원소 키 요약 */
-  window.__NUO_SCAN_TEAM_CANDIDATES = function () {
-    var bucket = [];
-    var app = document.querySelector('#app');
-    if (app && app.__vue__) {
-      var acc = [];
-      collectFromTree(app.__vue__, 0, acc);
-      var ai;
-      for (ai = 0; ai < acc.length; ai++) {
-        bucket.push(acc[ai].slots);
-      }
-    }
-    deepHarvestIntoBucket(bucket);
-    var uniq = dedupeArrays(bucket);
-    var rows = uniq.map(function (arr) {
-      var sc = scorePartySlotArray(arr);
-      var first = arr[0];
-      var keys0 = first && typeof first === 'object' ? Object.keys(first).slice(0, 14) : [];
-      return { len: arr.length, score: sc, keysFirst: keys0.join(',') };
-    });
-    rows.sort(function (a, b) {
-      return b.score - a.score;
-    });
-    console.log('[nuo-fmt] top slot-array candidates (len, score, keys of [0]):');
-    console.table(rows.slice(0, 25));
-    return rows;
-  };
 })();

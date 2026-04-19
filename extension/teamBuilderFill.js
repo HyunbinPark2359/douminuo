@@ -27,32 +27,16 @@
   var MSG_EXT = 'nuo-team-ext';
   var MSG_BRIDGE = 'nuo-team-bridge';
 
+  var CS = globalThis.nuoCsCommon || {};
+  var isLikelyCalculatorView = CS.isLikelyCalculatorView;
+
   function isSmartnuoHost() {
     var h = (location.hostname || '').toLowerCase();
     return h === 'smartnuo.com' || h === 'www.smartnuo.com';
   }
 
-  /** calcFill.js 의 isLikelyCalculatorView 와 동일 */
-  function isLikelyCalculatorView() {
-    var t = document.body && document.body.innerText;
-    if (!t) return false;
-    return t.indexOf('교체') !== -1 && (t.indexOf('계산') !== -1 || t.indexOf('초기화') !== -1);
-  }
-
   function injectTeamBridge() {
-    return new Promise(function (resolve, reject) {
-      chrome.runtime.sendMessage({ type: 'INJECT_TEAM_BUILDER_BRIDGE' }, function (r) {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message || 'runtime'));
-          return;
-        }
-        if (!r || !r.ok) {
-          reject(new Error((r && r.error) || 'team_bridge_inject_failed'));
-          return;
-        }
-        resolve();
-      });
-    });
+    return CS.requestBridgeInject('INJECT_TEAM_BUILDER_BRIDGE', 'team_bridge_inject_failed');
   }
 
   function getSlotsFromBridge() {
@@ -117,6 +101,506 @@
     document.body.removeChild(ta);
   }
 
+  /* Shadow DOM styles/markup for mountTeamFloatBar. Returns fabSlotFeedbackHtml used later. */
+  function buildShadowStylesAndMarkup(root) {
+  var CHECK_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
+    '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>' +
+    '</svg>';
+
+  /** Font Awesome Free v7.2.0 "copy" solid — https://fontawesome.com/icons/copy?f=classic&s=solid — https://fontawesome.com/license/free */
+  var COPY_ICON_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true">' +
+    '<path d="M288 64C252.7 64 224 92.7 224 128L224 384C224 419.3 252.7 448 288 448L480 448C515.3 448 544 419.3 544 384L544 183.4C544 166 536.9 149.3 524.3 137.2L466.6 81.8C454.7 70.4 438.8 64 422.3 64L288 64zM160 192C124.7 192 96 220.7 96 256L96 512C96 547.3 124.7 576 160 576L352 576C387.3 576 416 547.3 416 512L416 496L352 496L352 512L160 512L160 256L176 256L176 192L160 192z"/>' +
+    '</svg>';
+
+  var SPINNER_SVG =
+    '<span class="fab-spinner-wrap">' +
+    '<svg class="fab-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="9" stroke-linecap="round" stroke-dasharray="14 32"/>' +
+    '</svg></span>';
+  var BAN_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="9" />' +
+    '<path stroke-linecap="round" d="M7 7l10 10" />' +
+    '</svg>';
+  var BAN_SVG_SLIM =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="10" />' +
+    '<path d="M4.9 4.9l14.2 14.2" />' +
+    '</svg>';
+  /** 보존용(주석): 파티 버튼 테이블+포켓볼 SVG. 사용 시 아래 블록 해제 후 PARTY_ICON_STACK_HTML 대체 */
+  /*
+  var PARTY_ICON_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4.75 -8 66 88" fill="none" overflow="visible" aria-hidden="true">' +
+    '<defs>' +
+    '<mask id="nuoTbPartyTblMask">' +
+    '<rect x="-4.75" y="-8" width="66" height="88" fill="white"/>' +
+    '<circle cx="41" cy="57.5" r="25" fill="black"/>' +
+    '</mask>' +
+    '<filter id="nuoTbPartyBallLift" x="-40%" y="-40%" width="180%" height="180%">' +
+    '<feDropShadow dx="0" dy="1.25" stdDeviation="1.35" flood-color="#0f172a" flood-opacity="0.3"/>' +
+    '</filter>' +
+    '</defs>' +
+    '<g mask="url(#nuoTbPartyTblMask)">' +
+    '<rect x="4" y="4" width="40" height="56" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>' +
+    '<line x1="4" y1="22.66" x2="44" y2="22.66" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+    '<line x1="4" y1="41.33" x2="44" y2="41.33" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+    '<line x1="24" y1="4" x2="24" y2="60" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+    '</g>' +
+    '<g filter="url(#nuoTbPartyBallLift)" transform="translate(41, 57.5) scale(0.88) translate(-24, -24)">' +
+    '<circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>' +
+    '<line x1="4" y1="24" x2="17" y2="24" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+    '<line x1="31" y1="24" x2="44" y2="24" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+    '<circle cx="24" cy="24" r="6" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>' +
+    '</g>' +
+    '</svg>';
+  */
+  /** 파티 버튼: 1~6슬롯 도트 img 겹침(빈 슬롯은 src 없음) */
+  var PARTY_ICON_STACK_HTML =
+    '<span class="fab-party-mon-stack" aria-hidden="true">' +
+    '<img class="fab-party-mon fab-party-mon--i1" alt="" decoding="async" />' +
+    '<img class="fab-party-mon fab-party-mon--i2" alt="" decoding="async" />' +
+    '<img class="fab-party-mon fab-party-mon--i3" alt="" decoding="async" />' +
+    '<img class="fab-party-mon fab-party-mon--i4" alt="" decoding="async" />' +
+    '<img class="fab-party-mon fab-party-mon--i5" alt="" decoding="async" />' +
+    '<img class="fab-party-mon fab-party-mon--i6" alt="" decoding="async" />' +
+    '</span>';
+  function fabFeedbackHtml() {
+    return (
+      '<span class="fab-btn-feedback" aria-hidden="true">' +
+      '<span class="fab-fb-hover"><span class="fab-fb-hover-bg"></span><span class="fab-fb-hover-ic">' +
+      COPY_ICON_SVG +
+      '</span></span>' +
+      '<span class="fab-fb-busy"><span class="fab-fb-busy-bg"></span><span class="fab-fb-busy-ic">' +
+      SPINNER_SVG +
+      '</span></span>' +
+      '<span class="fab-fb-done"><span class="fab-fb-done-bg"></span><span class="fab-fb-done-ic">' +
+      CHECK_SVG +
+      '</span></span>' +
+      '<span class="fab-fb-err"><span class="fab-fb-err-bg"></span><span class="fab-fb-err-ic">' +
+      BAN_SVG +
+      '</span></span></span>'
+    );
+  }
+  /** 슬롯만: 호버 시 복사 대신 회색 금지 아이콘(빈 칸용) */
+  function fabSlotFeedbackHtml() {
+    return (
+      '<span class="fab-btn-feedback" aria-hidden="true">' +
+      '<span class="fab-fb-hover"><span class="fab-fb-hover-bg"></span>' +
+      '<span class="fab-fb-hover-ic">' +
+      COPY_ICON_SVG +
+      '</span>' +
+      '<span class="fab-fb-hover-ban-ic">' +
+      BAN_SVG_SLIM +
+      '</span></span>' +
+      '<span class="fab-fb-busy"><span class="fab-fb-busy-bg"></span><span class="fab-fb-busy-ic">' +
+      SPINNER_SVG +
+      '</span></span>' +
+      '<span class="fab-fb-done"><span class="fab-fb-done-bg"></span><span class="fab-fb-done-ic">' +
+      CHECK_SVG +
+      '</span></span>' +
+      '<span class="fab-fb-err"><span class="fab-fb-err-bg"></span><span class="fab-fb-err-ic">' +
+      BAN_SVG +
+      '</span></span></span>'
+    );
+  }
+  root.innerHTML =
+    '<style>' +
+    ':host { all: initial; }' +
+    '* { box-sizing: border-box; font-family: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }' +
+    '@keyframes nuo-tb-glow {' +
+    '  0%, 100% { box-shadow: 0 4px 14px rgba(156, 207, 229, 0.32), 0 0 0 1px rgba(156, 207, 229, 0.35); }' +
+    '  50% { box-shadow: 0 6px 18px rgba(120, 185, 210, 0.34), 0 0 0 1px rgba(156, 207, 229, 0.48); }' +
+    '}' +
+    '.fab-root {' +
+    '  position: fixed; z-index: 2147483645; right: clamp(24px, 5vw, 48px); bottom: clamp(24px, 5vw, 48px);' +
+    '  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;' +
+    '}' +
+    '.fab-root.nuo-tb-off { opacity: 0; pointer-events: none; visibility: hidden; }' +
+    '.fab-per-btn-toast {' +
+    '  padding: 8px 10px; font-size: 12px; line-height: 1.35;' +
+    '  color: #991b1b; background: #fff1f2; border: 1px solid #fecaca;' +
+    '  border-radius: 10px; word-break: keep-all; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);' +
+    '  flex-shrink: 0; z-index: 6;' +
+    '}' +
+    '.fab-per-btn-toast.nuo-hidden { display: none; }' +
+    '.fab-slot-row .fab-per-btn-toast {' +
+    '  max-width: min(220px, calc(100vw - 128px));' +
+    '}' +
+    '.fab-per-btn-toast--below {' +
+    '  max-width: min(280px, calc(100vw - 48px)); width: max-content; align-self: center;' +
+    '}' +
+    '.fab-inner {' +
+    '  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;' +
+    '}' +
+    '.fab-dock { position: relative; display: inline-block; vertical-align: bottom; }' +
+    '.fab-dock-main {' +
+    '  position: relative; width: 80px; display: flex; flex-direction: column; align-items: center;' +
+    '}' +
+    '.fab-party-col {' +
+    '  position: relative; width: 80px; min-height: 80px; display: flex; flex-direction: column;' +
+    '  align-items: center; justify-content: flex-end;' +
+    '}' +
+    '.fab-party-wrap {' +
+    '  position: relative; display: flex; flex-direction: column; align-items: center; width: 80px;' +
+    '}' +
+    '.fab-slot-row {' +
+    '  position: relative; width: 80px; height: 62px; display: flex; align-items: center; justify-content: center;' +
+    '  flex-shrink: 0; overflow: visible;' +
+    '}' +
+    '.fab-slot-row .fab-per-btn-toast {' +
+    '  position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%);' +
+    '  text-align: left;' +
+    '}' +
+    '.fab-per-btn-toast--below {' +
+    '  position: static; margin-top: 8px; transform: none; text-align: center;' +
+    '}' +
+    '.fab-slots {' +
+    '  position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 1;' +
+    '  display: flex; flex-direction: column; align-items: center; gap: 8px; width: 80px;' +
+    '  overflow: visible;' +
+    '  opacity: 0; visibility: hidden; pointer-events: none;' +
+    '  transition: opacity 0.09s ease, visibility 0.09s;' +
+    '}' +
+    '.fab-dock--open .fab-slots {' +
+    '  opacity: 1; visibility: visible; pointer-events: auto;' +
+    '}' +
+    '.fab-settings-wrap {' +
+    '  position: absolute; right: calc(100% + 12px); bottom: 0; z-index: 2;' +
+    '  opacity: 0; visibility: hidden; pointer-events: none;' +
+    '  transition: opacity 0.09s ease, visibility 0.09s;' +
+    '}' +
+    '.fab-dock--open .fab-settings-wrap {' +
+    '  opacity: 1; visibility: visible; pointer-events: auto;' +
+    '}' +
+    '.fab-btn {' +
+    '  position: relative; border: none; cursor: pointer; display: inline-flex; align-items: center;' +
+    '  justify-content: center; flex-shrink: 0; border-radius: 50%; color: #0f172a;' +
+    '}' +
+    '.fab-btn:not(:disabled) {' +
+    '  background: linear-gradient(155deg, #f7fcfe 0%, #c5e8f4 40%, #9ccfe5 100%);' +
+    '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite;' +
+    '  transition: transform 0.22s ease, filter 0.2s ease, opacity 0.2s ease;' +
+    '}' +
+    '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):hover {' +
+    '  transform: scale(1.06); filter: brightness(1.02) saturate(1.03);' +
+    '}' +
+    '/* 슬롯 빈/안빈·파티 동일: nuo-tb-glow + fab-click-bounce. 빈슬롯 기본 animation:none 은 !important 로 덮음 */' +
+    '.fab-btn.fab-copy-click-pulse:not(:disabled):not(.fab-copy-error) {' +
+    '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite, fab-click-bounce 0.1s cubic-bezier(0.22, 1, 0.36, 1) !important;' +
+    '}' +
+    '/* 눌림: 즉시 축소. 뗌 후에는 fab-copy-click-pulse 바운스로 복귀 */' +
+    '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):active,' +
+    '.fab-btn.fab-btn--press:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error) {' +
+    '  transform: scale(0.92); filter: brightness(0.98) saturate(0.98);' +
+    '  transition: none !important;' +
+    '}' +
+    '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):hover:active,' +
+    '.fab-btn.fab-btn--press:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):hover {' +
+    '  transform: scale(0.975); filter: brightness(1) saturate(1.01);' +
+    '  transition: none !important;' +
+    '}' +
+    '.fab-btn:disabled {' +
+    '  cursor: not-allowed; opacity: 0.72; filter: saturate(0.45) brightness(0.96);' +
+    '  animation: none;' +
+    '  background: linear-gradient(155deg, #f8fafc 0%, #e2e8f0 55%, #cbd5e1 100%);' +
+    '  color: #64748b; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
+    '}' +
+    '.fab-slot { width: 62px; height: 62px; border-radius: 50%; font-size: 16px; font-weight: 700; overflow: hidden; }' +
+    '.fab-slot-label { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }' +
+    '.fab-slot-mon {' +
+    '  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);' +
+    '  max-width: 82%; max-height: 82%; width: auto; height: auto;' +
+    '  object-fit: contain; display: none; pointer-events: none;' +
+    '}' +
+    '.fab-slot.fab-slot--has-mon .fab-slot-mon { display: block; }' +
+    '.fab-slot.fab-slot--has-mon .fab-slot-fallback-num { display: none; }' +
+    '.fab-slot-fallback-num { pointer-events: none; }' +
+    '.fab-fb-hover-ban-ic {' +
+    '  display: none; position: relative; z-index: 1; align-items: center; justify-content: center;' +
+    '  width: 100%; height: 100%;' +
+    '}' +
+    '.fab-fb-hover-ban-ic svg {' +
+    '  width: 105%; height: 105%; max-width: none; max-height: none; flex-shrink: 0; color: #a8b3c4;' +
+    '}' +
+    '.fab-btn.fab-slot:not(.fab-slot--empty) .fab-fb-hover-ban-ic {' +
+    '  display: none !important;' +
+    '}' +
+    '.fab-btn.fab-slot.fab-slot--empty .fab-fb-hover-ic {' +
+    '  display: none !important;' +
+    '}' +
+    '.fab-btn.fab-slot.fab-slot--empty .fab-fb-hover-ban-ic {' +
+    '  display: flex;' +
+    '}' +
+    '.fab-btn.fab-slot.fab-slot--empty {' +
+    '  cursor: pointer;' +
+    '  animation: none !important;' +
+    '  opacity: 0.72; filter: saturate(0.45) brightness(0.96);' +
+    '  background: linear-gradient(155deg, #f8fafc 0%, #e2e8f0 55%, #cbd5e1 100%);' +
+    '  color: #64748b; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
+    '}' +
+    '.fab-party {' +
+    '  width: 80px; height: 80px; border-radius: 50%; overflow: visible;' +
+    '}' +
+    '.fab-btn.fab-party:not(:disabled) {' +
+    '  color: #2a6f8f;' +
+    '}' +
+    '.fab-party .fab-party-icon {' +
+    '  position: relative; display: block; width: 100%; height: 100%; overflow: hidden;' +
+    '  border-radius: 50%;' +
+    '  clip-path: circle(50% at 50% 50%); -webkit-clip-path: circle(50% at 50% 50%);' +
+    '}' +
+    '.fab-party-mon-stack {' +
+    '  position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 50%;' +
+    '}' +
+    '.fab-party-mon {' +
+    '  position: absolute; display: block; left: 50%; top: 50%; width: auto; height: auto; margin: 0;' +
+    '  object-fit: contain; image-rendering: crisp-edges; pointer-events: none;' +
+    '  opacity: 0; transition: opacity 0.12s ease;' +
+    '}' +
+    '.fab-party-mon.fab-party-mon--has-art {' +
+    '  opacity: 1;' +
+    '}' +
+    '.fab-party-mon--i6 {' +
+    '  z-index: 1; width: 54px; max-height: 54px;' +
+    '  transform: translate(calc(-50% - 10px), calc(-50% - 23px));' +
+    '}' +
+    '.fab-party-mon--i5 {' +
+    '  z-index: 2; width: 58px; max-height: 58px;' +
+    '  transform: translate(calc(-50% + 14px), calc(-50% - 21px));' +
+    '}' +
+    '.fab-party-mon--i4 {' +
+    '  z-index: 3; width: 64px; max-height: 64px;' +
+    '  transform: translate(calc(-50% + 26px), calc(-50% - 8px));' +
+    '}' +
+    '.fab-party-mon--i3 {' +
+    '  z-index: 4; width: 68px; max-height: 68px;' +
+    '  transform: translate(calc(-50% + 27px), calc(-50% + 11px));' +
+    '}' +
+    '.fab-party-mon--i2 {' +
+    '  z-index: 5; width: 74px; max-height: 74px;' +
+    '  transform: translate(calc(-50% - 17px), calc(-50% + 15px));' +
+    '}' +
+    '.fab-party-mon--i1 {' +
+    '  z-index: 6; width: 84px; max-height: 86px;' +
+    '  transform: translate(calc(-50% + 8px), calc(-50% + 24px));' +
+    '}' +
+    '.fab-settings-morph {' +
+    '  position: relative; width: 52px; min-height: 52px; max-height: 52px; border-radius: 26px;' +
+    '  overflow: hidden;' +
+    '  background: linear-gradient(155deg, #f7fcfe 0%, #c5e8f4 40%, #9ccfe5 100%);' +
+    '  color: #2a6f8f;' +
+    '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite;' +
+    '  cursor: pointer;' +
+    '  transition: width 0.22s ease, min-height 0.24s ease, max-height 0.24s ease, border-radius 0.2s ease,' +
+    '    box-shadow 0.35s ease, filter 0.2s ease, transform 0.22s ease;' +
+    '}' +
+    '.fab-settings-wrap:hover .fab-settings-morph {' +
+    '  display: flex; flex-direction: column; cursor: default;' +
+    '  width: min(92vw, 147px); min-height: 168px; max-height: min(52vh, 300px); border-radius: 14px;' +
+    '  overflow: hidden; animation: none;' +
+    '  background: linear-gradient(180deg, #f7fcfe 0%, #ffffff 42%, #e8f4fa 100%);' +
+    '  color: #0f172a;' +
+    '  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(156, 207, 229, 0.65);' +
+    '}' +
+    '.fab-settings-gear {' +
+    '  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;' +
+    '  pointer-events: none; transition: opacity 0.12s ease;' +
+    '}' +
+    '.fab-settings-wrap:hover .fab-settings-gear {' +
+    '  opacity: 0;' +
+    '}' +
+    '.fab-settings-morph:focus-visible { outline: 2px solid #6eb0cc; outline-offset: 3px; }' +
+    '.fab-btn-label { pointer-events: none; position: relative; z-index: 0; }' +
+    '.fab-slot .fab-btn-label, .fab-party .fab-btn-label { position: absolute; inset: 0; }' +
+    '@keyframes fab-click-bounce {' +
+    '  0% { transform: scale(1); }' +
+    '  9% { transform: scale(0.993); }' +
+    '  20% { transform: scale(0.982); }' +
+    '  32% { transform: scale(0.972); }' +
+    '  44% { transform: scale(0.964); }' +
+    '  52% { transform: scale(0.96); }' +
+    '  62% { transform: scale(0.966); }' +
+    '  73% { transform: scale(0.976); }' +
+    '  84% { transform: scale(0.988); }' +
+    '  93% { transform: scale(0.996); }' +
+    '  100% { transform: scale(1); }' +
+    '}' +
+    '@keyframes fab-spin-rot { to { transform: rotate(360deg); } }' +
+    '@keyframes fab-fb-busy-out {' +
+    '  from { opacity: 1; }' +
+    '  to { opacity: 0; }' +
+    '}' +
+    '@keyframes fab-fb-spin-ic {' +
+    '  from { transform: scale(1); opacity: 1; }' +
+    '  to { transform: scale(0.32); opacity: 0; }' +
+    '}' +
+    '@keyframes fab-fb-done-layer {' +
+    '  from { opacity: 0; }' +
+    '  to { opacity: 1; }' +
+    '}' +
+    '@keyframes fab-fb-check-pop {' +
+    '  from { transform: scale(0.28); opacity: 0; }' +
+    '  to { transform: scale(1); opacity: 1; }' +
+    '}' +
+    '@keyframes fab-err-shake-btn {' +
+    '  0%, 100% { transform: translateX(0); }' +
+    '  9% { transform: translateX(-9px); }' +
+    '  21% { transform: translateX(8px); }' +
+    '  33% { transform: translateX(-4.5px); }' +
+    '  45% { transform: translateX(3.5px); }' +
+    '  57% { transform: translateX(-2px); }' +
+    '  69% { transform: translateX(1.2px); }' +
+    '  81% { transform: translateX(-0.55px); }' +
+    '  91% { transform: translateX(0.25px); }' +
+    '}' +
+    '.fab-btn-feedback {' +
+    '  position: absolute; inset: 0; border-radius: inherit; z-index: 2; pointer-events: none;' +
+    '  overflow: hidden;' +
+    '}' +
+    '.fab-fb-hover, .fab-fb-busy, .fab-fb-done, .fab-fb-err {' +
+    '  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;' +
+    '  border-radius: inherit; opacity: 0;' +
+    '}' +
+    '.fab-fb-hover-bg, .fab-fb-busy-bg, .fab-fb-done-bg, .fab-fb-err-bg {' +
+    '  position: absolute; inset: 0; border-radius: inherit;' +
+    '}' +
+    '.fab-fb-hover-bg { background: rgba(255, 255, 255, 0.52); }' +
+    '.fab-fb-busy-bg { background: rgba(15, 23, 42, 0.28); }' +
+    '.fab-fb-done-bg { background: rgba(255, 255, 255, 0.5); }' +
+    '.fab-fb-err-bg { background: rgba(15, 23, 42, 0.28); }' +
+    '.fab-fb-hover-ic, .fab-fb-busy-ic, .fab-fb-done-ic, .fab-fb-err-ic {' +
+    '  position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;' +
+    '  width: 100%; height: 100%;' +
+    '}' +
+    '.fab-fb-hover-ic svg, .fab-fb-done-ic svg, .fab-fb-err-ic svg {' +
+    '  width: 46%; height: 46%; max-width: 38px; max-height: 38px; flex-shrink: 0;' +
+    '}' +
+    '.fab-spinner-wrap {' +
+    '  display: flex; align-items: center; justify-content: center;' +
+    '  width: 100%; height: 100%; flex-shrink: 0;' +
+    '}' +
+    '.fab-spinner-wrap .fab-spinner-svg {' +
+    '  width: 46%; height: 46%; max-width: 38px; max-height: 38px; flex-shrink: 0;' +
+    '  display: block; overflow: visible;' +
+    '  transform-origin: 50% 50%;' +
+    '}' +
+    '.fab-fb-hover-ic svg { color: #475569; }' +
+    '.fab-fb-busy-ic svg { color: #475569; }' +
+    '.fab-fb-done-ic svg { color: #16a34a; }' +
+    '.fab-fb-err-ic svg { color: #dc2626; }' +
+    '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):hover .fab-fb-hover {' +
+    '  opacity: 1; transition: opacity 0.14s ease;' +
+    '}' +
+    '.fab-copy-loading .fab-fb-busy { opacity: 1; transition: opacity 0.12s ease; }' +
+    '.fab-copy-loading .fab-spinner-wrap .fab-spinner-svg {' +
+    '  animation: fab-spin-rot 1.1s linear infinite;' +
+    '}' +
+    '.fab-copy-success .fab-fb-busy {' +
+    '  animation: fab-fb-busy-out 0.26s ease forwards;' +
+    '}' +
+    '.fab-copy-success .fab-fb-busy-ic { animation: fab-fb-spin-ic 0.28s ease forwards; }' +
+    '.fab-copy-success .fab-fb-done {' +
+    '  animation: fab-fb-done-layer 0.32s ease 0.1s forwards;' +
+    '}' +
+    '.fab-copy-success .fab-fb-done-ic { animation: fab-fb-check-pop 0.44s cubic-bezier(0.34, 1.45, 0.64, 1) 0.14s both; }' +
+    '.fab-btn.fab-copy-error:not(.fab-copy-dimout) {' +
+    '  animation: fab-err-shake-btn 0.42s cubic-bezier(0.32, 0.72, 0.27, 1) forwards;' +
+    '}' +
+    '.fab-copy-error .fab-fb-err {' +
+    '  opacity: 1; transition: opacity 0.1s ease;' +
+    '}' +
+    '.fab-copy-error .fab-fb-hover, .fab-copy-error .fab-fb-busy, .fab-copy-error .fab-fb-done {' +
+    '  opacity: 0 !important;' +
+    '}' +
+    '.fab-copy-dimout .fab-btn-feedback { opacity: 0; transition: opacity 0.45s ease; }' +
+    '.fab-settings-panel {' +
+    '  position: absolute; left: 0; top: 0; width: 100%; padding: 0 10px; box-sizing: border-box;' +
+    '  opacity: 0; visibility: hidden; pointer-events: none; height: 0; overflow: hidden;' +
+    '}' +
+    '.fab-settings-wrap:hover .fab-settings-panel {' +
+    '  position: relative; height: auto; cursor: default; opacity: 1; visibility: visible; pointer-events: auto; overflow: visible;' +
+    '  flex: 1 1 auto; min-height: 0; margin: 0;' +
+    '  display: flex; flex-direction: column; justify-content: space-evenly; align-items: stretch;' +
+    '  padding: 10px 10px 8px;' +
+    '}' +
+    '.fab-settings-panel .opt-row {' +
+    '  display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: #0f172a;' +
+    '  margin: 0; flex-shrink: 0; cursor: pointer;' +
+    '}' +
+    '.fab-settings-panel .opt-row input[type="checkbox"] {' +
+    '  -webkit-appearance: none; appearance: none; width: 15px; height: 15px; flex-shrink: 0; margin: 0;' +
+    '  border: 1px solid #cbd5e1; border-radius: 3px; background: #fff; cursor: pointer;' +
+    '  transition: border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease, background-color 0.15s ease;' +
+    '}' +
+    '.fab-settings-panel .opt-row input[type="checkbox"]:enabled:hover {' +
+    '  border-color: #9ccfe5; box-shadow: 0 0 0 2px rgba(156, 207, 229, 0.45); filter: brightness(1.03);' +
+    '}' +
+    '.fab-settings-panel .opt-row input[type="checkbox"]:checked:enabled:hover {' +
+    '  border-color: #7ebad9; box-shadow: 0 0 0 2px rgba(156, 207, 229, 0.4); filter: brightness(1.08);' +
+    '}' +
+    '.fab-settings-panel .opt-row input[type="checkbox"]:checked {' +
+    '  border-color: #5aa8cc; background-color: #5aa8cc;' +
+    '  background-image: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23ffffff%27 stroke-width=%273%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M5 13l4 4L19 7%27/%3E%3C/svg%3E");' +
+    '  background-size: 11px 11px; background-position: center; background-repeat: no-repeat;' +
+    '}' +
+    '.fab-settings-panel .opt-row input[type="checkbox"]:focus-visible {' +
+    '  outline: 2px solid #9ccfe5; outline-offset: 2px;' +
+    '}' +
+    '.fab-settings-panel .opt-row.opt-muted { color: #94a3b8; cursor: default; }' +
+    '.fab-settings-panel .opt-row.opt-muted input[type="checkbox"] {' +
+    '  cursor: not-allowed; opacity: 0.45; background: #fff; border-color: #e2e8f0;' +
+    '}' +
+    '.fab-settings-panel .opt-row.opt-muted input[type="checkbox"]:checked {' +
+    '  background-color: #94a3b8; border-color: #64748b;' +
+    '  background-image: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23ffffff%27 stroke-width=%273%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M5 13l4 4L19 7%27/%3E%3C/svg%3E");' +
+    '  background-size: 11px 11px; background-position: center; background-repeat: no-repeat;' +
+    '}' +
+    '.settings-hr { border: none; border-top: 1px solid #e2e8f0; margin: 0; flex-shrink: 0; cursor: default; }' +
+    '</style>' +
+    '<div class="fab-root nuo-tb-off" part="fab">' +
+    '  <div class="fab-inner" tabindex="-1">' +
+    '    <div class="fab-dock" id="fabDock">' +
+    '      <div class="fab-dock-main">' +
+    '        <div class="fab-settings-wrap">' +
+    '          <div class="fab-settings-morph" id="settingsMorph" tabindex="0" role="group" aria-label="샘플 복사 옵션">' +
+    '            <div class="fab-settings-gear">' +
+    '              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+    '                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>' +
+    '                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>' +
+    '              </svg>' +
+    '            </div>' +
+    '            <div class="fab-settings-panel" id="settingsPanel">' +
+    '              <label class="opt-row" id="optRowUrls"><input type="checkbox" id="optUrls" /><span>URL</span></label>' +
+    '              <label class="opt-row" id="optRowReal"><input type="checkbox" id="optReal" /><span>실수치</span></label>' +
+    '              <label class="opt-row" id="optRowPow"><input type="checkbox" id="optPow" /><span>결정력</span></label>' +
+    '              <label class="opt-row" id="optRowBulk"><input type="checkbox" id="optBulk" /><span>내구력</span></label>' +
+    '              <hr class="settings-hr" />' +
+    '              <label class="opt-row" id="optRowSd"><input type="checkbox" id="optSd" /><span>Showdown</span></label>' +
+    '            </div>' +
+    '          </div>' +
+    '        </div>' +
+      '        <div class="fab-party-col">' +
+      '          <div class="fab-slots" id="fabSlots"></div>' +
+      '          <div class="fab-party-wrap">' +
+      '          <button type="button" class="fab-btn fab-party" id="fabPartyBtn" disabled' +
+      '            aria-label="현재 팀 파티 샘플 복사">' +
+      '            <span class="fab-btn-label fab-party-icon">' +
+    PARTY_ICON_STACK_HTML +
+      '            </span>' +
+    fabFeedbackHtml() +
+      '          </button>' +
+      '          <div class="fab-per-btn-toast fab-per-btn-toast--below nuo-hidden" id="fabPartyErrToast" role="alert" aria-live="assertive"></div>' +
+      '          </div>' +
+      '        </div>' +
+    '      </div>' +
+    '    </div>' +
+    '  </div>' +
+    '</div>';
+    return { fabSlotFeedbackHtml: fabSlotFeedbackHtml };
+  }
+
   function mountTeamFloatBar() {
     if (document.getElementById(HOST_ID)) return;
 
@@ -125,501 +609,7 @@
     document.body.appendChild(host);
 
     var root = host.attachShadow({ mode: 'open' });
-    var CHECK_SVG =
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
-      '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>' +
-      '</svg>';
-
-    /** Font Awesome Free v7.2.0 "copy" solid — https://fontawesome.com/icons/copy?f=classic&s=solid — https://fontawesome.com/license/free */
-    var COPY_ICON_SVG =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true">' +
-      '<path d="M288 64C252.7 64 224 92.7 224 128L224 384C224 419.3 252.7 448 288 448L480 448C515.3 448 544 419.3 544 384L544 183.4C544 166 536.9 149.3 524.3 137.2L466.6 81.8C454.7 70.4 438.8 64 422.3 64L288 64zM160 192C124.7 192 96 220.7 96 256L96 512C96 547.3 124.7 576 160 576L352 576C387.3 576 416 547.3 416 512L416 496L352 496L352 512L160 512L160 256L176 256L176 192L160 192z"/>' +
-      '</svg>';
-
-    var SPINNER_SVG =
-      '<span class="fab-spinner-wrap">' +
-      '<svg class="fab-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
-      '<circle cx="12" cy="12" r="9" stroke-linecap="round" stroke-dasharray="14 32"/>' +
-      '</svg></span>';
-    var BAN_SVG =
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
-      '<circle cx="12" cy="12" r="9" />' +
-      '<path stroke-linecap="round" d="M7 7l10 10" />' +
-      '</svg>';
-    var BAN_SVG_SLIM =
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-      '<circle cx="12" cy="12" r="10" />' +
-      '<path d="M4.9 4.9l14.2 14.2" />' +
-      '</svg>';
-    /** 보존용(주석): 파티 버튼 테이블+포켓볼 SVG. 사용 시 아래 블록 해제 후 PARTY_ICON_STACK_HTML 대체 */
-    /*
-    var PARTY_ICON_SVG =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4.75 -8 66 88" fill="none" overflow="visible" aria-hidden="true">' +
-      '<defs>' +
-      '<mask id="nuoTbPartyTblMask">' +
-      '<rect x="-4.75" y="-8" width="66" height="88" fill="white"/>' +
-      '<circle cx="41" cy="57.5" r="25" fill="black"/>' +
-      '</mask>' +
-      '<filter id="nuoTbPartyBallLift" x="-40%" y="-40%" width="180%" height="180%">' +
-      '<feDropShadow dx="0" dy="1.25" stdDeviation="1.35" flood-color="#0f172a" flood-opacity="0.3"/>' +
-      '</filter>' +
-      '</defs>' +
-      '<g mask="url(#nuoTbPartyTblMask)">' +
-      '<rect x="4" y="4" width="40" height="56" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>' +
-      '<line x1="4" y1="22.66" x2="44" y2="22.66" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
-      '<line x1="4" y1="41.33" x2="44" y2="41.33" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
-      '<line x1="24" y1="4" x2="24" y2="60" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
-      '</g>' +
-      '<g filter="url(#nuoTbPartyBallLift)" transform="translate(41, 57.5) scale(0.88) translate(-24, -24)">' +
-      '<circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>' +
-      '<line x1="4" y1="24" x2="17" y2="24" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
-      '<line x1="31" y1="24" x2="44" y2="24" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
-      '<circle cx="24" cy="24" r="6" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>' +
-      '</g>' +
-      '</svg>';
-    */
-    /** 파티 버튼: 1~6슬롯 도트 img 겹침(빈 슬롯은 src 없음) */
-    var PARTY_ICON_STACK_HTML =
-      '<span class="fab-party-mon-stack" aria-hidden="true">' +
-      '<img class="fab-party-mon fab-party-mon--i1" alt="" decoding="async" />' +
-      '<img class="fab-party-mon fab-party-mon--i2" alt="" decoding="async" />' +
-      '<img class="fab-party-mon fab-party-mon--i3" alt="" decoding="async" />' +
-      '<img class="fab-party-mon fab-party-mon--i4" alt="" decoding="async" />' +
-      '<img class="fab-party-mon fab-party-mon--i5" alt="" decoding="async" />' +
-      '<img class="fab-party-mon fab-party-mon--i6" alt="" decoding="async" />' +
-      '</span>';
-    function fabFeedbackHtml() {
-      return (
-        '<span class="fab-btn-feedback" aria-hidden="true">' +
-        '<span class="fab-fb-hover"><span class="fab-fb-hover-bg"></span><span class="fab-fb-hover-ic">' +
-        COPY_ICON_SVG +
-        '</span></span>' +
-        '<span class="fab-fb-busy"><span class="fab-fb-busy-bg"></span><span class="fab-fb-busy-ic">' +
-        SPINNER_SVG +
-        '</span></span>' +
-        '<span class="fab-fb-done"><span class="fab-fb-done-bg"></span><span class="fab-fb-done-ic">' +
-        CHECK_SVG +
-        '</span></span>' +
-        '<span class="fab-fb-err"><span class="fab-fb-err-bg"></span><span class="fab-fb-err-ic">' +
-        BAN_SVG +
-        '</span></span></span>'
-      );
-    }
-    /** 슬롯만: 호버 시 복사 대신 회색 금지 아이콘(빈 칸용) */
-    function fabSlotFeedbackHtml() {
-      return (
-        '<span class="fab-btn-feedback" aria-hidden="true">' +
-        '<span class="fab-fb-hover"><span class="fab-fb-hover-bg"></span>' +
-        '<span class="fab-fb-hover-ic">' +
-        COPY_ICON_SVG +
-        '</span>' +
-        '<span class="fab-fb-hover-ban-ic">' +
-        BAN_SVG_SLIM +
-        '</span></span>' +
-        '<span class="fab-fb-busy"><span class="fab-fb-busy-bg"></span><span class="fab-fb-busy-ic">' +
-        SPINNER_SVG +
-        '</span></span>' +
-        '<span class="fab-fb-done"><span class="fab-fb-done-bg"></span><span class="fab-fb-done-ic">' +
-        CHECK_SVG +
-        '</span></span>' +
-        '<span class="fab-fb-err"><span class="fab-fb-err-bg"></span><span class="fab-fb-err-ic">' +
-        BAN_SVG +
-        '</span></span></span>'
-      );
-    }
-    root.innerHTML =
-      '<style>' +
-      ':host { all: initial; }' +
-      '* { box-sizing: border-box; font-family: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }' +
-      '@keyframes nuo-tb-glow {' +
-      '  0%, 100% { box-shadow: 0 4px 14px rgba(156, 207, 229, 0.32), 0 0 0 1px rgba(156, 207, 229, 0.35); }' +
-      '  50% { box-shadow: 0 6px 18px rgba(120, 185, 210, 0.34), 0 0 0 1px rgba(156, 207, 229, 0.48); }' +
-      '}' +
-      '.fab-root {' +
-      '  position: fixed; z-index: 2147483645; right: clamp(24px, 5vw, 48px); bottom: clamp(24px, 5vw, 48px);' +
-      '  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;' +
-      '}' +
-      '.fab-root.nuo-tb-off { opacity: 0; pointer-events: none; visibility: hidden; }' +
-      '.fab-per-btn-toast {' +
-      '  padding: 8px 10px; font-size: 12px; line-height: 1.35;' +
-      '  color: #991b1b; background: #fff1f2; border: 1px solid #fecaca;' +
-      '  border-radius: 10px; word-break: keep-all; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);' +
-      '  flex-shrink: 0; z-index: 6;' +
-      '}' +
-      '.fab-per-btn-toast.nuo-hidden { display: none; }' +
-      '.fab-slot-row .fab-per-btn-toast {' +
-      '  max-width: min(220px, calc(100vw - 128px));' +
-      '}' +
-      '.fab-per-btn-toast--below {' +
-      '  max-width: min(280px, calc(100vw - 48px)); width: max-content; align-self: center;' +
-      '}' +
-      '.fab-inner {' +
-      '  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;' +
-      '}' +
-      '.fab-dock { position: relative; display: inline-block; vertical-align: bottom; }' +
-      '.fab-dock-main {' +
-      '  position: relative; width: 80px; display: flex; flex-direction: column; align-items: center;' +
-      '}' +
-      '.fab-party-col {' +
-      '  position: relative; width: 80px; min-height: 80px; display: flex; flex-direction: column;' +
-      '  align-items: center; justify-content: flex-end;' +
-      '}' +
-      '.fab-party-wrap {' +
-      '  position: relative; display: flex; flex-direction: column; align-items: center; width: 80px;' +
-      '}' +
-      '.fab-slot-row {' +
-      '  position: relative; width: 80px; height: 62px; display: flex; align-items: center; justify-content: center;' +
-      '  flex-shrink: 0; overflow: visible;' +
-      '}' +
-      '.fab-slot-row .fab-per-btn-toast {' +
-      '  position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%);' +
-      '  text-align: left;' +
-      '}' +
-      '.fab-per-btn-toast--below {' +
-      '  position: static; margin-top: 8px; transform: none; text-align: center;' +
-      '}' +
-      '.fab-slots {' +
-      '  position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 1;' +
-      '  display: flex; flex-direction: column; align-items: center; gap: 8px; width: 80px;' +
-      '  overflow: visible;' +
-      '  opacity: 0; visibility: hidden; pointer-events: none;' +
-      '  transition: opacity 0.09s ease, visibility 0.09s;' +
-      '}' +
-      '.fab-dock--open .fab-slots {' +
-      '  opacity: 1; visibility: visible; pointer-events: auto;' +
-      '}' +
-      '.fab-settings-wrap {' +
-      '  position: absolute; right: calc(100% + 12px); bottom: 0; z-index: 2;' +
-      '  opacity: 0; visibility: hidden; pointer-events: none;' +
-      '  transition: opacity 0.09s ease, visibility 0.09s;' +
-      '}' +
-      '.fab-dock--open .fab-settings-wrap {' +
-      '  opacity: 1; visibility: visible; pointer-events: auto;' +
-      '}' +
-      '.fab-btn {' +
-      '  position: relative; border: none; cursor: pointer; display: inline-flex; align-items: center;' +
-      '  justify-content: center; flex-shrink: 0; border-radius: 50%; color: #0f172a;' +
-      '}' +
-      '.fab-btn:not(:disabled) {' +
-      '  background: linear-gradient(155deg, #f7fcfe 0%, #c5e8f4 40%, #9ccfe5 100%);' +
-      '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite;' +
-      '  transition: transform 0.22s ease, filter 0.2s ease, opacity 0.2s ease;' +
-      '}' +
-      '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):hover {' +
-      '  transform: scale(1.06); filter: brightness(1.02) saturate(1.03);' +
-      '}' +
-      '/* 슬롯 빈/안빈·파티 동일: nuo-tb-glow + fab-click-bounce. 빈슬롯 기본 animation:none 은 !important 로 덮음 */' +
-      '.fab-btn.fab-copy-click-pulse:not(:disabled):not(.fab-copy-error) {' +
-      '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite, fab-click-bounce 0.1s cubic-bezier(0.22, 1, 0.36, 1) !important;' +
-      '}' +
-      '/* 눌림: 즉시 축소. 뗌 후에는 fab-copy-click-pulse 바운스로 복귀 */' +
-      '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):active,' +
-      '.fab-btn.fab-btn--press:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error) {' +
-      '  transform: scale(0.92); filter: brightness(0.98) saturate(0.98);' +
-      '  transition: none !important;' +
-      '}' +
-      '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):hover:active,' +
-      '.fab-btn.fab-btn--press:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):not(.fab-copy-error):hover {' +
-      '  transform: scale(0.975); filter: brightness(1) saturate(1.01);' +
-      '  transition: none !important;' +
-      '}' +
-      '.fab-btn:disabled {' +
-      '  cursor: not-allowed; opacity: 0.72; filter: saturate(0.45) brightness(0.96);' +
-      '  animation: none;' +
-      '  background: linear-gradient(155deg, #f8fafc 0%, #e2e8f0 55%, #cbd5e1 100%);' +
-      '  color: #64748b; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
-      '}' +
-      '.fab-slot { width: 62px; height: 62px; border-radius: 50%; font-size: 16px; font-weight: 700; overflow: hidden; }' +
-      '.fab-slot-label { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }' +
-      '.fab-slot-mon {' +
-      '  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);' +
-      '  max-width: 82%; max-height: 82%; width: auto; height: auto;' +
-      '  object-fit: contain; display: none; pointer-events: none;' +
-      '}' +
-      '.fab-slot.fab-slot--has-mon .fab-slot-mon { display: block; }' +
-      '.fab-slot.fab-slot--has-mon .fab-slot-fallback-num { display: none; }' +
-      '.fab-slot-fallback-num { pointer-events: none; }' +
-      '.fab-fb-hover-ban-ic {' +
-      '  display: none; position: relative; z-index: 1; align-items: center; justify-content: center;' +
-      '  width: 100%; height: 100%;' +
-      '}' +
-      '.fab-fb-hover-ban-ic svg {' +
-      '  width: 105%; height: 105%; max-width: none; max-height: none; flex-shrink: 0; color: #a8b3c4;' +
-      '}' +
-      '.fab-btn.fab-slot:not(.fab-slot--empty) .fab-fb-hover-ban-ic {' +
-      '  display: none !important;' +
-      '}' +
-      '.fab-btn.fab-slot.fab-slot--empty .fab-fb-hover-ic {' +
-      '  display: none !important;' +
-      '}' +
-      '.fab-btn.fab-slot.fab-slot--empty .fab-fb-hover-ban-ic {' +
-      '  display: flex;' +
-      '}' +
-      '.fab-btn.fab-slot.fab-slot--empty {' +
-      '  cursor: pointer;' +
-      '  animation: none !important;' +
-      '  opacity: 0.72; filter: saturate(0.45) brightness(0.96);' +
-      '  background: linear-gradient(155deg, #f8fafc 0%, #e2e8f0 55%, #cbd5e1 100%);' +
-      '  color: #64748b; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
-      '}' +
-      '.fab-party {' +
-      '  width: 80px; height: 80px; border-radius: 50%; overflow: visible;' +
-      '}' +
-      '.fab-btn.fab-party:not(:disabled) {' +
-      '  color: #2a6f8f;' +
-      '}' +
-      '.fab-party .fab-party-icon {' +
-      '  position: relative; display: block; width: 100%; height: 100%; overflow: hidden;' +
-      '  border-radius: 50%;' +
-      '  clip-path: circle(50% at 50% 50%); -webkit-clip-path: circle(50% at 50% 50%);' +
-      '}' +
-      '.fab-party-mon-stack {' +
-      '  position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 50%;' +
-      '}' +
-      '.fab-party-mon {' +
-      '  position: absolute; display: block; left: 50%; top: 50%; width: auto; height: auto; margin: 0;' +
-      '  object-fit: contain; image-rendering: crisp-edges; pointer-events: none;' +
-      '  opacity: 0; transition: opacity 0.12s ease;' +
-      '}' +
-      '.fab-party-mon.fab-party-mon--has-art {' +
-      '  opacity: 1;' +
-      '}' +
-      '.fab-party-mon--i6 {' +
-      '  z-index: 1; width: 54px; max-height: 54px;' +
-      '  transform: translate(calc(-50% - 10px), calc(-50% - 23px));' +
-      '}' +
-      '.fab-party-mon--i5 {' +
-      '  z-index: 2; width: 58px; max-height: 58px;' +
-      '  transform: translate(calc(-50% + 14px), calc(-50% - 21px));' +
-      '}' +
-      '.fab-party-mon--i4 {' +
-      '  z-index: 3; width: 64px; max-height: 64px;' +
-      '  transform: translate(calc(-50% + 26px), calc(-50% - 8px));' +
-      '}' +
-      '.fab-party-mon--i3 {' +
-      '  z-index: 4; width: 68px; max-height: 68px;' +
-      '  transform: translate(calc(-50% + 27px), calc(-50% + 11px));' +
-      '}' +
-      '.fab-party-mon--i2 {' +
-      '  z-index: 5; width: 74px; max-height: 74px;' +
-      '  transform: translate(calc(-50% - 17px), calc(-50% + 15px));' +
-      '}' +
-      '.fab-party-mon--i1 {' +
-      '  z-index: 6; width: 84px; max-height: 86px;' +
-      '  transform: translate(calc(-50% + 8px), calc(-50% + 24px));' +
-      '}' +
-      '.fab-settings-morph {' +
-      '  position: relative; width: 52px; min-height: 52px; max-height: 52px; border-radius: 26px;' +
-      '  overflow: hidden;' +
-      '  background: linear-gradient(155deg, #f7fcfe 0%, #c5e8f4 40%, #9ccfe5 100%);' +
-      '  color: #2a6f8f;' +
-      '  animation: nuo-tb-glow 3.4s ease-in-out -0.6s infinite;' +
-      '  cursor: pointer;' +
-      '  transition: width 0.22s ease, min-height 0.24s ease, max-height 0.24s ease, border-radius 0.2s ease,' +
-      '    box-shadow 0.35s ease, filter 0.2s ease, transform 0.22s ease;' +
-      '}' +
-      '.fab-settings-wrap:hover .fab-settings-morph {' +
-      '  display: flex; flex-direction: column; cursor: default;' +
-      '  width: min(92vw, 147px); min-height: 168px; max-height: min(52vh, 300px); border-radius: 14px;' +
-      '  overflow: hidden; animation: none;' +
-      '  background: linear-gradient(180deg, #f7fcfe 0%, #ffffff 42%, #e8f4fa 100%);' +
-      '  color: #0f172a;' +
-      '  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(156, 207, 229, 0.65);' +
-      '}' +
-      '.fab-settings-gear {' +
-      '  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;' +
-      '  pointer-events: none; transition: opacity 0.12s ease;' +
-      '}' +
-      '.fab-settings-wrap:hover .fab-settings-gear {' +
-      '  opacity: 0;' +
-      '}' +
-      '.fab-settings-morph:focus-visible { outline: 2px solid #6eb0cc; outline-offset: 3px; }' +
-      '.fab-btn-label { pointer-events: none; position: relative; z-index: 0; }' +
-      '.fab-slot .fab-btn-label, .fab-party .fab-btn-label { position: absolute; inset: 0; }' +
-      '@keyframes fab-click-bounce {' +
-      '  0% { transform: scale(1); }' +
-      '  9% { transform: scale(0.993); }' +
-      '  20% { transform: scale(0.982); }' +
-      '  32% { transform: scale(0.972); }' +
-      '  44% { transform: scale(0.964); }' +
-      '  52% { transform: scale(0.96); }' +
-      '  62% { transform: scale(0.966); }' +
-      '  73% { transform: scale(0.976); }' +
-      '  84% { transform: scale(0.988); }' +
-      '  93% { transform: scale(0.996); }' +
-      '  100% { transform: scale(1); }' +
-      '}' +
-      '@keyframes fab-spin-rot { to { transform: rotate(360deg); } }' +
-      '@keyframes fab-fb-busy-out {' +
-      '  from { opacity: 1; }' +
-      '  to { opacity: 0; }' +
-      '}' +
-      '@keyframes fab-fb-spin-ic {' +
-      '  from { transform: scale(1); opacity: 1; }' +
-      '  to { transform: scale(0.32); opacity: 0; }' +
-      '}' +
-      '@keyframes fab-fb-done-layer {' +
-      '  from { opacity: 0; }' +
-      '  to { opacity: 1; }' +
-      '}' +
-      '@keyframes fab-fb-check-pop {' +
-      '  from { transform: scale(0.28); opacity: 0; }' +
-      '  to { transform: scale(1); opacity: 1; }' +
-      '}' +
-      '@keyframes fab-err-shake-btn {' +
-      '  0%, 100% { transform: translateX(0); }' +
-      '  9% { transform: translateX(-9px); }' +
-      '  21% { transform: translateX(8px); }' +
-      '  33% { transform: translateX(-4.5px); }' +
-      '  45% { transform: translateX(3.5px); }' +
-      '  57% { transform: translateX(-2px); }' +
-      '  69% { transform: translateX(1.2px); }' +
-      '  81% { transform: translateX(-0.55px); }' +
-      '  91% { transform: translateX(0.25px); }' +
-      '}' +
-      '.fab-btn-feedback {' +
-      '  position: absolute; inset: 0; border-radius: inherit; z-index: 2; pointer-events: none;' +
-      '  overflow: hidden;' +
-      '}' +
-      '.fab-fb-hover, .fab-fb-busy, .fab-fb-done, .fab-fb-err {' +
-      '  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;' +
-      '  border-radius: inherit; opacity: 0;' +
-      '}' +
-      '.fab-fb-hover-bg, .fab-fb-busy-bg, .fab-fb-done-bg, .fab-fb-err-bg {' +
-      '  position: absolute; inset: 0; border-radius: inherit;' +
-      '}' +
-      '.fab-fb-hover-bg { background: rgba(255, 255, 255, 0.52); }' +
-      '.fab-fb-busy-bg { background: rgba(15, 23, 42, 0.28); }' +
-      '.fab-fb-done-bg { background: rgba(255, 255, 255, 0.5); }' +
-      '.fab-fb-err-bg { background: rgba(15, 23, 42, 0.28); }' +
-      '.fab-fb-hover-ic, .fab-fb-busy-ic, .fab-fb-done-ic, .fab-fb-err-ic {' +
-      '  position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;' +
-      '  width: 100%; height: 100%;' +
-      '}' +
-      '.fab-fb-hover-ic svg, .fab-fb-done-ic svg, .fab-fb-err-ic svg {' +
-      '  width: 46%; height: 46%; max-width: 38px; max-height: 38px; flex-shrink: 0;' +
-      '}' +
-      '.fab-spinner-wrap {' +
-      '  display: flex; align-items: center; justify-content: center;' +
-      '  width: 100%; height: 100%; flex-shrink: 0;' +
-      '}' +
-      '.fab-spinner-wrap .fab-spinner-svg {' +
-      '  width: 46%; height: 46%; max-width: 38px; max-height: 38px; flex-shrink: 0;' +
-      '  display: block; overflow: visible;' +
-      '  transform-origin: 50% 50%;' +
-      '}' +
-      '.fab-fb-hover-ic svg { color: #475569; }' +
-      '.fab-fb-busy-ic svg { color: #475569; }' +
-      '.fab-fb-done-ic svg { color: #16a34a; }' +
-      '.fab-fb-err-ic svg { color: #dc2626; }' +
-      '.fab-btn:not(:disabled):not(.fab-copy-loading):not(.fab-copy-success):hover .fab-fb-hover {' +
-      '  opacity: 1; transition: opacity 0.14s ease;' +
-      '}' +
-      '.fab-copy-loading .fab-fb-busy { opacity: 1; transition: opacity 0.12s ease; }' +
-      '.fab-copy-loading .fab-spinner-wrap .fab-spinner-svg {' +
-      '  animation: fab-spin-rot 1.1s linear infinite;' +
-      '}' +
-      '.fab-copy-success .fab-fb-busy {' +
-      '  animation: fab-fb-busy-out 0.26s ease forwards;' +
-      '}' +
-      '.fab-copy-success .fab-fb-busy-ic { animation: fab-fb-spin-ic 0.28s ease forwards; }' +
-      '.fab-copy-success .fab-fb-done {' +
-      '  animation: fab-fb-done-layer 0.32s ease 0.1s forwards;' +
-      '}' +
-      '.fab-copy-success .fab-fb-done-ic { animation: fab-fb-check-pop 0.44s cubic-bezier(0.34, 1.45, 0.64, 1) 0.14s both; }' +
-      '.fab-btn.fab-copy-error:not(.fab-copy-dimout) {' +
-      '  animation: fab-err-shake-btn 0.42s cubic-bezier(0.32, 0.72, 0.27, 1) forwards;' +
-      '}' +
-      '.fab-copy-error .fab-fb-err {' +
-      '  opacity: 1; transition: opacity 0.1s ease;' +
-      '}' +
-      '.fab-copy-error .fab-fb-hover, .fab-copy-error .fab-fb-busy, .fab-copy-error .fab-fb-done {' +
-      '  opacity: 0 !important;' +
-      '}' +
-      '.fab-copy-dimout .fab-btn-feedback { opacity: 0; transition: opacity 0.45s ease; }' +
-      '.fab-settings-panel {' +
-      '  position: absolute; left: 0; top: 0; width: 100%; padding: 0 10px; box-sizing: border-box;' +
-      '  opacity: 0; visibility: hidden; pointer-events: none; height: 0; overflow: hidden;' +
-      '}' +
-      '.fab-settings-wrap:hover .fab-settings-panel {' +
-      '  position: relative; height: auto; cursor: default; opacity: 1; visibility: visible; pointer-events: auto; overflow: visible;' +
-      '  flex: 1 1 auto; min-height: 0; margin: 0;' +
-      '  display: flex; flex-direction: column; justify-content: space-evenly; align-items: stretch;' +
-      '  padding: 10px 10px 8px;' +
-      '}' +
-      '.fab-settings-panel .opt-row {' +
-      '  display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: #0f172a;' +
-      '  margin: 0; flex-shrink: 0; cursor: pointer;' +
-      '}' +
-      '.fab-settings-panel .opt-row input[type="checkbox"] {' +
-      '  -webkit-appearance: none; appearance: none; width: 15px; height: 15px; flex-shrink: 0; margin: 0;' +
-      '  border: 1px solid #cbd5e1; border-radius: 3px; background: #fff; cursor: pointer;' +
-      '  transition: border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease, background-color 0.15s ease;' +
-      '}' +
-      '.fab-settings-panel .opt-row input[type="checkbox"]:enabled:hover {' +
-      '  border-color: #9ccfe5; box-shadow: 0 0 0 2px rgba(156, 207, 229, 0.45); filter: brightness(1.03);' +
-      '}' +
-      '.fab-settings-panel .opt-row input[type="checkbox"]:checked:enabled:hover {' +
-      '  border-color: #7ebad9; box-shadow: 0 0 0 2px rgba(156, 207, 229, 0.4); filter: brightness(1.08);' +
-      '}' +
-      '.fab-settings-panel .opt-row input[type="checkbox"]:checked {' +
-      '  border-color: #5aa8cc; background-color: #5aa8cc;' +
-      '  background-image: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23ffffff%27 stroke-width=%273%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M5 13l4 4L19 7%27/%3E%3C/svg%3E");' +
-      '  background-size: 11px 11px; background-position: center; background-repeat: no-repeat;' +
-      '}' +
-      '.fab-settings-panel .opt-row input[type="checkbox"]:focus-visible {' +
-      '  outline: 2px solid #9ccfe5; outline-offset: 2px;' +
-      '}' +
-      '.fab-settings-panel .opt-row.opt-muted { color: #94a3b8; cursor: default; }' +
-      '.fab-settings-panel .opt-row.opt-muted input[type="checkbox"] {' +
-      '  cursor: not-allowed; opacity: 0.45; background: #fff; border-color: #e2e8f0;' +
-      '}' +
-      '.fab-settings-panel .opt-row.opt-muted input[type="checkbox"]:checked {' +
-      '  background-color: #94a3b8; border-color: #64748b;' +
-      '  background-image: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23ffffff%27 stroke-width=%273%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M5 13l4 4L19 7%27/%3E%3C/svg%3E");' +
-      '  background-size: 11px 11px; background-position: center; background-repeat: no-repeat;' +
-      '}' +
-      '.settings-hr { border: none; border-top: 1px solid #e2e8f0; margin: 0; flex-shrink: 0; cursor: default; }' +
-      '</style>' +
-      '<div class="fab-root nuo-tb-off" part="fab">' +
-      '  <div class="fab-inner" tabindex="-1">' +
-      '    <div class="fab-dock" id="fabDock">' +
-      '      <div class="fab-dock-main">' +
-      '        <div class="fab-settings-wrap">' +
-      '          <div class="fab-settings-morph" id="settingsMorph" tabindex="0" role="group" aria-label="샘플 복사 옵션">' +
-      '            <div class="fab-settings-gear">' +
-      '              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
-      '                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>' +
-      '                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>' +
-      '              </svg>' +
-      '            </div>' +
-      '            <div class="fab-settings-panel" id="settingsPanel">' +
-      '              <label class="opt-row" id="optRowUrls"><input type="checkbox" id="optUrls" /><span>URL</span></label>' +
-      '              <label class="opt-row" id="optRowReal"><input type="checkbox" id="optReal" /><span>실수치</span></label>' +
-      '              <label class="opt-row" id="optRowPow"><input type="checkbox" id="optPow" /><span>결정력</span></label>' +
-      '              <label class="opt-row" id="optRowBulk"><input type="checkbox" id="optBulk" /><span>내구력</span></label>' +
-      '              <hr class="settings-hr" />' +
-      '              <label class="opt-row" id="optRowSd"><input type="checkbox" id="optSd" /><span>Showdown</span></label>' +
-      '            </div>' +
-      '          </div>' +
-      '        </div>' +
-        '        <div class="fab-party-col">' +
-        '          <div class="fab-slots" id="fabSlots"></div>' +
-        '          <div class="fab-party-wrap">' +
-        '          <button type="button" class="fab-btn fab-party" id="fabPartyBtn" disabled' +
-        '            aria-label="현재 팀 파티 샘플 복사">' +
-        '            <span class="fab-btn-label fab-party-icon">' +
-      PARTY_ICON_STACK_HTML +
-        '            </span>' +
-      fabFeedbackHtml() +
-        '          </button>' +
-        '          <div class="fab-per-btn-toast fab-per-btn-toast--below nuo-hidden" id="fabPartyErrToast" role="alert" aria-live="assertive"></div>' +
-        '          </div>' +
-        '        </div>' +
-      '      </div>' +
-      '    </div>' +
-      '  </div>' +
-      '</div>';
+    var fabSlotFeedbackHtml = buildShadowStylesAndMarkup(root).fabSlotFeedbackHtml;
 
     var fabRoot = root.querySelector('.fab-root');
     var partyToastEl = root.getElementById('fabPartyErrToast');

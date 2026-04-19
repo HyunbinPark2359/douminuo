@@ -19,43 +19,56 @@ importScripts('showdownPaste.js');
   var SK_MOVETAGS_CACHE = 'nuo_fmt_moveTagsCache';
   var SK_MOVEKO_CACHE = 'nuo_fmt_moveKoCache';
 
-  function parseModifiersJson(text) {
+  /**
+   * JSON 문자열 파싱 + 스키마 검증. 실패/비정상이면 `empty`를 반환.
+   * @param {string} text
+   * @param {(j:any)=>any|null} validate 유효하면 수정된 doc을 반환, 아니면 falsy
+   * @param {object} empty 실패 시 반환할 기본 문서
+   */
+  function safeJsonParse(text, validate, empty) {
     try {
       var j = JSON.parse(text);
-      if (!j || typeof j.items !== 'object' || j.items === null) {
-        return { version: 0, items: {}, abilities: {} };
-      }
-      if (!j.abilities || typeof j.abilities !== 'object') {
-        j.abilities = {};
-      }
-      return j;
+      var ok = validate(j);
+      return ok || empty;
     } catch (e) {
-      return { version: 0, items: {}, abilities: {} };
+      return empty;
     }
+  }
+
+  var EMPTY_MODIFIERS = { version: 0, items: {}, abilities: {} };
+  var EMPTY_MOVETAGS = { version: 0, moves: {} };
+  var EMPTY_MOVEKOMAP = { version: 0, byKo: {} };
+
+  function parseModifiersJson(text) {
+    return safeJsonParse(
+      text,
+      function (j) {
+        if (!j || typeof j.items !== 'object' || j.items === null) return null;
+        if (!j.abilities || typeof j.abilities !== 'object') j.abilities = {};
+        return j;
+      },
+      EMPTY_MODIFIERS
+    );
   }
 
   function parseMoveTagsJson(text) {
-    try {
-      var j = JSON.parse(text);
-      if (!j || typeof j.moves !== 'object' || j.moves === null) {
-        return { version: 0, moves: {} };
-      }
-      return j;
-    } catch (e) {
-      return { version: 0, moves: {} };
-    }
+    return safeJsonParse(
+      text,
+      function (j) {
+        return j && typeof j.moves === 'object' && j.moves !== null ? j : null;
+      },
+      EMPTY_MOVETAGS
+    );
   }
 
   function parseMoveKoMapJson(text) {
-    try {
-      var j = JSON.parse(text);
-      if (!j || typeof j.byKo !== 'object' || j.byKo === null) {
-        return { version: 0, byKo: {} };
-      }
-      return j;
-    } catch (e) {
-      return { version: 0, byKo: {} };
-    }
+    return safeJsonParse(
+      text,
+      function (j) {
+        return j && typeof j.byKo === 'object' && j.byKo !== null ? j : null;
+      },
+      EMPTY_MOVEKOMAP
+    );
   }
 
   function makeBundleLoader(storageKey, fileName, parse, emptyDoc) {
@@ -378,18 +391,6 @@ importScripts('showdownPaste.js');
     });
   }
 
-  function mapCalcSideError(code) {
-    var c = String(code || '');
-    if (c === 'party_url_not_supported') {
-      return '파티 공유 URL은 계산기 입력에 사용할 수 없습니다. 샘플 URL(#ps=)만 넣어 주세요.';
-    }
-    if (c === 'empty_url') return 'URL을 입력해 주세요.';
-    if (c === 'no_ps_id') return '#ps= 가 포함된 스마트누오 공유 URL인지 확인해 주세요.';
-    if (c === 'empty_slot' || c === 'no_species') return '샘플 데이터가 비어 있거나 종 이름을 읽지 못했습니다.';
-    if (c === 'unknown_share_shape') return '지원하지 않는 공유 형식입니다.';
-    return c;
-  }
-
   function mapShareError(err) {
     var m = err && err.message ? String(err.message) : String(err);
     if (m === 'empty' || m === 'empty_input') return 'URL을 입력해 주세요.';
@@ -400,9 +401,6 @@ importScripts('showdownPaste.js');
     }
     if (m === 'unknown_share_shape') {
       return '지원하지 않는 공유 형식입니다.';
-    }
-    if (m.indexOf('party_on_multiline') !== -1 || m === '파티 공유는 URL을 한 줄만 입력해 주세요.') {
-      return '파티는 URL 한 줄만. 여러 샘플은 줄마다 샘플 URL만 넣으세요.';
     }
     if (m === 'bad_party_slots') return '파티 슬롯 형식이 올바르지 않습니다.';
     if (m === 'empty_party') return '비어 있는 파티입니다. 포켓몬을 넣은 뒤 다시 시도하세요.';
@@ -418,98 +416,21 @@ importScripts('showdownPaste.js');
     return m;
   }
 
-  function resolveMultiSample(lines) {
-    var results = [];
-    var chain = Promise.resolve();
-    lines.forEach(function (line) {
-      chain = chain.then(function () {
-        var full = SR.normalizePartyUrlInput(line);
-        if (!full) throw new Error('bad_url');
-        var id = SR.extractPsId(full);
-        if (!id) throw new Error('no_ps_id');
-        var baseUrl = new URL(full);
-        var origin = baseUrl.origin;
-        var pathname = baseUrl.pathname || '/';
-        return fetchShareGET(origin, id).then(function (j) {
-          var cls = SR.classifyShareGetResponse(j);
-          if (cls.type === 'party') throw new Error('party_on_multiline');
-          if (cls.type !== 'single') throw new Error('unknown_share_shape');
-          var pasteOne = SR.shareSlotToRaw(cls.slot, 1, { numberedTitle: false });
-          var displayUrl = buildDisplayPartyUrl(origin, pathname, id);
-          results.push({ pasteOne: pasteOne, displayUrl: displayUrl, slot: cls.slot });
-        });
-      });
-    });
-    return chain.then(function () {
-      var slots = results.map(function (r) {
-        return r.slot;
-      });
-      return sequentialComputeBlockAugmented(slots).then(function (pack) {
-        return {
-          partyUrl: '',
-          sampleUrls: results.map(function (r) {
-            return r.displayUrl;
-          }),
-          pasteRaw: results.map(function (r) {
-            return r.pasteOne;
-          }).join('\n---\n'),
-          shareSlots: slots.map(cloneShareSlot),
-          blockMovePowers: pack.blockMovePowers,
-          blockSpeciesTypes: pack.blockSpeciesTypes,
-        };
-      });
-    });
-  }
-
-  function resolveShareInput(urlText) {
-    var lines = String(urlText || '')
-      .split(/\r?\n/)
-      .map(function (l) {
-        return l.trim();
-      })
-      .filter(Boolean);
-    if (lines.length === 0) return Promise.reject(new Error('empty'));
-
-    var first = SR.normalizePartyUrlInput(lines[0]);
+  /**
+   * COPY_PARTY_SHARE_URL 전용: postSharePartyAll이 만든 단일 파티 URL을 GET → 파티(6슬롯) 정규화.
+   */
+  function resolveShareInput(partyUrl) {
+    var first = SR.normalizePartyUrlInput(String(partyUrl || ''));
     if (!first) return Promise.reject(new Error('bad_url'));
     var id = SR.extractPsId(first);
     if (!id) return Promise.reject(new Error('no_ps_id'));
-
     var baseUrl = new URL(first);
     var origin = baseUrl.origin;
     var pathname = baseUrl.pathname || '/';
-
-    if (lines.length === 1) {
-      return fetchShareGET(origin, id).then(function (j) {
-        var cls = SR.classifyShareGetResponse(j);
-        if (cls.type === 'party') {
-          return resolvePartyWithRaws(origin, pathname, id, cls.slots);
-        }
-        return computeBlockPowersForSlot(cls.slot).then(function (pack) {
-          return {
-            partyUrl: '',
-            sampleUrls: [buildDisplayPartyUrl(origin, pathname, id)],
-            pasteRaw: SR.shareSlotToRaw(cls.slot, 1, { numberedTitle: false }),
-            shareSlots: [cloneShareSlot(cls.slot)],
-            blockMovePowers: [pack.movePowers],
-            blockSpeciesTypes: [pack.speciesTypesEn],
-          };
-        });
-      });
-    }
-
-    return resolveMultiSample(lines);
-  }
-
-  function attachResponse(sendResponse, data) {
-    sendResponse({
-      ok: true,
-      partyUrl: data.partyUrl,
-      sampleUrls: data.sampleUrls,
-      pasteRaw: data.pasteRaw,
-      shareSlots: data.shareSlots,
-      blockMovePowers: data.blockMovePowers,
-      blockSpeciesTypes: data.blockSpeciesTypes,
+    return fetchShareGET(origin, id).then(function (j) {
+      var cls = SR.classifyShareGetResponse(j);
+      if (cls.type !== 'party') return Promise.reject(new Error('unknown_share_shape'));
+      return resolvePartyWithRaws(origin, pathname, id, cls.slots);
     });
   }
 
@@ -801,7 +722,7 @@ importScripts('showdownPaste.js');
         loadJsonUrl('natureStatMul.json', { bySlug: {} }),
         loadJsonUrl('typeKoMap.json', { byKo: {} }),
         loadJsonUrl('moveKoFallback.json', { version: 0, byKo: {} }),
-        loadJsonUrl('modifiers.json', { version: 0, items: {}, abilities: {} }),
+        ensureModifiersLoaded(),
       ])
         .then(function (arr) {
           return CP.buildSidePayloads(msg.atkUrl || '', msg.defUrl || '', {

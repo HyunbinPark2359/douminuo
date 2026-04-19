@@ -15,6 +15,8 @@
   var PANEL_HOST_ID = 'nuo-fmt-calc-panel-host';
   var LOCAL_SHOW_FLOAT = 'nuo_fmt_showCalcFloating';
 
+  var CS = globalThis.nuoCsCommon || {};
+
   function mapErr(code) {
     return typeof globalThis.mapCalcFillError === 'function'
       ? globalThis.mapCalcFillError(code)
@@ -22,19 +24,7 @@
   }
 
   function injectBridgeFromBackground() {
-    return new Promise(function (resolve, reject) {
-      chrome.runtime.sendMessage({ type: 'INJECT_CALC_BRIDGE' }, function (r) {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message || 'runtime'));
-          return;
-        }
-        if (!r || !r.ok) {
-          reject(new Error((r && r.error) || 'bridge_inject_failed'));
-          return;
-        }
-        resolve();
-      });
-    });
+    return CS.requestBridgeInject('INJECT_CALC_BRIDGE', 'bridge_inject_failed');
   }
 
   /** 브리지 주입 직후 Vue가 아직 안 붙은 프레임이면 실패할 수 있어 한 틱 양보 (로드 완료 후 클릭 대응). */
@@ -96,12 +86,7 @@
       });
   }
 
-  /** calcFillBridge.js 의 isCalculatorContext 와 동일 휴리스틱. */
-  function isLikelyCalculatorView() {
-    var t = document.body && document.body.innerText;
-    if (!t) return false;
-    return t.indexOf('교체') !== -1 && (t.indexOf('계산') !== -1 || t.indexOf('초기화') !== -1);
-  }
+  var isLikelyCalculatorView = CS.isLikelyCalculatorView;
 
   function getCalcPayloadsFromBackground(atkUrl, defUrl) {
     return new Promise(function (resolve, reject) {
@@ -183,21 +168,244 @@
     });
   }
 
-  chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
-    if (!msg || msg.type !== 'NUO_CALC_FILL') return;
-    applyPayloads(msg.payloads, {
-      requestId: msg.requestId,
-      onlyAttacker: msg.onlyAttacker,
-      onlyDefender: msg.onlyDefender,
-    })
-      .then(function (r) {
-        sendResponse(r);
-      })
-      .catch(function (e) {
-        sendResponse({ ok: false, error: mapErr((e && e.message) || e) });
-      });
-    return true;
-  });
+  /* Shadow DOM styles/markup for mountCalcSamplePanel. */
+  function buildCalcShadowStylesAndMarkup(root) {
+  root.innerHTML =
+    '<style>' +
+    ':host { all: initial; }' +
+    '* { box-sizing: border-box; font-family: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }' +
+    '@keyframes nuo-drift-atk {' +
+    '  0%, 100% { transform: translate(0, 0) rotate(0deg); }' +
+    '  18% { transform: translate(3px, -4px) rotate(1.1deg); }' +
+    '  35% { transform: translate(-4px, 2px) rotate(-0.85deg); }' +
+    '  52% { transform: translate(4px, 4px) rotate(0.75deg); }' +
+    '  70% { transform: translate(-3px, -3px) rotate(-0.65deg); }' +
+    '  88% { transform: translate(2px, 3px) rotate(0.4deg); }' +
+    '}' +
+    '@keyframes nuo-drift-def {' +
+    '  0%, 100% { transform: translate(0, 0) rotate(0deg); }' +
+    '  22% { transform: translate(-3px, -3px) rotate(-0.95deg); }' +
+    '  40% { transform: translate(4px, 2px) rotate(1deg); }' +
+    '  58% { transform: translate(-2px, 4px) rotate(-0.55deg); }' +
+    '  75% { transform: translate(3px, -2px) rotate(0.7deg); }' +
+    '  92% { transform: translate(-4px, 1px) rotate(-0.35deg); }' +
+    '}' +
+    '@keyframes nuo-glow-atk {' +
+    '  0%, 100% { box-shadow: 0 6px 22px rgba(180, 83, 9, 0.35), 0 0 0 1px rgba(251, 191, 36, 0.45); }' +
+    '  50% { box-shadow: 0 10px 28px rgba(217, 119, 6, 0.48), 0 0 0 1px rgba(252, 211, 77, 0.55); }' +
+    '}' +
+    '@keyframes nuo-glow-def {' +
+    '  0%, 100% { box-shadow: 0 6px 22px rgba(4, 120, 87, 0.32), 0 0 0 1px rgba(52, 211, 153, 0.4); }' +
+    '  50% { box-shadow: 0 10px 28px rgba(5, 150, 105, 0.45), 0 0 0 1px rgba(110, 231, 183, 0.5); }' +
+    '}' +
+    '@keyframes nuo-spin { to { transform: rotate(360deg); } }' +
+    '.nuo-wrap {' +
+    '  --nuo-z: 2147483646;' +
+    '  --calc-atk: #b45309;' +
+    '  --calc-def: #047857;' +
+    '}' +
+    '.nuo-wrap.nuo-off {' +
+    '  visibility: hidden; pointer-events: none; opacity: 0;' +
+    '  transition: opacity 0.25s ease;' +
+    '}' +
+    '.dock {' +
+    '  position: fixed; top: 50%; transform: translateY(-50%); z-index: var(--nuo-z);' +
+    '}' +
+    '.dock-left:not(.has-custom-pos) { left: clamp(28px, 8vw, 200px); }' +
+    '.dock-right:not(.has-custom-pos) { right: clamp(28px, 8vw, 200px); }' +
+    '.nuo-sway {' +
+    '  display: block;' +
+    '  overflow: visible;' +
+    '  border-radius: 50%;' +
+    '  transition: border-radius 0.36s cubic-bezier(0.34, 1.1, 0.45, 1);' +
+    '}' +
+    '.nuo-sway-atk:not(.nuo-sway-muted) {' +
+    '  animation: nuo-drift-atk 7.8s ease-in-out infinite;' +
+    '}' +
+    '.nuo-sway-def:not(.nuo-sway-muted) {' +
+    '  animation: nuo-drift-def 8.6s ease-in-out -1.1s infinite;' +
+    '}' +
+    '.dock-left .morph:not(.is-open) .morph-puck {' +
+    '  animation: nuo-glow-atk 3.2s ease-in-out infinite;' +
+    '}' +
+    '.dock-right .morph:not(.is-open) .morph-puck {' +
+    '  animation: nuo-glow-def 3.4s ease-in-out -0.6s infinite;' +
+    '}' +
+    '.nuo-sway-muted {' +
+    '  animation: none !important;' +
+    '  border-radius: 14px;' +
+    '}' +
+    '.morph {' +
+    '  position: relative;' +
+    '  width: 72px;' +
+    '  min-height: 72px;' +
+    '  border-radius: 50%;' +
+    '  overflow: visible;' +
+    '  cursor: pointer;' +
+    '  transition: transform 0.22s ease, width 0.42s cubic-bezier(0.34, 1.18, 0.45, 1),' +
+    '    min-height 0.42s cubic-bezier(0.34, 1.18, 0.45, 1), border-radius 0.38s cubic-bezier(0.34, 1.1, 0.45, 1),' +
+    '    box-shadow 0.35s ease, margin-left 0.42s cubic-bezier(0.34, 1.18, 0.45, 1);' +
+    '}' +
+    '.morph.is-open { overflow: hidden; }' +
+    '.morph:not(.is-open):hover { transform: scale(1.1); }' +
+    '.morph-puck {' +
+    '  position: absolute; inset: 0; border-radius: 50%;' +
+    '  pointer-events: auto; touch-action: none;' +
+    '}' +
+    '.morph.is-open .morph-puck {' +
+    '  animation: none !important;' +
+    '  opacity: 0; pointer-events: none;' +
+    '  transform: scale(0.45); transition: opacity 0.2s ease, transform 0.25s ease;' +
+    '}' +
+    '.morph.is-open {' +
+    '  transform: none !important;' +
+    '  width: min(92vw, 302px);' +
+    '  min-height: 156px;' +
+    '  border-radius: 14px;' +
+    '  cursor: default;' +
+    '  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
+    '}' +
+    '.morph-atk .morph-puck {' +
+    '  background: linear-gradient(155deg, #fffbeb 0%, #fde68a 42%, #fbbf24 100%);' +
+    '}' +
+    '.morph-atk.is-open { background: linear-gradient(180deg, #fffdf7 0%, #ffffff 40%, #fffbeb 100%); }' +
+    '.morph-def .morph-puck {' +
+    '  background: linear-gradient(155deg, #ecfdf5 0%, #6ee7b7 42%, #34d399 100%);' +
+    '}' +
+    '.morph-def.is-open { background: linear-gradient(180deg, #f8fffc 0%, #ffffff 40%, #ecfdf5 100%); }' +
+    '.dock-right .morph.is-open {' +
+    '  margin-left: calc(72px - min(92vw, 302px));' +
+    '}' +
+    '.morph-orb {' +
+    '  position: absolute; inset: 0; margin: 0; padding: 0; border: none; background: transparent;' +
+    '  cursor: pointer; display: flex; align-items: center; justify-content: center;' +
+    '  transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.34, 1.2, 0.45, 1);' +
+    '}' +
+    '.morph-orb:focus-visible { outline: 2px solid #0f172a; outline-offset: 3px; }' +
+    '.morph.is-open .morph-orb {' +
+    '  opacity: 0; pointer-events: none; transform: scale(0.4);' +
+    '}' +
+    '.ico {' +
+    '  width: 32px; height: 32px; color: var(--calc-atk);' +
+    '}' +
+    '.morph-def .ico { color: var(--calc-def); }' +
+    '.morph-body {' +
+    '  opacity: 0; pointer-events: none;' +
+    '  padding: 0 11px 11px;' +
+    '  transition: opacity 0.26s ease 0.07s;' +
+    '}' +
+    '.morph.is-open .morph-body {' +
+    '  opacity: 1; pointer-events: auto;' +
+    '}' +
+    '.morph:not(.is-open) .morph-body { position: absolute; width: 0; height: 0; overflow: hidden; padding: 0; }' +
+    '.morph-head {' +
+    '  display: flex; align-items: center; justify-content: space-between; gap: 8px;' +
+    '  padding: 10px 2px 6px 2px;' +
+    '}' +
+    '.morph-head span {' +
+    '  font-size: 12px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em;' +
+    '}' +
+    '.morph-head-atk span { color: var(--calc-atk); }' +
+    '.morph-head-def span { color: var(--calc-def); }' +
+    '.morph-mini {' +
+    '  flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px; border: 1px solid #cbd5e1;' +
+    '  background: #f1f5f9; color: #475569; font-size: 18px; line-height: 1; cursor: pointer;' +
+    '  display: flex; align-items: center; justify-content: center; padding: 0;' +
+    '}' +
+    '.morph-mini:hover { background: #e2e8f0; }' +
+    '.morph-inp {' +
+    '  width: 100%; padding: 8px 10px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 8px;' +
+    '  background: #fff; color: #0f172a;' +
+    '}' +
+    '.morph-inp:focus { outline: none; border-color: #64748b; box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.2); }' +
+    '.morph-atk .morph-inp:focus { border-color: #d97706; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.22); }' +
+    '.morph-def .morph-inp:focus { border-color: #059669; box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.22); }' +
+    '.morph-apply {' +
+    '  margin-top: 8px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 10px;' +
+    '  padding: 8px 12px; font-size: 12px; font-weight: 600; border: none; border-radius: 8px;' +
+    '  cursor: pointer; color: #fff;' +
+    '  transition: opacity 0.2s ease, filter 0.2s ease, background-color 0.15s ease;' +
+    '}' +
+    '.morph-apply-atk { background: #ca8a04; }' +
+    '.morph-apply-atk:hover:not(:disabled) { background: #eab308; }' +
+    '.morph-apply-atk:disabled {' +
+    '  opacity: 0.72; filter: saturate(0.55) brightness(0.9); cursor: not-allowed; box-shadow: none;' +
+    '}' +
+    '.morph-apply-atk:disabled:hover { background: #ca8a04; }' +
+    '.morph-apply-def { background: #047857; }' +
+    '.morph-apply-def:hover:not(:disabled) { background: #059669; }' +
+    '.morph-apply-def:disabled {' +
+    '  opacity: 0.72; filter: saturate(0.55) brightness(0.9); cursor: not-allowed; box-shadow: none;' +
+    '}' +
+    '.morph-apply-def:disabled:hover { background: #047857; }' +
+    '.morph-apply-spinner {' +
+    '  width: 14px; height: 14px; flex-shrink: 0; border-radius: 50%;' +
+    '  border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: rgba(255, 255, 255, 0.95);' +
+    '  animation: nuo-spin 0.7s linear infinite;' +
+    '}' +
+    '.morph-apply-spinner[hidden] { display: none !important; }' +
+    '.morph-status {' +
+    '  margin: 7px 0 0; min-height: 1.15em; font-size: 11px; line-height: 1.35; color: #64748b;' +
+    '}' +
+    '.morph-status.err { color: #b91c1c; }' +
+    '.morph-status.ok { color: #15803d; }' +
+    '</style>' +
+    '<div class="nuo-wrap">' +
+    '  <div class="dock dock-left">' +
+    '    <div class="nuo-sway nuo-sway-atk">' +
+    '    <div class="morph morph-atk" data-side="atk">' +
+    '      <div class="morph-puck">' +
+    '        <button type="button" class="morph-orb" aria-expanded="false" aria-label="공격측 샘플 URL">' +
+    '          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '            <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />' +
+    '            <path d="M13 19l6-6" />' +
+    '            <path d="M16 16l4 4" />' +
+    '            <path d="M19 21l2-2" />' +
+    '          </svg>' +
+    '        </button>' +
+    '      </div>' +
+    '      <div class="morph-body">' +
+    '        <div class="morph-head morph-head-atk">' +
+    '          <span>공격 샘플 URL</span>' +
+    '          <button type="button" class="morph-mini" data-close="atk" aria-label="접기">×</button>' +
+    '        </div>' +
+    '        <input type="text" class="morph-inp" id="nuo-inp-atk" spellcheck="false" autocomplete="off" placeholder="https://smartnuo.com/#ps=..." />' +
+    '        <button type="button" class="morph-apply morph-apply-atk" data-action="atk">' +
+    '          <span class="morph-apply-label">입력</span>' +
+    '          <span class="morph-apply-spinner" hidden aria-hidden="true"></span>' +
+    '        </button>' +
+    '        <p class="morph-status" id="nuo-st-atk" role="status" aria-live="polite"></p>' +
+    '      </div>' +
+    '    </div>' +
+    '    </div>' +
+    '  </div>' +
+    '  <div class="dock dock-right">' +
+    '    <div class="nuo-sway nuo-sway-def">' +
+    '    <div class="morph morph-def" data-side="def">' +
+    '      <div class="morph-puck">' +
+    '        <button type="button" class="morph-orb" aria-expanded="false" aria-label="수비측 샘플 URL">' +
+    '          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />' +
+    '          </svg>' +
+    '        </button>' +
+    '      </div>' +
+    '      <div class="morph-body">' +
+    '        <div class="morph-head morph-head-def">' +
+    '          <span>수비 샘플 URL</span>' +
+    '          <button type="button" class="morph-mini" data-close="def" aria-label="접기">×</button>' +
+    '        </div>' +
+    '        <input type="text" class="morph-inp" id="nuo-inp-def" spellcheck="false" autocomplete="off" placeholder="https://smartnuo.com/#ps=..." />' +
+    '        <button type="button" class="morph-apply morph-apply-def" data-action="def">' +
+    '          <span class="morph-apply-label">입력</span>' +
+    '          <span class="morph-apply-spinner" hidden aria-hidden="true"></span>' +
+    '        </button>' +
+    '        <p class="morph-status" id="nuo-st-def" role="status" aria-live="polite"></p>' +
+    '      </div>' +
+    '    </div>' +
+    '    </div>' +
+    '  </div>' +
+    '</div>';
+  }
 
   function mountCalcSamplePanel() {
     if (document.getElementById(PANEL_HOST_ID)) return;
@@ -207,241 +415,7 @@
     document.body.appendChild(host);
 
     var root = host.attachShadow({ mode: 'open' });
-    root.innerHTML =
-      '<style>' +
-      ':host { all: initial; }' +
-      '* { box-sizing: border-box; font-family: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }' +
-      '@keyframes nuo-drift-atk {' +
-      '  0%, 100% { transform: translate(0, 0) rotate(0deg); }' +
-      '  18% { transform: translate(3px, -4px) rotate(1.1deg); }' +
-      '  35% { transform: translate(-4px, 2px) rotate(-0.85deg); }' +
-      '  52% { transform: translate(4px, 4px) rotate(0.75deg); }' +
-      '  70% { transform: translate(-3px, -3px) rotate(-0.65deg); }' +
-      '  88% { transform: translate(2px, 3px) rotate(0.4deg); }' +
-      '}' +
-      '@keyframes nuo-drift-def {' +
-      '  0%, 100% { transform: translate(0, 0) rotate(0deg); }' +
-      '  22% { transform: translate(-3px, -3px) rotate(-0.95deg); }' +
-      '  40% { transform: translate(4px, 2px) rotate(1deg); }' +
-      '  58% { transform: translate(-2px, 4px) rotate(-0.55deg); }' +
-      '  75% { transform: translate(3px, -2px) rotate(0.7deg); }' +
-      '  92% { transform: translate(-4px, 1px) rotate(-0.35deg); }' +
-      '}' +
-      '@keyframes nuo-glow-atk {' +
-      '  0%, 100% { box-shadow: 0 6px 22px rgba(180, 83, 9, 0.35), 0 0 0 1px rgba(251, 191, 36, 0.45); }' +
-      '  50% { box-shadow: 0 10px 28px rgba(217, 119, 6, 0.48), 0 0 0 1px rgba(252, 211, 77, 0.55); }' +
-      '}' +
-      '@keyframes nuo-glow-def {' +
-      '  0%, 100% { box-shadow: 0 6px 22px rgba(4, 120, 87, 0.32), 0 0 0 1px rgba(52, 211, 153, 0.4); }' +
-      '  50% { box-shadow: 0 10px 28px rgba(5, 150, 105, 0.45), 0 0 0 1px rgba(110, 231, 183, 0.5); }' +
-      '}' +
-      '@keyframes nuo-spin { to { transform: rotate(360deg); } }' +
-      '.nuo-wrap {' +
-      '  --nuo-z: 2147483646;' +
-      '  --calc-atk: #b45309;' +
-      '  --calc-def: #047857;' +
-      '}' +
-      '.nuo-wrap.nuo-off {' +
-      '  visibility: hidden; pointer-events: none; opacity: 0;' +
-      '  transition: opacity 0.25s ease;' +
-      '}' +
-      '.dock {' +
-      '  position: fixed; top: 50%; transform: translateY(-50%); z-index: var(--nuo-z);' +
-      '}' +
-      '.dock-left:not(.has-custom-pos) { left: clamp(28px, 8vw, 200px); }' +
-      '.dock-right:not(.has-custom-pos) { right: clamp(28px, 8vw, 200px); }' +
-      '.nuo-sway {' +
-      '  display: block;' +
-      '  overflow: visible;' +
-      '  border-radius: 50%;' +
-      '  transition: border-radius 0.36s cubic-bezier(0.34, 1.1, 0.45, 1);' +
-      '}' +
-      '.nuo-sway-atk:not(.nuo-sway-muted) {' +
-      '  animation: nuo-drift-atk 7.8s ease-in-out infinite;' +
-      '}' +
-      '.nuo-sway-def:not(.nuo-sway-muted) {' +
-      '  animation: nuo-drift-def 8.6s ease-in-out -1.1s infinite;' +
-      '}' +
-      '.dock-left .morph:not(.is-open) .morph-puck {' +
-      '  animation: nuo-glow-atk 3.2s ease-in-out infinite;' +
-      '}' +
-      '.dock-right .morph:not(.is-open) .morph-puck {' +
-      '  animation: nuo-glow-def 3.4s ease-in-out -0.6s infinite;' +
-      '}' +
-      '.nuo-sway-muted {' +
-      '  animation: none !important;' +
-      '  border-radius: 14px;' +
-      '}' +
-      '.morph {' +
-      '  position: relative;' +
-      '  width: 72px;' +
-      '  min-height: 72px;' +
-      '  border-radius: 50%;' +
-      '  overflow: visible;' +
-      '  cursor: pointer;' +
-      '  transition: transform 0.22s ease, width 0.42s cubic-bezier(0.34, 1.18, 0.45, 1),' +
-      '    min-height 0.42s cubic-bezier(0.34, 1.18, 0.45, 1), border-radius 0.38s cubic-bezier(0.34, 1.1, 0.45, 1),' +
-      '    box-shadow 0.35s ease, margin-left 0.42s cubic-bezier(0.34, 1.18, 0.45, 1);' +
-      '}' +
-      '.morph.is-open { overflow: hidden; }' +
-      '.morph:not(.is-open):hover { transform: scale(1.1); }' +
-      '.morph-puck {' +
-      '  position: absolute; inset: 0; border-radius: 50%;' +
-      '  pointer-events: auto; touch-action: none;' +
-      '}' +
-      '.morph.is-open .morph-puck {' +
-      '  animation: none !important;' +
-      '  opacity: 0; pointer-events: none;' +
-      '  transform: scale(0.45); transition: opacity 0.2s ease, transform 0.25s ease;' +
-      '}' +
-      '.morph.is-open {' +
-      '  transform: none !important;' +
-      '  width: min(92vw, 302px);' +
-      '  min-height: 156px;' +
-      '  border-radius: 14px;' +
-      '  cursor: default;' +
-      '  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(148, 163, 184, 0.35);' +
-      '}' +
-      '.morph-atk .morph-puck {' +
-      '  background: linear-gradient(155deg, #fffbeb 0%, #fde68a 42%, #fbbf24 100%);' +
-      '}' +
-      '.morph-atk.is-open { background: linear-gradient(180deg, #fffdf7 0%, #ffffff 40%, #fffbeb 100%); }' +
-      '.morph-def .morph-puck {' +
-      '  background: linear-gradient(155deg, #ecfdf5 0%, #6ee7b7 42%, #34d399 100%);' +
-      '}' +
-      '.morph-def.is-open { background: linear-gradient(180deg, #f8fffc 0%, #ffffff 40%, #ecfdf5 100%); }' +
-      '.dock-right .morph.is-open {' +
-      '  margin-left: calc(72px - min(92vw, 302px));' +
-      '}' +
-      '.morph-orb {' +
-      '  position: absolute; inset: 0; margin: 0; padding: 0; border: none; background: transparent;' +
-      '  cursor: pointer; display: flex; align-items: center; justify-content: center;' +
-      '  transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.34, 1.2, 0.45, 1);' +
-      '}' +
-      '.morph-orb:focus-visible { outline: 2px solid #0f172a; outline-offset: 3px; }' +
-      '.morph.is-open .morph-orb {' +
-      '  opacity: 0; pointer-events: none; transform: scale(0.4);' +
-      '}' +
-      '.ico {' +
-      '  width: 32px; height: 32px; color: var(--calc-atk);' +
-      '}' +
-      '.morph-def .ico { color: var(--calc-def); }' +
-      '.morph-body {' +
-      '  opacity: 0; pointer-events: none;' +
-      '  padding: 0 11px 11px;' +
-      '  transition: opacity 0.26s ease 0.07s;' +
-      '}' +
-      '.morph.is-open .morph-body {' +
-      '  opacity: 1; pointer-events: auto;' +
-      '}' +
-      '.morph:not(.is-open) .morph-body { position: absolute; width: 0; height: 0; overflow: hidden; padding: 0; }' +
-      '.morph-head {' +
-      '  display: flex; align-items: center; justify-content: space-between; gap: 8px;' +
-      '  padding: 10px 2px 6px 2px;' +
-      '}' +
-      '.morph-head span {' +
-      '  font-size: 12px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em;' +
-      '}' +
-      '.morph-head-atk span { color: var(--calc-atk); }' +
-      '.morph-head-def span { color: var(--calc-def); }' +
-      '.morph-mini {' +
-      '  flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px; border: 1px solid #cbd5e1;' +
-      '  background: #f1f5f9; color: #475569; font-size: 18px; line-height: 1; cursor: pointer;' +
-      '  display: flex; align-items: center; justify-content: center; padding: 0;' +
-      '}' +
-      '.morph-mini:hover { background: #e2e8f0; }' +
-      '.morph-inp {' +
-      '  width: 100%; padding: 8px 10px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 8px;' +
-      '  background: #fff; color: #0f172a;' +
-      '}' +
-      '.morph-inp:focus { outline: none; border-color: #64748b; box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.2); }' +
-      '.morph-atk .morph-inp:focus { border-color: #d97706; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.22); }' +
-      '.morph-def .morph-inp:focus { border-color: #059669; box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.22); }' +
-      '.morph-apply {' +
-      '  margin-top: 8px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 10px;' +
-      '  padding: 8px 12px; font-size: 12px; font-weight: 600; border: none; border-radius: 8px;' +
-      '  cursor: pointer; color: #fff;' +
-      '  transition: opacity 0.2s ease, filter 0.2s ease, background-color 0.15s ease;' +
-      '}' +
-      '.morph-apply-atk { background: #ca8a04; }' +
-      '.morph-apply-atk:hover:not(:disabled) { background: #eab308; }' +
-      '.morph-apply-atk:disabled {' +
-      '  opacity: 0.72; filter: saturate(0.55) brightness(0.9); cursor: not-allowed; box-shadow: none;' +
-      '}' +
-      '.morph-apply-atk:disabled:hover { background: #ca8a04; }' +
-      '.morph-apply-def { background: #047857; }' +
-      '.morph-apply-def:hover:not(:disabled) { background: #059669; }' +
-      '.morph-apply-def:disabled {' +
-      '  opacity: 0.72; filter: saturate(0.55) brightness(0.9); cursor: not-allowed; box-shadow: none;' +
-      '}' +
-      '.morph-apply-def:disabled:hover { background: #047857; }' +
-      '.morph-apply-spinner {' +
-      '  width: 14px; height: 14px; flex-shrink: 0; border-radius: 50%;' +
-      '  border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: rgba(255, 255, 255, 0.95);' +
-      '  animation: nuo-spin 0.7s linear infinite;' +
-      '}' +
-      '.morph-apply-spinner[hidden] { display: none !important; }' +
-      '.morph-status {' +
-      '  margin: 7px 0 0; min-height: 1.15em; font-size: 11px; line-height: 1.35; color: #64748b;' +
-      '}' +
-      '.morph-status.err { color: #b91c1c; }' +
-      '.morph-status.ok { color: #15803d; }' +
-      '</style>' +
-      '<div class="nuo-wrap">' +
-      '  <div class="dock dock-left">' +
-      '    <div class="nuo-sway nuo-sway-atk">' +
-      '    <div class="morph morph-atk" data-side="atk">' +
-      '      <div class="morph-puck">' +
-      '        <button type="button" class="morph-orb" aria-expanded="false" aria-label="공격측 샘플 URL">' +
-      '          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-      '            <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />' +
-      '            <path d="M13 19l6-6" />' +
-      '            <path d="M16 16l4 4" />' +
-      '            <path d="M19 21l2-2" />' +
-      '          </svg>' +
-      '        </button>' +
-      '      </div>' +
-      '      <div class="morph-body">' +
-      '        <div class="morph-head morph-head-atk">' +
-      '          <span>공격 샘플 URL</span>' +
-      '          <button type="button" class="morph-mini" data-close="atk" aria-label="접기">×</button>' +
-      '        </div>' +
-      '        <input type="text" class="morph-inp" id="nuo-inp-atk" spellcheck="false" autocomplete="off" placeholder="https://smartnuo.com/#ps=..." />' +
-      '        <button type="button" class="morph-apply morph-apply-atk" data-action="atk">' +
-      '          <span class="morph-apply-label">입력</span>' +
-      '          <span class="morph-apply-spinner" hidden aria-hidden="true"></span>' +
-      '        </button>' +
-      '        <p class="morph-status" id="nuo-st-atk" role="status" aria-live="polite"></p>' +
-      '      </div>' +
-      '    </div>' +
-      '    </div>' +
-      '  </div>' +
-      '  <div class="dock dock-right">' +
-      '    <div class="nuo-sway nuo-sway-def">' +
-      '    <div class="morph morph-def" data-side="def">' +
-      '      <div class="morph-puck">' +
-      '        <button type="button" class="morph-orb" aria-expanded="false" aria-label="수비측 샘플 URL">' +
-      '          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-      '            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />' +
-      '          </svg>' +
-      '        </button>' +
-      '      </div>' +
-      '      <div class="morph-body">' +
-      '        <div class="morph-head morph-head-def">' +
-      '          <span>수비 샘플 URL</span>' +
-      '          <button type="button" class="morph-mini" data-close="def" aria-label="접기">×</button>' +
-      '        </div>' +
-      '        <input type="text" class="morph-inp" id="nuo-inp-def" spellcheck="false" autocomplete="off" placeholder="https://smartnuo.com/#ps=..." />' +
-      '        <button type="button" class="morph-apply morph-apply-def" data-action="def">' +
-      '          <span class="morph-apply-label">입력</span>' +
-      '          <span class="morph-apply-spinner" hidden aria-hidden="true"></span>' +
-      '        </button>' +
-      '        <p class="morph-status" id="nuo-st-def" role="status" aria-live="polite"></p>' +
-      '      </div>' +
-      '    </div>' +
-      '    </div>' +
-      '  </div>' +
-      '</div>';
+    buildCalcShadowStylesAndMarkup(root);
 
     var wrap = root.querySelector('.nuo-wrap');
     var dockLeft = root.querySelector('.dock-left');

@@ -5,8 +5,8 @@
   var FC = global.nuoFmtCommon;
   var readLabel = FC.readLabel;
   var normalizeMatchKey = FC.normalizeMatchKey;
-  var slugifyForMatch = FC.slugifyForMatch;
   var collectHoldLabels = FC.collectHoldLabels;
+  var findRuleAndSlugInMap = FC.findRuleAndSlugInMap;
 
   var STAT_MAP = [
     { keys: ['HP', 'hp'], letter: 'H' },
@@ -21,40 +21,6 @@
 
   /** 나무위키·커뮤 관행: (HP실×방어실)/k, (HP실×특방실)/k. 괄호: modifiers.json 도구·특성·패앙·고대활성 등 + 모래날림/눈퍼뜨리기(타입 조건). README「내구력 — 구현 범위」참고. */
   var BULK_REAL_DIVISOR = 0.411;
-
-  function findRuleAndSlugInMap(map, label) {
-    var lab = readLabel(label);
-    if (!lab || lab === '--') return null;
-    if (!map || typeof map !== 'object') return null;
-
-    var want = normalizeMatchKey(lab);
-    var wantSlug = slugifyForMatch(lab);
-
-    var slug;
-    for (slug in map) {
-      if (!Object.prototype.hasOwnProperty.call(map, slug)) continue;
-      var slugAsWords = normalizeMatchKey(String(slug).replace(/-/g, ' '));
-      if (
-        normalizeMatchKey(slug) === want ||
-        slugAsWords === want ||
-        slugifyForMatch(slug) === wantSlug
-      ) {
-        return { slug: String(slug), rule: map[slug] };
-      }
-      var rule = map[slug];
-      if (rule && rule.nameKo && normalizeMatchKey(rule.nameKo) === want) {
-        return { slug: String(slug), rule: rule };
-      }
-      var aliases = rule && Array.isArray(rule.aliases) ? rule.aliases : [];
-      var ai;
-      for (ai = 0; ai < aliases.length; ai++) {
-        if (normalizeMatchKey(aliases[ai]) === want) {
-          return { slug: String(slug), rule: rule };
-        }
-      }
-    }
-    return null;
-  }
 
   function findItemBulkRule(modifiersDoc, itemRaw) {
     if (!modifiersDoc || !modifiersDoc.items) return null;
