@@ -1549,6 +1549,7 @@
     var want = String(text || '').trim();
     if (!want || want === '--' || want.length > 48) return null;
     var nodes = root.querySelectorAll('span, div, button, a, p, td, li, label, h3, h4, strong, em');
+    var matches = [];
     var i;
     for (i = 0; i < nodes.length; i++) {
       var el = nodes[i];
@@ -1556,16 +1557,67 @@
       if (el.querySelector('.nuo-fmt-tb-ann')) continue;
       if (el.textContent.trim() !== want) continue;
       if (el.children.length > 6) continue;
-      return el;
+      matches.push(el);
     }
-    return null;
+    if (!matches.length) return null;
+    // 다른 매치를 자손으로 포함하지 않는 노드(leaf-most) 우선 반환.
+    // 1기 슬롯에서 기술 행 컨테이너가 잎 span보다 먼저 매치되어 결정력이
+    // 카드 좌측 하단으로 떨어지는 회귀 방지.
+    var j;
+    for (j = 0; j < matches.length; j++) {
+      var m = matches[j];
+      var hasInner = false;
+      var k;
+      for (k = 0; k < matches.length; k++) {
+        if (j === k) continue;
+        if (m.contains(matches[k])) {
+          hasInner = true;
+          break;
+        }
+      }
+      if (!hasInner) return m;
+    }
+    return matches[matches.length - 1];
+  }
+
+  /**
+   * 기술 텍스트가 없을 때(채워졌지만 기술배치가 비어 있는 슬롯)
+   * 슬롯 카드 루트를 기하학적으로 추정한다.
+   * 이미지 너비의 2배 이상이 되는 첫 ancestor를 슬롯 카드 프레임으로 채택.
+   * (이미지 썸네일 래퍼는 보통 이미지와 같은 폭, 슬롯 카드는 2~5배 폭이라는 관찰 기반.)
+   */
+  function findCardRootByGeometry(imgEl, maxDepth) {
+    var max = typeof maxDepth === 'number' ? maxDepth : 14;
+    var imgW = 0;
+    try {
+      var r = imgEl.getBoundingClientRect();
+      imgW = r.width || imgEl.clientWidth || 0;
+    } catch (eGeo) {
+      imgW = imgEl.clientWidth || 0;
+    }
+    if (!imgW) return imgEl.parentElement || imgEl;
+    var threshold = imgW * 2;
+    var p = imgEl.parentElement;
+    var depth = 0;
+    while (p && p !== document.body && depth < max) {
+      var w = 0;
+      try {
+        w = p.getBoundingClientRect().width || p.clientWidth || 0;
+      } catch (eW) {
+        w = p.clientWidth || 0;
+      }
+      if (w >= threshold) return p;
+      p = p.parentElement;
+      depth++;
+    }
+    return imgEl.parentElement || imgEl;
   }
 
   function findBestCardRootForMoves(imgEl, moveNames) {
     var want = moveNames.filter(function (x) {
       return x && x !== '--';
     });
-    if (!want.length) return imgEl.parentElement || imgEl;
+    if (!want.length) return findCardRootByGeometry(imgEl);
     var p = imgEl;
     var depth = 0;
     var best = imgEl.parentElement || imgEl;
