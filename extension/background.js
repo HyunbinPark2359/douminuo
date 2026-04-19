@@ -3,6 +3,7 @@ importScripts('fmtCommon.js');
 importScripts('formatter.js');
 importScripts('calcPayload.js');
 importScripts('simpleMovePower.js');
+importScripts('attackerFormOverride.js');
 importScripts('showdownPaste.js');
 
 /**
@@ -14,6 +15,7 @@ importScripts('showdownPaste.js');
 
   var SR = globalThis.shareToRaw;
   var SMP = globalThis.simpleMovePower;
+  var AFO = globalThis.attackerFormOverride;
 
   var SK_MODIFIERS_CACHE = 'nuo_fmt_modifiersCache';
   var SK_MOVETAGS_CACHE = 'nuo_fmt_moveTagsCache';
@@ -313,13 +315,26 @@ importScripts('showdownPaste.js');
       ensureMoveTagsLoaded(),
       ensureMoveKoMapLoaded(),
       resolveSpeciesTypesForSlot(slotData),
-    ]).then(function (quad) {
-      var rules = quad[0];
-      var moveTags = quad[1];
-      var moveKo = quad[2];
-      var types = quad[3];
+      loadJsonUrl('natureKoMap.json', { koToSlug: {} }),
+      loadJsonUrl('natureStatMul.json', { bySlug: {} }),
+    ]).then(function (arr) {
+      var rules = arr[0];
+      var moveTags = arr[1];
+      var moveKo = arr[2];
+      var types = arr[3];
+      var natureKoDoc = arr[4];
+      var natureStatMulDoc = arr[5];
+      // 결정력 입력만 폼 보정한 클론으로 교체. 내구력/그 외 소비자는 원본 slotData 사용.
+      var slotForPower = slotData;
+      if (AFO && typeof AFO.applyAttackerFormOverride === 'function') {
+        slotForPower = AFO.applyAttackerFormOverride(
+          slotData,
+          natureKoDoc,
+          natureStatMulDoc
+        );
+      }
       return {
-        movePowers: SMP.computeMovePowers(slotData, types, rules, moveTags, moveKo),
+        movePowers: SMP.computeMovePowers(slotForPower, types, rules, moveTags, moveKo),
         speciesTypesEn: types || [],
       };
     });
