@@ -1858,50 +1858,59 @@
         return getSlotsFromBridge();
       })
       .then(function (r) {
-        if (myGen !== tbInlineGen) return;
+        if (myGen !== tbInlineGen) return null;
         if (isLikelyCalculatorView()) {
           clearTbInlineAnnotations();
-          return;
+          return null;
         }
         if (!r || !r.ok || !r.slots) {
           clearTbInlineAnnotations();
-          return;
+          return null;
         }
-        clearTbInlineAnnotations();
         ensureTbInlineStyle();
         var filled = r.filled || [];
         var art = r.slotArt || [];
         var imgMap = mapSlotsToSampleImgs(art, filled);
-        var tasks = [];
+        // Phase 1: 슬롯별 어노테이션을 비동기로 모두 수집. 기존 어노테이션은 그대로 두어
+        // 사용자에게는 stale 한 값이 잠깐 보이지만, "빈 상태"는 아예 노출되지 않음.
+        var jobs = [];
         var si;
         for (si = 0; si < 6; si++) {
           if (!filled[si]) continue;
           var sd = r.slots[si];
           var im = imgMap[si];
           (function (slotData, imgEl) {
-            tasks.push(
+            jobs.push(
               requestSlotAnnot(slotData).then(function (ann) {
-                if (myGen !== tbInlineGen) return;
-                if (!ann || ann.empty) return;
-                var names = moveDisplayNamesFromSlot(slotData);
-                // 이미지 매칭 성공: 그대로 ancestor 스코어링.
-                // 이미지 매칭 실패(신규 메가 등 LEFT 파티에 우리 매칭 가능한 스프라이트가 없는 종):
-                // 종명 + 기술명 시그니처로 LEFT 파티 슬롯 카드 루트를 직접 찾음.
-                var card = imgEl
-                  ? findBestCardRootForMoves(imgEl, names)
-                  : findCardRootByMoveTexts(names, speciesDisplayNameFromSlot(slotData));
-                if (!card) return;
-                if (tbInlineMoveEnabled) {
-                  applyMovePowerSuffixes(card, names, ann.movePowerSuffixes || []);
-                }
-                if (tbInlineBulkEnabled) {
-                  applyBulkCorner(card, ann.bulkCompact || '');
-                }
+                if (!ann || ann.empty) return null;
+                return { slotData: slotData, imgEl: imgEl, ann: ann };
               })
             );
           })(sd, im);
         }
-        return Promise.all(tasks);
+        return Promise.all(jobs);
+      })
+      .then(function (results) {
+        if (myGen !== tbInlineGen) return;
+        if (!results) return;
+        // Phase 2: 새 데이터가 모두 도착했으니 한 동기 블록에서 atomic swap —
+        // 기존 어노테이션 제거 직후 곧바로 새 어노테이션 부착. 브라우저는 중간 프레임을
+        // 그리지 않으므로 사용자 시각에는 깜빡임 없이 값이 바뀐 것처럼 보임.
+        clearTbInlineAnnotations();
+        results.forEach(function (item) {
+          if (!item) return;
+          var names = moveDisplayNamesFromSlot(item.slotData);
+          var card = item.imgEl
+            ? findBestCardRootForMoves(item.imgEl, names)
+            : findCardRootByMoveTexts(names, speciesDisplayNameFromSlot(item.slotData));
+          if (!card) return;
+          if (tbInlineMoveEnabled) {
+            applyMovePowerSuffixes(card, names, item.ann.movePowerSuffixes || []);
+          }
+          if (tbInlineBulkEnabled) {
+            applyBulkCorner(card, item.ann.bulkCompact || '');
+          }
+        });
       })
       .catch(function () {
         if (myGen === tbInlineGen) clearTbInlineAnnotations();
