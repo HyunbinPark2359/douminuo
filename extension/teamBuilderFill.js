@@ -1471,6 +1471,126 @@
     });
   }
 
+  /**
+   * slotData 에서 "한글 종명 표시용" 후보를 뽑아 반환. 없으면 빈 문자열.
+   * 여러 네이밍 규약(nameKr / name_kr / speciesName / koName …) 지원.
+   */
+  function speciesDisplayNameFromSlot(slotData) {
+    if (!slotData || typeof slotData !== 'object') return '';
+    var keys = ['nameKr', 'name_kr', 'speciesName', 'koName', 'nameKo', 'name_ko'];
+    var bags = [slotData];
+    if (slotData.pokemon && typeof slotData.pokemon === 'object') bags.push(slotData.pokemon);
+    var i, k;
+    for (i = 0; i < bags.length; i++) {
+      for (k = 0; k < keys.length; k++) {
+        var v = bags[i][keys[k]];
+        if (typeof v === 'string' && v.trim()) return v.trim();
+      }
+    }
+    return '';
+  }
+
+  /**
+   * 페이지에서 주어진 텍스트 요구사항(reqs)을 모두 포함하는 "leaf-most" ancestor 카드 루트를 찾는다.
+   *
+   * - `textContent.indexOf(req) !== -1` 로 검사하여 "텍스트 + 접미사"가 붙은 노드도 매칭.
+   * - leaf-most: 다른 매치 노드를 자손으로 포함하지 않는 것만 선택.
+   * - 다중 후보면 leftmost-topmost 로 정렬 (LEFT 파티 우선).
+   */
+  function findLeafAncestorContaining(reqs) {
+    var candidates = Array.prototype.slice.call(
+      document.querySelectorAll('div, section, article, li')
+    );
+    var matches = [];
+    var i;
+    for (i = 0; i < candidates.length; i++) {
+      var el = candidates[i];
+      if (isInTbExtHost(el)) continue;
+      var txt = el.textContent || '';
+      var ok = true;
+      var q;
+      for (q = 0; q < reqs.length; q++) {
+        if (txt.indexOf(reqs[q]) === -1) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) continue;
+      var r;
+      try {
+        r = el.getBoundingClientRect();
+      } catch (eR) {
+        continue;
+      }
+      if (!r || !r.width || !r.height) continue;
+      matches.push(el);
+    }
+    if (!matches.length) return null;
+    var leaf = [];
+    for (i = 0; i < matches.length; i++) {
+      var m = matches[i];
+      var hasInner = false;
+      var j;
+      for (j = 0; j < matches.length; j++) {
+        if (j === i) continue;
+        if (m.contains(matches[j])) {
+          hasInner = true;
+          break;
+        }
+      }
+      if (!hasInner) leaf.push(m);
+    }
+    if (!leaf.length) return null;
+    if (leaf.length === 1) return leaf[0];
+    leaf.sort(compareTbImgPosition);
+    return leaf[0];
+  }
+
+  /**
+   * 시각적 슬롯 카드 wrapper(파스텔 배경 + padding)로 한 단계 상승.
+   * - parent 가 자신보다 1.5 배 이상 크면 grid/row 이므로 상승 안 함.
+   * - 이미지 기반 `findBestCardRootForMoves` 가 자연스럽게 parent(wrapper) 를 고르는 레이아웃
+   *   을 텍스트 기반 경로에서도 재현하기 위함.
+   */
+  function ascendToSlotCardWrapper(node) {
+    if (!node) return node;
+    var p = node.parentElement;
+    if (!p) return node;
+    var nr, pr;
+    try {
+      nr = node.getBoundingClientRect();
+      pr = p.getBoundingClientRect();
+    } catch (eA) {
+      return node;
+    }
+    if (!nr || !pr || !nr.width || !pr.width) return node;
+    if (pr.width > nr.width * 1.5) return node;
+    if (pr.height > nr.height * 1.5) return node;
+    return p;
+  }
+
+  /**
+   * 이미지 매칭 실패 시(신규 메가 등) 텍스트 시그니처로 LEFT 파티 슬롯 카드 루트를 찾는 폴백.
+   *
+   * 1차: 기술 4기 + **종명**을 모두 포함하는 leaf-most ancestor → wrapper 로 상승.
+   * 2차: 종명 없으면 기술명만. 이 때 leaf-most 는 "기술 영역" 서브박스일 수 있어 wrapper 까지
+   *      도달하려면 두 번 상승이 필요 (서브박스 → inner → padding wrapper).
+   */
+  function findCardRootByMoveTexts(moveNames, speciesName) {
+    var want = (moveNames || []).filter(function (n) {
+      return n && n !== '--';
+    });
+    if (want.length < 2) return null;
+    var sp = (speciesName || '').trim();
+    if (sp) {
+      var cardWithSp = findLeafAncestorContaining(want.concat([sp]));
+      if (cardWithSp) return ascendToSlotCardWrapper(cardWithSp);
+    }
+    var cardMoves = findLeafAncestorContaining(want);
+    if (!cardMoves) return null;
+    return ascendToSlotCardWrapper(ascendToSlotCardWrapper(cardMoves));
+  }
+
   function compareTbImgPosition(a, b) {
     var ra = a.getBoundingClientRect();
     var rb = b.getBoundingClientRect();
@@ -1745,14 +1865,18 @@
           if (!filled[si]) continue;
           var sd = r.slots[si];
           var im = imgMap[si];
-          if (!im) continue;
           (function (slotData, imgEl) {
             tasks.push(
               requestSlotAnnot(slotData).then(function (ann) {
                 if (myGen !== tbInlineGen) return;
                 if (!ann || ann.empty) return;
                 var names = moveDisplayNamesFromSlot(slotData);
-                var card = findBestCardRootForMoves(imgEl, names);
+                // 이미지 매칭 성공: 그대로 ancestor 스코어링.
+                // 이미지 매칭 실패(신규 메가 등 LEFT 파티에 우리 매칭 가능한 스프라이트가 없는 종):
+                // 종명 + 기술명 시그니처로 LEFT 파티 슬롯 카드 루트를 직접 찾음.
+                var card = imgEl
+                  ? findBestCardRootForMoves(imgEl, names)
+                  : findCardRootByMoveTexts(names, speciesDisplayNameFromSlot(slotData));
                 if (!card) return;
                 if (tbInlineMoveEnabled) {
                   applyMovePowerSuffixes(card, names, ann.movePowerSuffixes || []);
