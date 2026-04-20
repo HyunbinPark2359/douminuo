@@ -1,5 +1,12 @@
 dist/
 node_modules/
+
+# Local-only convenience copies of extension icons at repo root
+# (canonical sources live at extension/icon*.png and icon.png)
+/icon16.png
+/icon48.png
+/icon128.png
+
 .env
 .env.*
 *.log
