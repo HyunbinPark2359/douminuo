@@ -1410,7 +1410,8 @@
     var st = document.createElement('style');
     st.id = TB_INLINE_STYLE_ID;
     st.textContent =
-      '.nuo-fmt-tb-ann{font-size:9px;font-weight:400;color:#64748b;white-space:nowrap;display:inline;}' +
+      '.nuo-fmt-tb-ann{font-size:9px;font-weight:400;color:#64748b;display:inline;}' +
+      '.nuo-fmt-tb-ann-num{white-space:nowrap;}' +
       '.nuo-fmt-tb-bulk-corner{position:absolute;top:8px;right:10px;font-size:9px;font-weight:400;color:#64748b;line-height:1.2;text-align:right;white-space:nowrap;pointer-events:none;z-index:4;}';
     document.head.appendChild(st);
   }
@@ -1781,10 +1782,22 @@
       var el = findExactTextNodeHost(cardRoot, name);
       if (!el) continue;
       if (el.querySelector('.nuo-fmt-tb-ann')) continue;
+      // 기술명(한글)과 결정력이 한 줄에 안 들어갈 때 한글 이름 중간이 아닌 이름/결정력
+      // 경계에서 줄바꿈되도록 보장:
+      //   - el.style.wordBreak = 'keep-all' : 한글은 한 덩어리로 취급(글자 사이 분리 금지)
+      //   - outer span(.nuo-fmt-tb-ann)은 nowrap 미적용, 시작에 일반 공백 → 거기서 끊김 허용
+      //   - inner span(.nuo-fmt-tb-ann-num)에만 nowrap → "(5040→7560)" 내부 분리 방지
+      try {
+        el.style.wordBreak = 'keep-all';
+      } catch (eWb) {}
       var span = document.createElement('span');
       span.className = 'nuo-fmt-tb-ann';
       span.setAttribute('data-nuo-tb-ann', '1');
-      span.textContent = '\u00a0' + suf;
+      var inner = document.createElement('span');
+      inner.className = 'nuo-fmt-tb-ann-num';
+      inner.textContent = suf;
+      span.appendChild(document.createTextNode(' '));
+      span.appendChild(inner);
       el.appendChild(span);
     }
   }
