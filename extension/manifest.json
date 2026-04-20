@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
   "name": "스마트누오 샘플 변환기",
-  "version": "0.4.0",
-  "description": "스마트누오 공유 URL을 요약 샘플 형식으로 변환합니다.",
-  "permissions": ["storage", "tabs", "scripting"],
+  "version": "1.0.0",
+  "description": "스마트누오 공유 URL을 요약 샘플 또는 Showdown paste 형식으로 변환하고, 팀빌더/계산기에서 결정력·내구력 표시와 자동 입력을 지원합니다.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "permissions": ["storage", "scripting"],
   "host_permissions": [
     "https://smartnuo.com/*",
     "https://www.smartnuo.com/*",
@@ -14,7 +19,12 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "환경설정"
+    "default_title": "환경설정",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
   },
   "content_scripts": [
     {
