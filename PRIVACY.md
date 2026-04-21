@@ -40,7 +40,7 @@
 
 본 확장 프로그램은 기능 수행을 위해 다음 두 개의 도메인에만 네트워크 요청을 보냅니다. 두 요청 모두 **사용자 식별 정보(계정, 토큰, 쿠키 외 추가 헤더 등)를 일절 포함하지 않습니다.**
 
-- **[https://smartnuo.com](https://smartnuo.com) / [https://www.smartnuo.com**](https://www.smartnuo.com)
+- **[https://smartnuo.com](https://smartnuo.com) / [https://www.smartnuo.com](https://www.smartnuo.com)**
   - 사용자가 직접 제공한 공유 URL로부터 파티·샘플 데이터(JSON)를 조회하기 위해 사용합니다.
 - **[https://pokeapi.co](https://pokeapi.co)**
   - 포켓몬 타입·기술·아이템의 한국어 표기 등 공개 도감 정보를 조회하기 위해 사용합니다. PokéAPI는 인증이 필요 없는 공개 API입니다.
