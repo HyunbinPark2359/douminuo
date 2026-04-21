@@ -12,6 +12,9 @@ node_modules/
 /BACKLOG.md
 /할일.md
 
+# Legacy demo media (v0.1–v0.2) — kept locally for history, not published
+/assets/demo/
+
 .env
 .env.*
 *.log
