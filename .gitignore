@@ -1,11 +1,16 @@
 dist/
 node_modules/
 
-# Local-only convenience copies of extension icons at repo root
-# (canonical sources live at extension/icon*.png and icon.png)
+# Local-only extension icon sources / copies at repo root
+# (published icon assets are shipped inside extension/icon*.png)
+/icon.png
 /icon16.png
 /icon48.png
 /icon128.png
+
+# Private working notes — kept local, not published on GitHub
+/BACKLOG.md
+/할일.md
 
 .env
 .env.*
