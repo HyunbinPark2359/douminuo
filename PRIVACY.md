@@ -119,4 +119,4 @@
 
 - 확장 프로그램 팝업 하단의 **문의·제보** 버튼
 - 구글 폼: https://docs.google.com/forms/d/e/1FAIpQLSfA97NKxUqModwfLulTKqiBrSmnYvwPUEaMXa1__-lP5orG1Q/viewform?usp=header
-- 개발자 이메일: doumino@gmail.com
+- 개발자 이메일: douminuo@gmail.com
