@@ -23,6 +23,11 @@
  *
  * 폴링 200ms: teamBuilderFill 과 동일 전략. Vuetify 가 포켓몬 전환 시 래퍼를
  * 교체하면 tick 이 감지해서 호스트를 재장착.
+ *
+ * 프리셋 호버 시 `data/regulationMaSpeedData.js`가 주입한 레귤 M-A 스피드 종족표 기준
+ * 표 칸(앵커 위 3·아래 1) 포켓몬 이름을 팝오버로 표시하고, 표 상단 말풍선 뿔은 호버 중인 프리셋 칼럼
+ * (최속 / 준속 / 무보정) 중앙을 가리키게 배치함. (원본 JSON 수정 후
+ * `node extension/data/embedSpeedData.js` 로 `regulationMaSpeedData.js` 재생성.)
  */
 (function () {
   'use strict';
@@ -37,6 +42,367 @@
     collapsed: 'nuo_fmt_speedPanelCollapsed',
   };
   var SPEED_PREF_KEYS = [SK_SPEED.ability, SK_SPEED.item, SK_SPEED.oppScarf, SK_SPEED.collapsed];
+
+  /** `regulationMaSpeedData.js` 가 `globalThis.NUO_REGULATION_MA_SPEED` 에 넣음 (페이지에서 fetch 불가 대응). */
+  var regulationSpeedBySpeed = null;
+  var regulationSpeedMeta = null;
+
+  function hydrateRegulationSpeedTable() {
+    try {
+      var g = globalThis.NUO_REGULATION_MA_SPEED;
+      if (!g || typeof g !== 'object' || !g.bySpeed) return false;
+      regulationSpeedMeta = g.meta || {};
+      regulationSpeedBySpeed = g.bySpeed;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function loadRegulationSpeedTable(done) {
+    if (!regulationSpeedBySpeed && !hydrateRegulationSpeedTable()) {
+      if (typeof done === 'function') done(new Error('no_embed'));
+      return;
+    }
+    if (typeof done === 'function') done(null, regulationSpeedBySpeed);
+  }
+
+  function getTierDescFromMap(map) {
+    var keys = Object.keys(map || {});
+    var nums = [];
+    for (var i = 0; i < keys.length; i++) {
+      var n = parseInt(keys[i], 10);
+      if (Number.isFinite(n)) nums.push(n);
+    }
+    nums.sort(function (a, b) {
+      return b - a;
+    });
+    return nums;
+  }
+
+  function namesForTier(map, tier) {
+    var arr = map[String(tier)];
+    if (!arr || !arr.length) return '(없음)';
+    return arr.join(', ');
+  }
+
+  /**
+   * 하이라이트 컷오프: 기준 종족값 A (및 그 아래 = 종족값 ≤ A 행 강조).
+   * `buildSpeciesPopoverRows` 와 동일 앵커 규칙.
+   */
+  function getPopoverAnchorCutoff(V, map) {
+    var tierDesc = getTierDescFromMap(map);
+    if (tierDesc.length === 0) return null;
+    var minT = tierDesc[tierDesc.length - 1];
+    var maxT = tierDesc[0];
+    if (V < minT) return V;
+    if (V > maxT) return maxT;
+    var A = minT;
+    for (var j = 0; j < tierDesc.length; j++) {
+      if (tierDesc[j] <= V) {
+        A = tierDesc[j];
+        break;
+      }
+    }
+    return A;
+  }
+
+  /**
+   * 표 칸 기준: 앵커 위 최대 3칸, 아래 1칸(앵커·캡 반영). 반환 행은 화면 위→아래(종족값 큰 순).
+   * 각 원소: { labelSpeed, namesText, rowVariant }
+   */
+  function buildSpeciesPopoverRows(V, map) {
+    var tierDesc = getTierDescFromMap(map);
+    if (tierDesc.length === 0) return [];
+
+    var minT = tierDesc[tierDesc.length - 1];
+    var maxT = tierDesc[0];
+    var rows = [];
+
+    if (V < minT) {
+      var idxSmall = -1;
+      for (var u = tierDesc.length - 1; u >= 0; u--) {
+        if (tierDesc[u] > V) {
+          idxSmall = u;
+          break;
+        }
+      }
+      if (idxSmall - 1 >= 0) {
+        rows.push({
+          labelSpeed: tierDesc[idxSmall - 1],
+          namesText: namesForTier(map, tierDesc[idxSmall - 1]),
+          rowVariant: 'muted',
+        });
+      }
+      if (idxSmall >= 0) {
+        rows.push({
+          labelSpeed: tierDesc[idxSmall],
+          namesText: namesForTier(map, tierDesc[idxSmall]),
+          rowVariant: 'muted',
+        });
+      }
+      rows.push({
+        labelSpeed: V,
+        namesText: '(없음)',
+        rowVariant: 'center',
+      });
+      return rows;
+    }
+
+    if (V > maxT) {
+      rows.push({
+        labelSpeed: maxT,
+        namesText: namesForTier(map, maxT),
+        rowVariant: 'center',
+      });
+      if (tierDesc.length > 1) {
+        rows.push({
+          labelSpeed: tierDesc[1],
+          namesText: namesForTier(map, tierDesc[1]),
+          rowVariant: 'muted',
+        });
+      }
+      return rows;
+    }
+
+    var A = minT;
+    var iAnchor = -1;
+    for (var j = 0; j < tierDesc.length; j++) {
+      if (tierDesc[j] <= V) {
+        A = tierDesc[j];
+        iAnchor = j;
+        break;
+      }
+    }
+    if (iAnchor < 0) return rows;
+
+    if (iAnchor - 3 >= 0) {
+      rows.push({
+        labelSpeed: tierDesc[iAnchor - 3],
+        namesText: namesForTier(map, tierDesc[iAnchor - 3]),
+        rowVariant: 'muted',
+      });
+    }
+    if (iAnchor - 2 >= 0) {
+      rows.push({
+        labelSpeed: tierDesc[iAnchor - 2],
+        namesText: namesForTier(map, tierDesc[iAnchor - 2]),
+        rowVariant: 'muted',
+      });
+    }
+    if (iAnchor - 1 >= 0) {
+      rows.push({
+        labelSpeed: tierDesc[iAnchor - 1],
+        namesText: namesForTier(map, tierDesc[iAnchor - 1]),
+        rowVariant: 'muted',
+      });
+    }
+    rows.push({
+      labelSpeed: A,
+      namesText: namesForTier(map, A),
+      rowVariant: 'center',
+    });
+    if (iAnchor + 1 < tierDesc.length) {
+      rows.push({
+        labelSpeed: tierDesc[iAnchor + 1],
+        namesText: namesForTier(map, tierDesc[iAnchor + 1]),
+        rowVariant: 'muted',
+      });
+    }
+    return rows;
+  }
+
+  /** 패널 하나만 있으므로 전역 타이머로 호버 해제 지연 처리. */
+  var speciesPopoverHideTimer = null;
+  var SPECIES_POP_HIDE_DELAY_MS = 100;
+
+  function clearSpeciesPopoverHideTimer() {
+    if (speciesPopoverHideTimer) {
+      clearTimeout(speciesPopoverHideTimer);
+      speciesPopoverHideTimer = null;
+    }
+  }
+
+  function scheduleSpeciesPopoverHide(root) {
+    clearSpeciesPopoverHideTimer();
+    speciesPopoverHideTimer = setTimeout(function () {
+      speciesPopoverHideTimer = null;
+      hideSpeciesPopover(root);
+    }, SPECIES_POP_HIDE_DELAY_MS);
+  }
+
+  function hideSpeciesPopover(root) {
+    clearSpeciesPopoverHideTimer();
+    if (!root) return;
+    var pop = root.getElementById('species-pop');
+    if (pop) pop.hidden = true;
+  }
+
+  /** 스피드표 상단 말풍선 뿔 — 호버 중인 최속/준속/무보정 칼럼 중앙으로 정렬. */
+  function positionSpeciesPopTail(root, presetIndex) {
+    var pop = root.getElementById('species-pop');
+    var tail = root.getElementById('species-pop-tail');
+    var presets = root.querySelectorAll('.preset');
+    if (!pop || !tail || pop.hidden || presetIndex < 0 || presetIndex >= presets.length)
+      return;
+    var pr = presets[presetIndex];
+    if (!pr || !pr.getBoundingClientRect) return;
+    var popRect = pop.getBoundingClientRect();
+    var preRect = pr.getBoundingClientRect();
+    var cx = preRect.left + preRect.width / 2 - popRect.left;
+    tail.style.left = cx + 'px';
+  }
+
+  function appendSpeciesPopDivider(bodyEl, label, kind) {
+    var d = document.createElement('div');
+    d.className =
+      'species-pop-divider' +
+      (kind === 'outspeed' ? ' species-pop-divider--outspeed' : '');
+    d.setAttribute('role', 'presentation');
+    var left = document.createElement('span');
+    left.className = 'species-pop-divider-line';
+    var mid = document.createElement('span');
+    mid.className = 'species-pop-divider-label';
+    mid.textContent = label;
+    var right = document.createElement('span');
+    right.className = 'species-pop-divider-line';
+    d.appendChild(left);
+    d.appendChild(mid);
+    d.appendChild(right);
+    bodyEl.appendChild(d);
+  }
+
+  function fillSpeciesPopover(root, centerSpeed, presetIndex) {
+    var slot =
+      presetIndex === undefined || presetIndex === null
+        ? 0
+        : Math.max(0, Math.min(2, presetIndex | 0));
+    var pop = root.getElementById('species-pop');
+    var titleEl = root.getElementById('species-pop-title');
+    var bodyEl = root.getElementById('species-pop-body');
+    if (!pop || !bodyEl) return;
+
+    function render(map) {
+      var list = buildSpeciesPopoverRows(centerSpeed, map);
+      var cutoff = getPopoverAnchorCutoff(centerSpeed, map);
+      var wrap = root.host && root.host.parentElement;
+      var tieB = null;
+      if (wrap) {
+        var S = readSpeedFromWrap(wrap);
+        if (Number.isFinite(S)) {
+          var card = findCardRoot(wrap);
+          var abName = readHiddenByLabel(card, '특성');
+          var itName = readHiddenByLabel(card, '도구');
+          var F = computeFinal(S, abName, abilityOn, itName, itemOn);
+          if (Number.isFinite(F) && F > 0) {
+            var pn = presetEvNat(slot);
+            tieB = findTieSpeciesStat(F, centerSpeed, pn.ev, pn.nat, oppScarfOn);
+            if (tieB != null && !map[String(tieB)]) tieB = null;
+          }
+        }
+      }
+      list = mergePopoverRowsWithTie(list, tieB, map);
+      bodyEl.innerHTML = '';
+      for (var r = 0; r < list.length; r++) {
+        var item = list[r];
+        var tierNum =
+          typeof item.labelSpeed === 'number'
+            ? item.labelSpeed
+            : parseInt(String(item.labelSpeed), 10);
+        if (tieB != null && Number.isFinite(tierNum) && tierNum === tieB) {
+          appendSpeciesPopDivider(bodyEl, '동속');
+        }
+        if (
+          cutoff != null &&
+          Number.isFinite(tierNum) &&
+          Number.isFinite(cutoff) &&
+          tierNum === cutoff
+        ) {
+          appendSpeciesPopDivider(bodyEl, '추월', 'outspeed');
+        }
+        var isTie =
+          item.rowVariant === 'tie' ||
+          (tieB != null && Number.isFinite(tierNum) && tierNum === tieB);
+        var hi =
+          !isTie &&
+          cutoff != null &&
+          Number.isFinite(tierNum) &&
+          Number.isFinite(cutoff) &&
+          tierNum <= cutoff;
+        var row = document.createElement('div');
+        row.className =
+          'species-pop-row' + (isTie ? ' tie' : hi ? ' hi' : ' muted');
+        var tierSpan = document.createElement('span');
+        tierSpan.className = 'species-pop-tier';
+        tierSpan.textContent = String(item.labelSpeed);
+        var namesSpan = document.createElement('span');
+        namesSpan.className = 'species-pop-names';
+        namesSpan.textContent = item.namesText;
+        row.appendChild(tierSpan);
+        row.appendChild(document.createTextNode(' '));
+        row.appendChild(namesSpan);
+        bodyEl.appendChild(row);
+      }
+      pop.hidden = false;
+      requestAnimationFrame(function () {
+        positionSpeciesPopTail(root, slot);
+      });
+    }
+
+    loadRegulationSpeedTable(function (err, map) {
+      if (err || !map) {
+        bodyEl.textContent = '목록을 불러오지 못했습니다.';
+        pop.hidden = false;
+        requestAnimationFrame(function () {
+          positionSpeciesPopTail(root, slot);
+        });
+        return;
+      }
+      var titleText =
+        (regulationSpeedMeta && regulationSpeedMeta.title) ||
+        'Pokémon Champions 「레귤레이션 M-A」 출전 가능 포켓몬 스피드표';
+      pop.setAttribute('title', titleText);
+      pop.setAttribute('aria-label', titleText);
+      if (titleEl) titleEl.textContent = titleText;
+      render(map);
+    });
+  }
+
+  function setupSpeciesPopover(root) {
+    var wrap = root.querySelector('.preset-boxes-wrap');
+    if (!wrap) return;
+
+    function onLeaveWrap(ev) {
+      var rel = ev.relatedTarget;
+      if (rel && wrap.contains(rel)) return;
+      scheduleSpeciesPopoverHide(root);
+    }
+    wrap.addEventListener('mouseleave', onLeaveWrap);
+
+    var pop = root.getElementById('species-pop');
+    if (pop) {
+      pop.addEventListener('mouseenter', clearSpeciesPopoverHideTimer);
+    }
+
+    var presets = root.querySelectorAll('.preset');
+    for (var i = 0; i < presets.length; i++) {
+      (function (preset, idx) {
+        preset.addEventListener('mouseenter', function () {
+          clearSpeciesPopoverHideTimer();
+          var inp = preset.querySelector('.v-input-input');
+          var raw = inp ? inp.value : '';
+          var v = parseInt(raw, 10);
+          if (!Number.isFinite(v)) {
+            hideSpeciesPopover(root);
+            return;
+          }
+          fillSpeciesPopover(root, v, idx);
+        });
+      })(presets[i], i);
+    }
+
+    loadRegulationSpeedTable(function () {});
+  }
 
   var CS = globalThis.nuoCsCommon || {};
   var isLikelyCalculatorView =
@@ -162,6 +528,64 @@
     };
   }
 
+  /** `computeOutspeedBases` 와 동일한 상대 최종 스피드 (종족값 b 기준). */
+  function opponentEffSpeed(b, ev, nat, oppScarf) {
+    var scarf = oppScarf ? 1.5 : 1;
+    return Math.floor(Math.floor((b + 20 + ev) * nat) * scarf);
+  }
+
+  /** 프리셋 슬롯 0=최속, 1=준속, 2=무보정 */
+  function presetEvNat(slot) {
+    if (slot === 0) return { ev: 32, nat: 1.1 };
+    if (slot === 1) return { ev: 32, nat: 1.0 };
+    return { ev: 0, nat: 1.0 };
+  }
+
+  /**
+   * 동속 종족값: `anchor` 초과 중 처음으로 eff(b) === F 인 b. 건너뛰면 null.
+   * 호출부에서 레귤 맵 키 존재 여부를 한 번 더 검사.
+   */
+  function findTieSpeciesStat(F, anchor, ev, nat, oppScarf) {
+    if (!Number.isFinite(F) || !Number.isFinite(anchor)) return null;
+    for (var b = anchor + 1; b <= 400; b++) {
+      var e = opponentEffSpeed(b, ev, nat, oppScarf);
+      if (e === F) return b;
+      if (e > F) return null;
+    }
+    return null;
+  }
+
+  /**
+   * 동속 행이 슬라이스 밖이면 삽입 후 종족값 내림차순 정렬. 해당 행은 rowVariant `tie`.
+   */
+  function mergePopoverRowsWithTie(rows, tieB, map) {
+    var out = rows.slice();
+    if (tieB == null || !map[String(tieB)]) return out;
+    var i;
+    var found = false;
+    for (i = 0; i < out.length; i++) {
+      if (out[i].labelSpeed === tieB) {
+        found = true;
+        out[i] = {
+          labelSpeed: out[i].labelSpeed,
+          namesText: out[i].namesText,
+          rowVariant: 'tie',
+        };
+      }
+    }
+    if (!found) {
+      out.push({
+        labelSpeed: tieB,
+        namesText: namesForTier(map, tieB),
+        rowVariant: 'tie',
+      });
+    }
+    out.sort(function (a, b) {
+      return (b.labelSpeed | 0) - (a.labelSpeed | 0);
+    });
+    return out;
+  }
+
   /**
    * 지정된 `.v-input` 래퍼 자식으로 Shadow DOM 호스트 생성·부착.
    * 호스트 inline style 로 래퍼 우측 바로 옆에 absolute 배치.
@@ -279,8 +703,67 @@
       '  letter-spacing: -0.3px;' +
       '}' +
       '.cur b { font-weight: 700; color: #e4007f; }' +
+      '.preset-boxes-wrap { position: relative; width: 100%; }' +
       '.boxes { display: flex; gap: 6px; }' +
       '.preset { flex: 0 0 52px; width: 52px; min-width: 0; position: relative; }' +
+      '.species-pop {' +
+      '  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 25;' +
+      '  background: #fff; border: 1px solid #d9d9d9; border-radius: 8px;' +
+      '  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14); padding: 8px 10px;' +
+      '  font-size: 10px; color: #0f172a; letter-spacing: -0.25px;' +
+      '  overflow: visible; pointer-events: auto;' +
+      '}' +
+      '.species-pop-tail {' +
+      '  position: absolute; top: -9px; left: 0; width: 18px; height: 9px;' +
+      '  transform: translateX(-50%); pointer-events: none; z-index: 2;' +
+      '}' +
+      '.species-pop-tail::before {' +
+      '  content: ""; position: absolute; left: 50%; bottom: 0;' +
+      '  transform: translateX(-50%); width: 0; height: 0;' +
+      '  border-left: 9px solid transparent; border-right: 9px solid transparent;' +
+      '  border-bottom: 9px solid #d9d9d9;' +
+      '}' +
+      '.species-pop-tail::after {' +
+      '  content: ""; position: absolute; left: 50%; bottom: -1px;' +
+      '  transform: translateX(-50%); width: 0; height: 0;' +
+      '  border-left: 8px solid transparent; border-right: 8px solid transparent;' +
+      '  border-bottom: 8px solid #fff;' +
+      '}' +
+      '.species-pop[hidden] { display: none !important; }' +
+      '.species-pop-title {' +
+      '  font-weight: 700; font-size: 9px; color: #636363; margin-bottom: 8px; line-height: 1.35;' +
+      '}' +
+      '.species-pop-body {' +
+      '  max-height: min(96vh, 3600px); overflow-y: auto;' +
+      '}' +
+      '.species-pop-row { margin-bottom: 6px; }' +
+      '.species-pop-row:last-child { margin-bottom: 0; }' +
+      '.species-pop-tier {' +
+      '  font-weight: 700; display: inline; margin-right: 4px;' +
+      '}' +
+      '.species-pop-names {' +
+      '  display: inline; word-break: keep-all;' +
+      '}' +
+      '.species-pop-row.hi .species-pop-tier { color: #e4007f; }' +
+      '.species-pop-row.hi .species-pop-names { color: #0f172a; }' +
+      '.species-pop-row.muted .species-pop-tier,' +
+      '.species-pop-row.muted .species-pop-names { color: #94a3b8; }' +
+      '.species-pop-divider {' +
+      '  display: flex; align-items: center; gap: 8px;' +
+      '  margin: 6px 0;' +
+      '}' +
+      '.species-pop-divider-line {' +
+      '  flex: 1; min-width: 0; height: 1px; background: #cbd5e1;' +
+      '}' +
+      '.species-pop-divider-label {' +
+      '  flex: 0 0 auto; font-size: 9px; font-weight: 700;' +
+      '  color: #64748b; letter-spacing: -0.2px; padding: 0 6px; background: #fff;' +
+      '}' +
+      '.species-pop-divider--outspeed .species-pop-divider-label {' +
+      '  color: #d6689a;' +
+      '}' +
+      '.species-pop-row.tie .species-pop-tier,' +
+      '.species-pop-row.tie .species-pop-names { color: #0f172a; }' +
       '.v-input__control {' +
       '  line-height: 1.5; font-size: 16px; letter-spacing: normal;' +
       '  text-align: left;' +
@@ -416,10 +899,17 @@
       '      </div>' +
       '      <div class="cur">최종: <b id="final">—</b></div>' +
       '    </div>' +
+      '    <div class="preset-boxes-wrap">' +
       '    <div class="boxes">' +
       buildPresetHtml('최속', 'b0') +
       buildPresetHtml('준속', 'b1') +
       buildPresetHtml('무보정', 'b2') +
+      '    </div>' +
+      '    <div class="species-pop" id="species-pop" hidden role="tooltip">' +
+      '      <div class="species-pop-tail" id="species-pop-tail" aria-hidden="true"></div>' +
+      '      <div class="species-pop-title" id="species-pop-title"></div>' +
+      '      <div class="species-pop-body" id="species-pop-body"></div>' +
+      '    </div>' +
       '    </div>' +
       '    <div class="caption">족 추월</div>' +
       '    <button class="toggle opp" id="tgl-opp" type="button">상대 스카프</button>' +
@@ -476,6 +966,7 @@
       });
     }
     syncAllState(root);
+    setupSpeciesPopover(root);
 
     return root;
   }
@@ -495,6 +986,7 @@
     if (tIt) tIt.classList.toggle('on', itemOn);
     if (tOpp) tOpp.classList.toggle('on', oppScarfOn);
     if (wrap) wrap.classList.toggle('collapsed', collapsed);
+    if (collapsed) hideSpeciesPopover(root);
   }
 
   function buildPresetHtml(labelText, inputId) {
@@ -640,6 +1132,7 @@
 
   function init() {
     if (!isSmartnuoHost()) return;
+    loadRegulationSpeedTable(function () {});
     tick();
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(tick, 200);
