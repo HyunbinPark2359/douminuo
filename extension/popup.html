@@ -13,15 +13,17 @@
     </div>
 
     <section id="panelSettings" role="region" aria-label="환경설정">
-      <section class="options-section" aria-labelledby="theme-heading">
+      <section class="options-section options-section--theme" aria-labelledby="theme-heading">
         <h3 id="theme-heading" class="options-heading">팝업 테마</h3>
-        <p class="sub options-desc">툴바 아이콘을 눌렀을 때 열리는 팝업 창의 테마입니다.</p>
-        <label class="sr-only" for="themeSelect">팝업 테마 선택</label>
-        <select id="themeSelect" class="options-theme-select" aria-labelledby="theme-heading">
-          <option value="light">라이트</option>
-          <option value="dark">다크</option>
-          <option value="system">시스템 (자동)</option>
-        </select>
+        <div class="theme-row">
+          <p class="sub options-desc theme-row-desc">팝업 창의 테마입니다.</p>
+          <label class="sr-only" for="themeSelect">팝업 테마 선택</label>
+          <select id="themeSelect" class="options-theme-select" aria-labelledby="theme-heading">
+            <option value="light">라이트</option>
+            <option value="dark">다크</option>
+            <option value="system">시스템 (자동)</option>
+          </select>
+        </div>
       </section>
 
       <section class="options-section" aria-labelledby="floating-heading">
@@ -51,6 +53,37 @@
             <input type="checkbox" id="tbInlineBulk" />
             <span>내구력</span>
           </label>
+        </div>
+      </section>
+
+      <section class="options-section" aria-labelledby="simple-speed-heading">
+        <div class="settings-heading-row">
+          <h3 id="simple-speed-heading" class="options-heading">간단 스피드 계산기</h3>
+          <label class="toggle-switch" title="기능 켜기/끄기">
+            <input type="checkbox" id="simpleSpeedCalcEnabled" aria-labelledby="simple-speed-heading" />
+            <span class="toggle-switch-track" aria-hidden="true"></span>
+          </label>
+        </div>
+        <p class="sub options-desc">
+          팀빌더 스피드 실수치 옆에 추월 가능한 종족값을 보여 줍니다.
+        </p>
+        <div id="speedTableOptions" class="speed-table-options">
+          <div class="speed-table-row" role="group" aria-label="스피드표">
+            <label class="settings-option-row speed-table-check" for="speedTableShow">
+              <input type="checkbox" id="speedTableShow" />
+              <span>스피드표 표시</span>
+            </label>
+            <div class="speed-table-trigger-radios" id="speedTableTriggerGroup">
+              <label class="settings-option-row speed-trigger-radio" for="speedTableTriggerHover">
+                <input type="radio" name="speedTableTrigger" id="speedTableTriggerHover" value="hover" />
+                <span>호버</span>
+              </label>
+              <label class="settings-option-row speed-trigger-radio" for="speedTableTriggerClick">
+                <input type="radio" name="speedTableTrigger" id="speedTableTriggerClick" value="click" />
+                <span>클릭</span>
+              </label>
+            </div>
+          </div>
         </div>
       </section>
     </section>

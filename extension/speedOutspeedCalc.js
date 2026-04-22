@@ -41,7 +41,17 @@
     oppScarf: 'nuo_fmt_speedPanelOppScarf',
     collapsed: 'nuo_fmt_speedPanelCollapsed',
   };
+  var SK_SPEED_UI = {
+    enabled: 'nuo_fmt_simpleSpeedCalcEnabled',
+    tableShow: 'nuo_fmt_speedTableShow',
+    tableTrigger: 'nuo_fmt_speedTableTrigger',
+  };
   var SPEED_PREF_KEYS = [SK_SPEED.ability, SK_SPEED.item, SK_SPEED.oppScarf, SK_SPEED.collapsed];
+  var SPEED_ALL_PREF_KEYS = SPEED_PREF_KEYS.concat([
+    SK_SPEED_UI.enabled,
+    SK_SPEED_UI.tableShow,
+    SK_SPEED_UI.tableTrigger,
+  ]);
 
   /** `regulationMaSpeedData.js` 가 `globalThis.NUO_REGULATION_MA_SPEED` 에 넣음 (페이지에서 fetch 불가 대응). */
   var regulationSpeedBySpeed = null;
@@ -372,22 +382,46 @@
     var wrap = root.querySelector('.preset-boxes-wrap');
     if (!wrap) return;
 
+    var pop = root.getElementById('species-pop');
+    if (!speedTableShow) {
+      if (pop) {
+        pop.hidden = true;
+      }
+      loadRegulationSpeedTable(function () {});
+      return;
+    }
+
     function onLeaveWrap(ev) {
+      if (speedTableTrigger !== 'hover') return;
       var rel = ev.relatedTarget;
       if (rel && wrap.contains(rel)) return;
       scheduleSpeciesPopoverHide(root);
     }
     wrap.addEventListener('mouseleave', onLeaveWrap);
 
-    var pop = root.getElementById('species-pop');
     if (pop) {
-      pop.addEventListener('mouseenter', clearSpeciesPopoverHideTimer);
+      pop.addEventListener('mouseenter', function () {
+        if (speedTableTrigger === 'hover') clearSpeciesPopoverHideTimer();
+      });
+    }
+
+    wrap.classList.toggle('speed-pop-click', speedTableTrigger === 'click');
+
+    var docClickClose = null;
+    if (speedTableTrigger === 'click') {
+      docClickClose = function (ev) {
+        var t = ev.target;
+        if (wrap.contains(t) || (pop && pop.contains(t))) return;
+        hideSpeciesPopover(root);
+      };
+      document.addEventListener('mousedown', docClickClose, true);
+      root._nuoSpeedPopDocClose = docClickClose;
     }
 
     var presets = root.querySelectorAll('.preset');
     for (var i = 0; i < presets.length; i++) {
       (function (preset, idx) {
-        preset.addEventListener('mouseenter', function () {
+        function openFromPreset() {
           clearSpeciesPopoverHideTimer();
           var inp = preset.querySelector('.v-input-input');
           var raw = inp ? inp.value : '';
@@ -397,7 +431,22 @@
             return;
           }
           fillSpeciesPopover(root, v, idx);
-        });
+        }
+        if (speedTableTrigger === 'hover') {
+          preset.addEventListener('mouseenter', openFromPreset);
+        } else {
+          /** disabled readonly input 은 click 이 부모로 안 올라옴 → 캡처 단계 pointerdown + 입력란 pointer-events:none */
+          preset.addEventListener(
+            'pointerdown',
+            function (ev) {
+              if (ev.button !== 0) return;
+              ev.preventDefault();
+              ev.stopPropagation();
+              openFromPreset();
+            },
+            true
+          );
+        }
       })(presets[i], i);
     }
 
@@ -704,6 +753,10 @@
       '}' +
       '.cur b { font-weight: 700; color: #e4007f; }' +
       '.preset-boxes-wrap { position: relative; width: 100%; }' +
+      '.preset-boxes-wrap.speed-pop-click .preset { cursor: pointer; }' +
+      '.preset-boxes-wrap.speed-pop-click .v-input-input {' +
+      '  pointer-events: none;' +
+      '}' +
       '.boxes { display: flex; gap: 6px; }' +
       '.preset { flex: 0 0 52px; width: 52px; min-width: 0; position: relative; }' +
       '.species-pop {' +
@@ -1046,12 +1099,19 @@
   var itemOn = true;
   var oppScarfOn = false;
   var collapsed = false;
+  /** 환경설정: 기능 전체 / 종족표 / 호버·클릭 */
+  var simpleSpeedCalcEnabled = true;
+  var speedTableShow = true;
+  var speedTableTrigger = 'hover';
 
   function applySpeedPrefsDefaults() {
     abilityOn = false;
     itemOn = true;
     oppScarfOn = false;
     collapsed = false;
+    simpleSpeedCalcEnabled = true;
+    speedTableShow = true;
+    speedTableTrigger = 'hover';
   }
 
   function applySpeedPrefsFromStorage(got) {
@@ -1060,6 +1120,9 @@
     itemOn = got[SK_SPEED.item] !== false;
     oppScarfOn = got[SK_SPEED.oppScarf] === true;
     collapsed = got[SK_SPEED.collapsed] === true;
+    simpleSpeedCalcEnabled = got[SK_SPEED_UI.enabled] !== false;
+    speedTableShow = got[SK_SPEED_UI.tableShow] !== false;
+    speedTableTrigger = got[SK_SPEED_UI.tableTrigger] === 'click' ? 'click' : 'hover';
   }
 
   function persistSpeedPrefs() {
@@ -1084,7 +1147,7 @@
 
   function loadSpeedPrefsThenInit() {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get(SPEED_PREF_KEYS, function (got) {
+      chrome.storage.local.get(SPEED_ALL_PREF_KEYS, function (got) {
         if (chrome.runtime.lastError) applySpeedPrefsDefaults();
         else applySpeedPrefsFromStorage(got);
         startInitWhenReady();
@@ -1096,6 +1159,12 @@
   }
 
   function removeHost() {
+    if (currentRoot && currentRoot._nuoSpeedPopDocClose) {
+      try {
+        document.removeEventListener('mousedown', currentRoot._nuoSpeedPopDocClose, true);
+      } catch (e) {}
+      delete currentRoot._nuoSpeedPopDocClose;
+    }
     if (currentRoot && currentRoot.host && currentRoot.host.parentElement) {
       currentRoot.host.parentElement.removeChild(currentRoot.host);
     }
@@ -1105,6 +1174,10 @@
   }
 
   function tick() {
+    if (!simpleSpeedCalcEnabled) {
+      if (currentRoot) removeHost();
+      return;
+    }
     var wrap = null;
     if (isSmartnuoHost() && !isLikelyCalculatorView()) {
       wrap = findSpeedRealWrap();
@@ -1136,6 +1209,24 @@
     tick();
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(tick, 200);
+  }
+
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener(function (changes, areaName) {
+      if (areaName !== 'local') return;
+      var hit =
+        Object.prototype.hasOwnProperty.call(changes, SK_SPEED_UI.enabled) ||
+        Object.prototype.hasOwnProperty.call(changes, SK_SPEED_UI.tableShow) ||
+        Object.prototype.hasOwnProperty.call(changes, SK_SPEED_UI.tableTrigger);
+      if (!hit) return;
+      chrome.storage.local.get(SPEED_ALL_PREF_KEYS, function (got) {
+        if (chrome.runtime.lastError) return;
+        applySpeedPrefsFromStorage(got);
+        removeHost();
+        lastKey = '';
+        tick();
+      });
+    });
   }
 
   loadSpeedPrefsThenInit();

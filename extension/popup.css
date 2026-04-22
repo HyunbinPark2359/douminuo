@@ -161,6 +161,128 @@ body {
   margin-bottom: 10px;
 }
 
+#panelSettings .theme-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+#panelSettings .theme-row-desc {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+#panelSettings .settings-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+#panelSettings .settings-heading-row .options-heading {
+  margin-bottom: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 13px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  background: var(--border);
+  transition: background 0.2s ease;
+}
+
+.toggle-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--card-bg);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+  transition: transform 0.2s ease;
+}
+
+.toggle-switch input:checked + .toggle-switch-track {
+  background: var(--btn-bg);
+}
+
+.toggle-switch input:checked + .toggle-switch-track::after {
+  transform: translateX(9px);
+}
+
+.toggle-switch input:focus-visible + .toggle-switch-track {
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.speed-table-options {
+  margin-top: 2px;
+  padding-left: 2px;
+}
+
+.speed-table-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+}
+
+.speed-table-check {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.speed-table-trigger-radios {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px 14px;
+  flex: 0 0 auto;
+}
+
+.speed-trigger-radio {
+  margin: 0;
+}
+
+.speed-trigger-radio span {
+  white-space: nowrap;
+}
+
+.speed-table-trigger-radios input[type='radio']:disabled + span {
+  opacity: 0.45;
+}
+
+#speedTableShow:disabled + span {
+  opacity: 0.55;
+}
+
 #panelSettings .options-theme-select {
   display: block;
   width: 100%;
@@ -181,6 +303,15 @@ body {
   outline: none;
   border-color: var(--btn-bg);
   box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+#panelSettings .theme-row .options-theme-select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 7.5rem;
+  max-width: 10rem;
+  padding: 5px 8px;
+  font-size: 12px;
 }
 
 .popup-foot {

@@ -8,11 +8,18 @@
     showTeamBuilderFloating: 'nuo_fmt_showTeamBuilderFloating',
     tbInlineMovePower: 'nuo_fmt_tbInlineMovePower',
     tbInlineBulk: 'nuo_fmt_tbInlineBulk',
+    simpleSpeedCalcEnabled: 'nuo_fmt_simpleSpeedCalcEnabled',
+    speedTableShow: 'nuo_fmt_speedTableShow',
+    speedTableTrigger: 'nuo_fmt_speedTableTrigger',
   };
 
   function normalizeTheme(v) {
     if (v === 'light' || v === 'dark' || v === 'system') return v;
     return 'system';
+  }
+
+  function normalizeSpeedTableTrigger(v) {
+    return v === 'click' ? 'click' : 'hover';
   }
 
   function applyPopupTheme(mode) {
@@ -24,6 +31,20 @@
   var showTeamBuilderFloatingEl = document.getElementById('showTeamBuilderFloating');
   var tbInlineMoveEl = document.getElementById('tbInlineMovePower');
   var tbInlineBulkEl = document.getElementById('tbInlineBulk');
+  var simpleSpeedCalcEnabledEl = document.getElementById('simpleSpeedCalcEnabled');
+  var speedTableShowEl = document.getElementById('speedTableShow');
+
+  function syncSpeedTableOptionsDisabled() {
+    var masterOn = simpleSpeedCalcEnabledEl && simpleSpeedCalcEnabledEl.checked;
+    if (speedTableShowEl) {
+      speedTableShowEl.disabled = !masterOn;
+    }
+    var tableOn = masterOn && speedTableShowEl && speedTableShowEl.checked;
+    var hov = document.getElementById('speedTableTriggerHover');
+    var clk = document.getElementById('speedTableTriggerClick');
+    if (hov) hov.disabled = !tableOn;
+    if (clk) clk.disabled = !tableOn;
+  }
 
   function applyExtensionPrefsFromLocal(got) {
     if (chrome.runtime.lastError) {
@@ -33,6 +54,13 @@
       if (showTeamBuilderFloatingEl) showTeamBuilderFloatingEl.checked = true;
       if (tbInlineMoveEl) tbInlineMoveEl.checked = true;
       if (tbInlineBulkEl) tbInlineBulkEl.checked = true;
+      if (simpleSpeedCalcEnabledEl) simpleSpeedCalcEnabledEl.checked = true;
+      if (speedTableShowEl) speedTableShowEl.checked = true;
+      var hov = document.getElementById('speedTableTriggerHover');
+      var clk = document.getElementById('speedTableTriggerClick');
+      if (hov) hov.checked = true;
+      if (clk) clk.checked = false;
+      syncSpeedTableOptionsDisabled();
       return;
     }
     var v = normalizeTheme(got[LK.theme]);
@@ -57,6 +85,26 @@
     }
     if (tbInlineMoveEl) tbInlineMoveEl.checked = m !== false;
     if (tbInlineBulkEl) tbInlineBulkEl.checked = b !== false;
+
+    if (simpleSpeedCalcEnabledEl) {
+      simpleSpeedCalcEnabledEl.checked = got[LK.simpleSpeedCalcEnabled] !== false;
+    }
+    if (speedTableShowEl) {
+      speedTableShowEl.checked = got[LK.speedTableShow] !== false;
+    }
+    var trig = normalizeSpeedTableTrigger(got[LK.speedTableTrigger]);
+    var hovEl = document.getElementById('speedTableTriggerHover');
+    var clkEl = document.getElementById('speedTableTriggerClick');
+    if (hovEl && clkEl) {
+      if (trig === 'click') {
+        clkEl.checked = true;
+        hovEl.checked = false;
+      } else {
+        hovEl.checked = true;
+        clkEl.checked = false;
+      }
+    }
+    syncSpeedTableOptionsDisabled();
   }
 
   var EXTENSION_PREF_KEYS = [
@@ -66,6 +114,9 @@
     LK.tbInlineMovePower,
     LK.tbInlineBulk,
     LK.tbInlineAnnotate,
+    LK.simpleSpeedCalcEnabled,
+    LK.speedTableShow,
+    LK.speedTableTrigger,
   ];
 
   chrome.storage.local.get(EXTENSION_PREF_KEYS, applyExtensionPrefsFromLocal);
@@ -78,16 +129,19 @@
       Object.prototype.hasOwnProperty.call(changes, LK.showTeamBuilderFloating) ||
       Object.prototype.hasOwnProperty.call(changes, LK.tbInlineMovePower) ||
       Object.prototype.hasOwnProperty.call(changes, LK.tbInlineBulk) ||
-      Object.prototype.hasOwnProperty.call(changes, LK.tbInlineAnnotate);
+      Object.prototype.hasOwnProperty.call(changes, LK.tbInlineAnnotate) ||
+      Object.prototype.hasOwnProperty.call(changes, LK.simpleSpeedCalcEnabled) ||
+      Object.prototype.hasOwnProperty.call(changes, LK.speedTableShow) ||
+      Object.prototype.hasOwnProperty.call(changes, LK.speedTableTrigger);
     if (!hit) return;
     chrome.storage.local.get(EXTENSION_PREF_KEYS, applyExtensionPrefsFromLocal);
   });
 
   if (themeSelectEl) {
     themeSelectEl.addEventListener('change', function () {
-      var v = normalizeTheme(themeSelectEl.value);
-      chrome.storage.local.set({ [LK.theme]: v });
-      applyPopupTheme(v);
+      var nv = normalizeTheme(themeSelectEl.value);
+      chrome.storage.local.set({ [LK.theme]: nv });
+      applyPopupTheme(nv);
     });
   }
 
@@ -109,7 +163,44 @@
   }
   if (showTeamBuilderFloatingEl) {
     showTeamBuilderFloatingEl.addEventListener('change', function () {
-      chrome.storage.local.set({ [LK.showTeamBuilderFloating]: !!showTeamBuilderFloatingEl.checked });
+      chrome.storage.local.set({
+        [LK.showTeamBuilderFloating]: !!showTeamBuilderFloatingEl.checked,
+      });
+    });
+  }
+
+  if (simpleSpeedCalcEnabledEl) {
+    simpleSpeedCalcEnabledEl.addEventListener('change', function () {
+      chrome.storage.local.set({
+        [LK.simpleSpeedCalcEnabled]: !!simpleSpeedCalcEnabledEl.checked,
+      });
+      syncSpeedTableOptionsDisabled();
+    });
+  }
+  if (speedTableShowEl) {
+    speedTableShowEl.addEventListener('change', function () {
+      chrome.storage.local.set({ [LK.speedTableShow]: !!speedTableShowEl.checked });
+      syncSpeedTableOptionsDisabled();
+    });
+  }
+
+  function persistSpeedTableTriggerFromRadios() {
+    var clkEl = document.getElementById('speedTableTriggerClick');
+    var v =
+      clkEl && clkEl.checked ? 'click' : 'hover';
+    chrome.storage.local.set({ [LK.speedTableTrigger]: v });
+  }
+
+  var hovRadio = document.getElementById('speedTableTriggerHover');
+  var clkRadio = document.getElementById('speedTableTriggerClick');
+  if (hovRadio) {
+    hovRadio.addEventListener('change', function () {
+      if (hovRadio.checked) persistSpeedTableTriggerFromRadios();
+    });
+  }
+  if (clkRadio) {
+    clkRadio.addEventListener('change', function () {
+      if (clkRadio.checked) persistSpeedTableTriggerFromRadios();
     });
   }
 })();
