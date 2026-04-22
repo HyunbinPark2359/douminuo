@@ -29,7 +29,7 @@
   "content_scripts": [
     {
       "matches": ["https://smartnuo.com/*", "https://www.smartnuo.com/*"],
-      "js": ["calcFillShared.js", "calcFill.js", "teamBuilderFill.js"],
+      "js": ["calcFillShared.js", "calcFill.js", "teamBuilderFill.js", "speedOutspeedCalc.js"],
       "run_at": "document_idle"
     }
   ]
