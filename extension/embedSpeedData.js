@@ -1,4 +1,4 @@
-/* `regulationMaSpeedTable.json` 편집 후: node extension/data/embedSpeedData.js */
+/* `regulationMaSpeedTable.json` 편집 후: node extension/embedSpeedData.js */
 const fs = require('fs');
 const path = require('path');
 const dir = __dirname;

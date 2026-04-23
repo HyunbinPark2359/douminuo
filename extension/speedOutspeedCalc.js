@@ -24,10 +24,10 @@
  * 폴링 200ms: teamBuilderFill 과 동일 전략. Vuetify 가 포켓몬 전환 시 래퍼를
  * 교체하면 tick 이 감지해서 호스트를 재장착.
  *
- * 프리셋 호버 시 `data/regulationMaSpeedData.js`가 주입한 레귤 M-A 스피드 종족표 기준
+ * 프리셋 호버 시 `regulationMaSpeedData.js`가 주입한 레귤 M-A 스피드 종족표 기준
  * 표 칸(앵커 위 3·아래 1) 포켓몬 이름을 팝오버로 표시하고, 표 상단 말풍선 뿔은 호버 중인 프리셋 칼럼
  * (최속 / 준속 / 무보정) 중앙을 가리키게 배치함. (원본 JSON 수정 후
- * `node extension/data/embedSpeedData.js` 로 `regulationMaSpeedData.js` 재생성.)
+ * `node extension/embedSpeedData.js` 로 `regulationMaSpeedData.js` 재생성.)
  */
 (function () {
   'use strict';
