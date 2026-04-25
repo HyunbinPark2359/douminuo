@@ -31,6 +31,12 @@
     },
   ];
 
+  function readIv(v) {
+    var n = parseInt(v, 10);
+    if (isNaN(n) || n < 0 || n > 31) return 31;
+    return n;
+  }
+
   function bsArr(bs) {
     if (Array.isArray(bs) && bs.length >= 6) return bs;
     if (bs && typeof bs === 'object') {
@@ -115,9 +121,10 @@
     var spaObj = stats.special_attack || (stats.special_attack = {});
     var atkEv = parseInt(atkObj.value, 10) | 0;
     var spaEv = parseInt(spaObj.value, 10) | 0;
-    // IV 가정: 31. 폼 변환은 표기용 추정 — 실제 계산기 입력 흐름과 무관.
-    var atkIv = 31;
-    var spaIv = 31;
+    // F15: 슬롯의 individual_value 우선. 없거나 범위 밖이면 31.
+    // 폼 변환은 결정력 표기용 추정 — 사용자가 IV<31로 빌드한 케이스도 정확히 반영.
+    var atkIv = readIv(atkObj.individual_value);
+    var spaIv = readIv(spaObj.individual_value);
 
     var atkMul = natureMulFor(natureKo, 'atk', natureKoDoc, natureStatMulDoc);
     var spaMul = natureMulFor(natureKo, 'spa', natureKoDoc, natureStatMulDoc);

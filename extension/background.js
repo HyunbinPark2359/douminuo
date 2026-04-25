@@ -475,14 +475,38 @@ importScripts('showdownPaste.js');
     return m;
   }
 
+  /**
+   * F1: 같은 번들 JSON을 여러 경로(loadPasteBundleDocs, computeBlockPowersForSlot,
+   * GET_CALC_PAYLOADS 등)에서 거듭 fetch + JSON.parse 하던 낭비를 SW 라이프타임
+   * 메모이제이션으로 제거. 성공한 결과만 캐시 (실패면 다음 호출이 재시도).
+   *
+   * 주의: 호출자가 결과 객체를 변형(mutate)하는 경우 캐시도 같이 변형된다.
+   * loadPasteBundleDocs의 mergeByKoPaste 가 moveKoMap 의 byKo 를 덮어쓰지만
+   * `if (base[k] == null)` 가드로 idempotent — 재호출 시 no-op.
+   */
+  var jsonDocCache = Object.create(null);    // fileName → resolved doc
+  var jsonInflight = Object.create(null);    // fileName → in-flight Promise
+
   function loadJsonUrl(fileName, empty) {
-    return fetch(chrome.runtime.getURL(fileName))
+    if (Object.prototype.hasOwnProperty.call(jsonDocCache, fileName)) {
+      return Promise.resolve(jsonDocCache[fileName]);
+    }
+    if (jsonInflight[fileName]) return jsonInflight[fileName];
+    var p = fetch(chrome.runtime.getURL(fileName))
       .then(function (r) {
         return r.json();
       })
+      .then(function (j) {
+        jsonDocCache[fileName] = j;
+        delete jsonInflight[fileName];
+        return j;
+      })
       .catch(function () {
+        delete jsonInflight[fileName];
         return empty;
       });
+    jsonInflight[fileName] = p;
+    return p;
   }
 
   function mergeByKoPaste(baseDoc, fallbackDoc) {

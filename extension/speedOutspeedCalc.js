@@ -559,14 +559,44 @@
     return '';
   }
 
+  /**
+   * F3: 0..500 선형 탐색을 닫힌형 후보 ±2 검증으로 (200ms tick × 3 프리셋 = 1500 step → ~6 step).
+   * 부동소수점 경계 케이스를 잡기 위해 후보 주변 5칸만 직접 검증한다.
+   *
+   * 닫힌형 유도:
+   *   floor(floor((b + 20 + ev) * nat) * scarf) < S
+   *   ⟹ u = floor((b + 20 + ev) * nat) ≤ uMax = floor((S - 1) / scarf)
+   *   ⟹ b + 20 + ev < (uMax + 1) / nat
+   *   ⟹ b ≤ floor((uMax + 1) / nat - 20 - ev - epsilon)
+   */
   function computeOutspeedBases(S, oppScarf) {
     if (!Number.isFinite(S) || S <= 0) {
       return { fastest: null, neutral: null, uninvested: null };
     }
     var scarf = oppScarf ? 1.5 : 1;
+    function valid(b, ev, nat) {
+      return Math.floor(Math.floor((b + 20 + ev) * nat) * scarf) < S;
+    }
     function solve(ev, nat) {
-      for (var b = 500; b >= 0; b--) {
-        if (Math.floor(Math.floor((b + 20 + ev) * nat) * scarf) < S) return b;
+      if (S <= 1) return null;
+      var uMax = Math.floor((S - 1) / scarf);
+      if (uMax < 0) return null;
+      var bCand = Math.floor((uMax + 1) / nat - 20 - ev);
+      // 옛 선형 탐색이 0..500 범위를 cap으로 사용했던 것과 동작을 맞춘다.
+      // 실제로 현실 게임 종족값은 ≤ 150 이므로 500 cap을 넘는 영역은 회귀 의미 없음.
+      if (bCand > 500) bCand = 500;
+      // 후보 ±2 안에서 유효한 최대 b (부동소수 floor 보정).
+      var hi = bCand + 2;
+      if (hi > 500) hi = 500;
+      var lo = bCand - 2;
+      var b;
+      for (b = hi; b >= lo; b--) {
+        if (b < 0) break;
+        if (valid(b, ev, nat)) return b;
+      }
+      // 닫힌형 후보가 어긋난 비정상 케이스: 옛 선형 탐색 fallback.
+      for (b = 500; b >= 0; b--) {
+        if (valid(b, ev, nat)) return b;
       }
       return null;
     }
@@ -593,13 +623,30 @@
   /**
    * 동속 종족값: `anchor` 초과 중 처음으로 eff(b) === F 인 b. 건너뛰면 null.
    * 호출부에서 레귤 맵 키 존재 여부를 한 번 더 검사.
+   *
+   * F3: 닫힌형. 가장 작은 b s.t. eff(b) ≥ F 를 직접 계산한 뒤 ±2 검증.
+   *   floor(u * scarf) ≥ F ⟹ u ≥ ceil(F / scarf)
+   *   floor((b + 20 + ev) * nat) ≥ uMin ⟹ b ≥ ceil(uMin / nat - 20 - ev)
    */
   function findTieSpeciesStat(F, anchor, ev, nat, oppScarf) {
     if (!Number.isFinite(F) || !Number.isFinite(anchor)) return null;
-    for (var b = anchor + 1; b <= 400; b++) {
+    var scarf = oppScarf ? 1.5 : 1;
+    var uMin = Math.ceil(F / scarf);
+    var bRaw = uMin / nat - 20 - ev;
+    var bCand = Math.max(anchor + 1, Math.ceil(bRaw - 1e-9));
+    var b;
+    for (b = bCand - 2; b <= bCand + 2; b++) {
+      if (b <= anchor) continue;
+      if (b > 400) break;
       var e = opponentEffSpeed(b, ev, nat, oppScarf);
       if (e === F) return b;
       if (e > F) return null;
+    }
+    // 닫힌형 후보가 어긋난 비정상 케이스: 옛 선형 탐색 fallback.
+    for (b = anchor + 1; b <= 400; b++) {
+      var e2 = opponentEffSpeed(b, ev, nat, oppScarf);
+      if (e2 === F) return b;
+      if (e2 > F) return null;
     }
     return null;
   }

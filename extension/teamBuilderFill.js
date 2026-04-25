@@ -39,6 +39,21 @@
     return CS.requestBridgeInject('INJECT_TEAM_BUILDER_BRIDGE', 'team_bridge_inject_failed');
   }
 
+  /**
+   * F12: 매 호출마다 SW 메시지 + chrome.scripting.executeScript 왕복을 피한다.
+   * 페이지 측은 __NUO_TEAM_BUILDER_BRIDGE_V3__ 가드로 어차피 noop이지만 메시지 비용이 남음.
+   * 첫 ok 이후엔 같은 promise 재사용. 실패 시 캐시 초기화 → 다음 호출이 재시도.
+   */
+  var teamBridgeReadyP = null;
+  function injectTeamBridgeOnce() {
+    if (teamBridgeReadyP) return teamBridgeReadyP;
+    teamBridgeReadyP = injectTeamBridge();
+    teamBridgeReadyP.catch(function () {
+      teamBridgeReadyP = null;
+    });
+    return teamBridgeReadyP;
+  }
+
   function getSlotsFromBridge() {
     return new Promise(function (resolve) {
       var rid = String(Date.now()) + '-' + Math.random().toString(16).slice(2);
@@ -1308,7 +1323,7 @@
       });
     }
 
-    injectTeamBridge()
+    injectTeamBridgeOnce()
       .then(function () {
         bridgeReady = true;
         refreshSlots();
@@ -1853,7 +1868,7 @@
       } catch (eDisc) {}
     }
     var myGen = ++tbInlineGen;
-    injectTeamBridge()
+    injectTeamBridgeOnce()
       .then(function () {
         return getSlotsFromBridge();
       })
