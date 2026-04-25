@@ -11,6 +11,9 @@ node_modules/
 # Private working notes — kept local, not published on GitHub
 /BACKLOG.md
 /할일.md
+/research.md
+/TEMPLATES.md
+/OPTIMIZATION_PLAN.md
 
 # Legacy demo media (v0.1–v0.2) — kept locally for history, not published
 /assets/demo/
