@@ -20,6 +20,7 @@ importScripts('showdownPaste.js');
   var SK_MODIFIERS_CACHE = 'nuo_fmt_modifiersCache';
   var SK_MOVETAGS_CACHE = 'nuo_fmt_moveTagsCache';
   var SK_MOVEKO_CACHE = 'nuo_fmt_moveKoCache';
+  var SK_POKEMON_TYPE_CACHE = 'nuo_fmt_pokemonTypeCache';
 
   /**
    * JSON 문자열 파싱 + 스키마 검증. 실패/비정상이면 `empty`를 반환.
@@ -40,6 +41,7 @@ importScripts('showdownPaste.js');
   var EMPTY_MODIFIERS = { version: 0, items: {}, abilities: {} };
   var EMPTY_MOVETAGS = { version: 0, moves: {} };
   var EMPTY_MOVEKOMAP = { version: 0, byKo: {} };
+  var EMPTY_POKEMON_TYPE = { version: 0, bySlug: {} };
 
   function parseModifiersJson(text) {
     return safeJsonParse(
@@ -70,6 +72,16 @@ importScripts('showdownPaste.js');
         return j && typeof j.byKo === 'object' && j.byKo !== null ? j : null;
       },
       EMPTY_MOVEKOMAP
+    );
+  }
+
+  function parsePokemonTypeJson(text) {
+    return safeJsonParse(
+      text,
+      function (j) {
+        return j && typeof j.bySlug === 'object' && j.bySlug !== null ? j : null;
+      },
+      EMPTY_POKEMON_TYPE
     );
   }
 
@@ -128,10 +140,31 @@ importScripts('showdownPaste.js');
     parseModifiersJson,
     { version: 0, items: {}, abilities: {} }
   );
+  // F20: 종 영문 slug → [type1, type2] 번들 lookup. 빌드 타임에 PokéAPI 일괄 추출
+  // (scripts/generate-pokemon-type-map.js). 없거나 미커버 종이면 fetchPokemonTypesEn fallback.
+  var ensurePokemonTypeMapLoaded = makeBundleLoader(
+    SK_POKEMON_TYPE_CACHE,
+    'pokemonTypeMap.json',
+    parsePokemonTypeJson,
+    EMPTY_POKEMON_TYPE
+  );
 
   function buildDisplayPartyUrl(origin, pathname, id) {
     var p = pathname || '/';
     return origin + p + '#ps=' + id;
+  }
+
+  /**
+   * 결과 텍스트에 누오 URL이 들어가는 옵션인지 (어머니 사이트 보호 §A.2 #1).
+   * - includeUrls === false: 사용자가 URL 출력 끔 → 슬롯·파티 URL 둘 다 안 들어감
+   * - showdownPaste === true: PokePaste 출력은 URL을 포함하지 않음
+   * → 둘 중 하나라도 해당되면 누오 POST를 보낼 이유가 없다.
+   */
+  function needsServerUrls(fo) {
+    if (!fo) return true;
+    if (fo.includeUrls === false) return false;
+    if (fo.showdownPaste) return false;
+    return true;
   }
 
   /**
@@ -201,10 +234,9 @@ importScripts('showdownPaste.js');
   }
 
   function postShareSlot(origin, pathname, slotIndex1Based, slotData) {
-    if (slotData == null) return Promise.resolve('');
-    if (typeof slotData === 'object' && !Array.isArray(slotData) && Object.keys(slotData).length === 0) {
-      return Promise.resolve('');
-    }
+    // 빈/무효 슬롯은 어떤 누오 호출도 가지 않는다 (어머니 사이트 보호 원칙 §A.2 #3).
+    // 단순 null 또는 {}만이 아니라 {slot:1, data:null} 같은 메타-only 케이스도 SR.isSlotEmpty가 잡는다.
+    if (SR.isSlotEmpty(slotData)) return Promise.resolve('');
     return fetch(origin + '/api/party/share', {
       method: 'POST',
       headers: {
@@ -231,21 +263,6 @@ importScripts('showdownPaste.js');
       .catch(function () {
         return '';
       });
-  }
-
-  function fetchShareGET(origin, id) {
-    return fetch(origin + '/api/party/share/' + encodeURIComponent(id), {
-      method: 'GET',
-      credentials: 'include',
-      headers: { Accept: 'application/json' },
-    }).then(function (res) {
-      if (!res.ok) {
-        return res.text().then(function (t) {
-          throw new Error('GET ' + res.status + (t ? ': ' + t.slice(0, 80) : ''));
-        });
-      }
-      return res.json();
-    });
   }
 
   function fetchPokemonTypesEn(name) {
@@ -290,17 +307,31 @@ importScripts('showdownPaste.js');
     return out;
   }
 
+  /**
+   * F20: 슬롯 → 종 타입 [type1, type2?] (영문 slug).
+   * 우선순위: (1) 슬롯의 firstType/secondType (2) 번들 pokemonTypeMap.bySlug
+   *          (3) 마지막 수단으로 PokéAPI fetch — 신규 폼이 번들에 없을 때만.
+   * §A.4 보호 원칙: (3)은 평소 발동되지 않아야 한다.
+   */
   function resolveSpeciesTypesForSlot(slotData) {
     var poke = slotData && slotData.pokemon;
     var local = collectTypesFromSlotPokemon(poke);
     if (local.length >= 2) return Promise.resolve(local);
-    if (poke && poke.name) {
+    if (!poke || !poke.name) return Promise.resolve(local);
+
+    var slug = String(poke.name).toLowerCase();
+    return ensurePokemonTypeMapLoaded().then(function (bundle) {
+      var bySlug = bundle && bundle.bySlug;
+      if (bySlug && Array.isArray(bySlug[slug]) && bySlug[slug].length) {
+        var merged = mergeTypeLists(local, bySlug[slug]);
+        return merged.length ? merged : local;
+      }
+      // 번들 미커버 → PokéAPI fallback (드물게 발생)
       return fetchPokemonTypesEn(poke.name).then(function (apiTypes) {
         var merged = mergeTypeLists(local, apiTypes);
         return merged.length ? merged : local;
       });
-    }
-    return Promise.resolve(local);
+    });
   }
 
   function computeBlockPowersForSlot(slotData) {
@@ -374,9 +405,18 @@ importScripts('showdownPaste.js');
     }
   }
 
-  function resolvePartyWithRaws(origin, pathname, partyId, slots) {
+  /**
+   * @param {string} origin
+   * @param {string} pathname
+   * @param {string} partyId 등록된 파티의 #ps= 값. 빈 문자열이면 partyUrl도 빈 문자열.
+   * @param {object[]} slots 6슬롯 (로컬 또는 GET 결과)
+   * @param {{ includeSlotUrls?: boolean }} [opts] includeSlotUrls=false 면 슬롯별 POST 생략 (F16).
+   */
+  function resolvePartyWithRaws(origin, pathname, partyId, slots, opts) {
+    opts = opts || {};
+    var includeSlotUrls = opts.includeSlotUrls !== false;
     var slots6 = normalizeSlotsToSix(slots);
-    var displayParty = buildDisplayPartyUrl(origin, pathname, partyId);
+    var displayParty = partyId ? buildDisplayPartyUrl(origin, pathname, partyId) : '';
     var urls = [];
     var raws = [];
     var chain = Promise.resolve();
@@ -386,6 +426,10 @@ importScripts('showdownPaste.js');
         chain = chain.then(function () {
           var slotData = slots6[idx];
           raws.push(SR.shareSlotToRaw(slotData, idx + 1, { numberedTitle: true }));
+          if (!includeSlotUrls) {
+            urls.push('');
+            return;
+          }
           return postShareSlot(origin, pathname, idx + 1, slotData).then(function (u) {
             urls.push(u || '');
           });
@@ -429,24 +473,6 @@ importScripts('showdownPaste.js');
       return '파티를 등록했지만 변환용 데이터를 받지 못했습니다. 잠시 후 다시 시도해 주세요.';
     }
     return m;
-  }
-
-  /**
-   * COPY_PARTY_SHARE_URL 전용: postSharePartyAll이 만든 단일 파티 URL을 GET → 파티(6슬롯) 정규화.
-   */
-  function resolveShareInput(partyUrl) {
-    var first = SR.normalizePartyUrlInput(String(partyUrl || ''));
-    if (!first) return Promise.reject(new Error('bad_url'));
-    var id = SR.extractPsId(first);
-    if (!id) return Promise.reject(new Error('no_ps_id'));
-    var baseUrl = new URL(first);
-    var origin = baseUrl.origin;
-    var pathname = baseUrl.pathname || '/';
-    return fetchShareGET(origin, id).then(function (j) {
-      var cls = SR.classifyShareGetResponse(j);
-      if (cls.type !== 'party') return Promise.reject(new Error('unknown_share_shape'));
-      return resolvePartyWithRaws(origin, pathname, id, cls.slots);
-    });
   }
 
   function loadJsonUrl(fileName, empty) {
@@ -515,8 +541,14 @@ importScripts('showdownPaste.js');
       return Promise.reject(new Error('empty_slot'));
     }
 
+    var needUrls = needsServerUrls(fo);
+
     return computeBlockPowersForSlot(slotData).then(function (pack) {
-      return postShareSlot(origin, pathname, slotIndex, slotData).then(function (sampleUrl) {
+      // F16: URL이 결과에 안 들어가는 옵션이면 누오 POST 생략.
+      var pSampleUrl = needUrls
+        ? postShareSlot(origin, pathname, slotIndex, slotData)
+        : Promise.resolve('');
+      return pSampleUrl.then(function (sampleUrl) {
         var urlStr = sampleUrl ? String(sampleUrl).trim() : '';
         var pasteRaw = SR.shareSlotToRaw(slotData, 1, { numberedTitle: false });
         var modP = ensureModifiersLoaded();
@@ -562,14 +594,13 @@ importScripts('showdownPaste.js');
     });
   }
 
-  /** resolveShareInput 결과(파티) + 팀빌더 formatOptions → 팝업과 동일한 샘플/Showdown 문자열 */
+  /** resolvePartyWithRaws 결과(파티) + 팀빌더 formatOptions → 팝업과 동일한 샘플/Showdown 문자열 */
   function formatResolvedPartyShare(data, fo) {
     fo = fo || {};
     var pasteRaw = data && data.pasteRaw != null ? String(data.pasteRaw) : '';
     var partyUrl = data && data.partyUrl != null ? String(data.partyUrl).trim() : '';
-    if (!partyUrl) {
-      return Promise.reject(new Error('party_resolve_empty'));
-    }
+    // partyUrl이 비어 있어도 정상 — F16에 의해 의도적으로 누오 등록을 생략한 경우
+    // (옵션이 결과에 URL을 포함하지 않을 때). formatter 가 빈 partyUrl을 자연스럽게 처리.
 
     if (fo.showdownPaste) {
       var slots = data.shareSlots;
@@ -738,6 +769,7 @@ importScripts('showdownPaste.js');
         loadJsonUrl('typeKoMap.json', { byKo: {} }),
         loadJsonUrl('moveKoFallback.json', { version: 0, byKo: {} }),
         ensureModifiersLoaded(),
+        ensureMoveKoMapLoaded(), // F0: 한글 기술명 → Showdown id 번들 lookup
       ])
         .then(function (arr) {
           return CP.buildSidePayloads(msg.atkUrl || '', msg.defUrl || '', {
@@ -746,6 +778,7 @@ importScripts('showdownPaste.js');
             typeKoDoc: arr[2],
             moveKoFallbackDoc: arr[3],
             modifiersDoc: arr[4],
+            moveKoDoc: arr[5],
           });
         })
         .then(function (payloads) {
@@ -785,14 +818,29 @@ importScripts('showdownPaste.js');
         return true;
       }
 
-      postSharePartyAll(originCp, pathnameCp, slotsCp)
+      var foCp = msg.formatOptions || {};
+      var needUrlsCp = needsServerUrls(foCp);
+
+      // F16/F17: 결과 텍스트에 URL이 들어가지 않는 옵션이면 누오 등록 자체를 생략.
+      // 들어가는 옵션이라도, 등록 후 GET 으로 다시 받아오는 단계는 생략 — 우리가
+      // teamBuilderBridge 에서 받은 로컬 slotsCp 를 source of truth 로 사용.
+      var pPartyUrlCp = needUrlsCp
+        ? postSharePartyAll(originCp, pathnameCp, slotsCp)
+        : Promise.resolve('');
+
+      pPartyUrlCp
         .then(function (partyUrl) {
-          return resolveShareInput(partyUrl).then(function (data) {
-            var pu = data && data.partyUrl != null ? String(data.partyUrl).trim() : '';
-            if (!pu) {
+          var partyId = '';
+          if (partyUrl) {
+            partyId = SR.extractPsId(partyUrl) || '';
+            if (!partyId) {
               return Promise.reject(new Error('party_resolve_empty'));
             }
-            return formatResolvedPartyShare(data, msg.formatOptions || {});
+          }
+          return resolvePartyWithRaws(originCp, pathnameCp, partyId, slotsCp, {
+            includeSlotUrls: needUrlsCp,
+          }).then(function (data) {
+            return formatResolvedPartyShare(data, foCp);
           });
         })
         .then(function (text) {
