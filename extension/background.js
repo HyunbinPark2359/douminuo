@@ -450,27 +450,31 @@ importScripts('showdownPaste.js');
     });
   }
 
+  /**
+   * F14: 옛 if-체인을 dict lookup 으로. alias 키들은 같은 메시지를 명시적으로 매핑.
+   * cross-context 동기화 주의: `no_ps_id`·`unknown_share_shape` 두 키는 calcFillShared 의
+   * CALC_FILL_ERR_MSG 와 함께 사용된다 — 메시지 동일하게 유지.
+   */
+  var SHARE_ERR_MSG = {
+    empty: 'URL을 입력해 주세요.',
+    empty_input: 'URL을 입력해 주세요.',
+    no_party_url: 'URL 형식을 확인해 주세요.',
+    bad_url: 'URL 형식을 확인해 주세요.',
+    no_ps_id: '#ps= 가 포함된 스마트누오 공유 URL인지 확인해 주세요.',
+    share_not_found: '공유를 불러오지 못했습니다. URL·로그인·네트워크를 확인하세요.',
+    empty_response: '공유를 불러오지 못했습니다. URL·로그인·네트워크를 확인하세요.',
+    unknown_share_shape: '지원하지 않는 공유 형식입니다.',
+    bad_party_slots: '파티 슬롯 형식이 올바르지 않습니다.',
+    empty_party: '비어 있는 파티입니다. 포켓몬을 넣은 뒤 다시 시도하세요.',
+    team_slots_unavailable: '팀 슬롯(6칸)을 읽지 못했습니다. 페이지를 새로고침한 뒤 다시 시도하세요.',
+    party_resolve_empty: '파티를 등록했지만 변환용 데이터를 받지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  };
+
   function mapShareError(err) {
     var m = err && err.message ? String(err.message) : String(err);
-    if (m === 'empty' || m === 'empty_input') return 'URL을 입력해 주세요.';
-    if (m === 'no_party_url' || m === 'bad_url') return 'URL 형식을 확인해 주세요.';
-    if (m === 'no_ps_id') return '#ps= 가 포함된 스마트누오 공유 URL인지 확인해 주세요.';
-    if (m === 'share_not_found' || m === 'empty_response') {
-      return '공유를 불러오지 못했습니다. URL·로그인·네트워크를 확인하세요.';
-    }
-    if (m === 'unknown_share_shape') {
-      return '지원하지 않는 공유 형식입니다.';
-    }
-    if (m === 'bad_party_slots') return '파티 슬롯 형식이 올바르지 않습니다.';
-    if (m === 'empty_party') return '비어 있는 파티입니다. 포켓몬을 넣은 뒤 다시 시도하세요.';
-    if (m === 'team_slots_unavailable') {
-      return '팀 슬롯(6칸)을 읽지 못했습니다. 페이지를 새로고침한 뒤 다시 시도하세요.';
-    }
+    if (Object.prototype.hasOwnProperty.call(SHARE_ERR_MSG, m)) return SHARE_ERR_MSG[m];
     if (m.indexOf('party_share_post_') === 0) {
       return '파티 URL을 서버에 등록하지 못했습니다. 로그인·네트워크를 확인하세요.';
-    }
-    if (m === 'party_resolve_empty') {
-      return '파티를 등록했지만 변환용 데이터를 받지 못했습니다. 잠시 후 다시 시도해 주세요.';
     }
     return m;
   }
@@ -544,10 +548,17 @@ importScripts('showdownPaste.js');
     });
   }
 
+  /** F14: builder 슬롯 변환 전용 코드 + share 에러로 위임. */
+  var BUILDER_FORMAT_ERR_MSG = {
+    empty_slot: '빈 슬롯입니다.',
+    bad_index: '슬롯 번호가 올바르지 않습니다.',
+  };
+
   function mapBuilderFormatError(err) {
     var m = err && err.message ? String(err.message) : String(err);
-    if (m === 'empty_slot') return '빈 슬롯입니다.';
-    if (m === 'bad_index') return '슬롯 번호가 올바르지 않습니다.';
+    if (Object.prototype.hasOwnProperty.call(BUILDER_FORMAT_ERR_MSG, m)) {
+      return BUILDER_FORMAT_ERR_MSG[m];
+    }
     return mapShareError(err);
   }
 

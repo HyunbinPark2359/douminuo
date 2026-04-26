@@ -64,6 +64,28 @@
     });
   }
 
+  /**
+   * F14: 옛 if-체인을 dict lookup 으로. 같은 의미의 alias 들은 한 줄씩 나란히 적어 둠.
+   * SW측 mapShareError 와 cross-context 동기화는 코드 공유 불가하므로 주석으로 가이드:
+   *   `no_ps_id`·`unknown_share_shape` 두 키만 양측에서 같이 쓰임 — 메시지 동일하게 유지.
+   */
+  var CALC_FILL_ERR_MSG = {
+    party_url_not_supported: '파티 공유 URL은 계산기 입력에 사용할 수 없습니다. 샘플 URL만 넣어 주세요.',
+    empty_url: '해당 칸에 URL을 입력해 주세요.',
+    no_ps_id: '#ps= 가 포함된 스마트누오 URL인지 확인해 주세요.',
+    empty_slot: '샘플이 비어 있거나 종 이름을 읽지 못했습니다.',
+    no_species: '샘플이 비어 있거나 종 이름을 읽지 못했습니다.',
+    unknown_share_shape: '지원하지 않는 공유 형식입니다.',
+    vue_calc_not_found: '계산기 화면의 Vue 인스턴스를 찾지 못했습니다.',
+    calc_dex_not_ready: '도감(종 목록)이 아직 로드 중입니다. 잠시 후 다시 시도해 주세요.',
+    calc_broadcast_all_failed: '계산기 인스턴스 모두에 반영하지 못했습니다. 탭을 새로고침한 뒤 다시 시도해 주세요.',
+    not_calculator_view: '데미지 계산기 화면인지 확인해 주세요.',
+    no_valid_payload: '적용할 수 있는 페이로드가 없습니다.',
+    bridge_inject_failed: '브리지 주입에 실패했습니다. 탭을 새로고침한 뒤 확장을 다시 로드해 보세요.',
+    calc_apply_timeout: '시간 초과. 계산기 탭을 활성화한 뒤 다시 시도해 주세요.',
+    calc_payload_unavailable: '계산기용 스크립트를 불러오지 못했습니다. 확장 프로그램을 다시 로드해 주세요.',
+  };
+
   function mapCalcFillError(code) {
     try {
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError) {
@@ -75,33 +97,52 @@
     } catch (e) {}
 
     var c = String(code || '');
-    if (c === 'party_url_not_supported') {
-      return '파티 공유 URL은 계산기 입력에 사용할 수 없습니다. 샘플 URL만 넣어 주세요.';
-    }
-    if (c === 'empty_url') return '해당 칸에 URL을 입력해 주세요.';
-    if (c === 'no_ps_id') return '#ps= 가 포함된 스마트누오 URL인지 확인해 주세요.';
-    if (c === 'empty_slot' || c === 'no_species') return '샘플이 비어 있거나 종 이름을 읽지 못했습니다.';
-    if (c === 'unknown_share_shape') return '지원하지 않는 공유 형식입니다.';
-    if (c === 'vue_calc_not_found') return '계산기 화면의 Vue 인스턴스를 찾지 못했습니다.';
-    if (c === 'calc_dex_not_ready') return '도감(종 목록)이 아직 로드 중입니다. 잠시 후 다시 시도해 주세요.';
-    if (c === 'calc_broadcast_all_failed') {
-      return '계산기 인스턴스 모두에 반영하지 못했습니다. 탭을 새로고침한 뒤 다시 시도해 주세요.';
-    }
-    if (c === 'not_calculator_view') return '데미지 계산기 화면인지 확인해 주세요.';
-    if (c === 'no_valid_payload') return '적용할 수 있는 페이로드가 없습니다.';
-    if (c === 'bridge_inject_failed' || c.indexOf('inject') !== -1) {
-      return '브리지 주입에 실패했습니다. 탭을 새로고침한 뒤 확장을 다시 로드해 보세요.';
-    }
-    if (c === 'calc_apply_timeout') return '시간 초과. 계산기 탭을 활성화한 뒤 다시 시도해 주세요.';
-    if (c === 'calc_payload_unavailable') {
-      return '계산기용 스크립트를 불러오지 못했습니다. 확장 프로그램을 다시 로드해 주세요.';
+    if (Object.prototype.hasOwnProperty.call(CALC_FILL_ERR_MSG, c)) return CALC_FILL_ERR_MSG[c];
+    // bridge_inject_failed 는 dict 에 있고, 그 외 'inject' 가 들어간 미래 코드들도 같은 메시지로.
+    if (c.indexOf('inject') !== -1) {
+      return CALC_FILL_ERR_MSG.bridge_inject_failed;
     }
     return c || '알 수 없는 오류';
+  }
+
+  /**
+   * F13: chrome.storage.onChanged 보일러플레이트 통합.
+   * 콘텐츠 스크립트 5+ 곳에서 같은 패턴(area 검사 → keys 변경 검출 → 전체 keys 재조회)을
+   * 반복하던 것을 한 줄 호출로. callback 은 keys 모두를 포함한 storage 결과를 받는다.
+   *
+   * @param {string[]} keys 관심 키 목록
+   * @param {(got: object) => void} callback 변경 감지 시 호출. got = chrome.storage.local.get 결과.
+   * @returns {() => void} teardown 함수 — listener 제거. 호출자가 라이프사이클 끝낼 때 사용.
+   */
+  function onLocalPrefChange(keys, callback) {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.onChanged) {
+      return function () {};
+    }
+    var listener = function (changes, area) {
+      if (area !== 'local') return;
+      var hit = false;
+      var k;
+      for (k = 0; k < keys.length; k++) {
+        if (changes[keys[k]]) { hit = true; break; }
+      }
+      if (!hit) return;
+      try {
+        chrome.storage.local.get(keys, function (got) {
+          if (chrome.runtime.lastError) return;
+          callback(got);
+        });
+      } catch (e) {}
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return function () {
+      try { chrome.storage.onChanged.removeListener(listener); } catch (e) {}
+    };
   }
 
   g.mapCalcFillError = mapCalcFillError;
   g.nuoCsCommon = {
     isLikelyCalculatorView: isLikelyCalculatorView,
     requestBridgeInject: requestBridgeInject,
+    onLocalPrefChange: onLocalPrefChange,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

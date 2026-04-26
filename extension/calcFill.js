@@ -807,18 +807,13 @@
 
   function initFloatingPanelGate() {
     startCalcFloatingFromSettings();
-    try {
-      chrome.storage.onChanged.addListener(function (changes, area) {
-        if (area !== 'local' || !Object.prototype.hasOwnProperty.call(changes, LOCAL_SHOW_FLOAT)) {
-          return;
-        }
-        if (changes[LOCAL_SHOW_FLOAT].newValue === false) {
-          removeCalcPanelHost();
-        } else {
-          tryMountPanel();
-        }
+    // F13: shared 헬퍼로 storage 변경 핸들러 보일러플레이트 통합.
+    if (CS.onLocalPrefChange) {
+      CS.onLocalPrefChange([LOCAL_SHOW_FLOAT], function (got) {
+        if (got[LOCAL_SHOW_FLOAT] === false) removeCalcPanelHost();
+        else tryMountPanel();
       });
-    } catch (e) {}
+    }
   }
 
   if (document.readyState === 'loading') {

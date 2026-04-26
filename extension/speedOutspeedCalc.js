@@ -63,10 +63,53 @@
       if (!g || typeof g !== 'object' || !g.bySpeed) return false;
       regulationSpeedMeta = g.meta || {};
       regulationSpeedBySpeed = g.bySpeed;
+      verifyRegulationEmbedFreshness();  // F-data-1: 1회 비동기 검증, idempotent
       return true;
     } catch (e) {
       return false;
     }
+  }
+
+  /**
+   * F-data-1: regulationMaSpeedTable.json 편집 후 embedSpeedData.js 재실행을 잊었을 때
+   * silent stale 을 콘솔 경고로 잡는다. embedSpeedData 가 임베드한 fnv1a 해시 vs 런타임에
+   * source JSON 을 다시 fnv1a 한 결과를 비교.
+   *
+   * 비용: 한 번만 fetch + JSON 파싱. 실패는 무시 (옛 빌드면 hash 가 없어 skip).
+   */
+  var regulationFreshnessChecked = false;
+  function fnv1aHash(str) {
+    var h = 0x811c9dc5 >>> 0;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = (Math.imul ? Math.imul(h, 0x01000193) : (h * 0x01000193)) >>> 0;
+    }
+    var s = h.toString(16);
+    while (s.length < 8) s = '0' + s;
+    return s;
+  }
+  function verifyRegulationEmbedFreshness() {
+    if (regulationFreshnessChecked) return;
+    regulationFreshnessChecked = true;
+    var embedded = globalThis.NUO_REGULATION_MA_SPEED_SOURCE_HASH;
+    if (typeof embedded !== 'string') return;
+    if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.getURL) return;
+    try {
+      fetch(chrome.runtime.getURL('regulationMaSpeedTable.json'))
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (text) {
+          if (text == null) return;
+          var actual = fnv1aHash(text);
+          if (actual !== embedded) {
+            console.warn(
+              '[도우미누오] regulationMaSpeedData.js stale — ' +
+              'JSON 편집 후 `node extension/embedSpeedData.js` 재실행 필요.\n' +
+              '  embedded: ' + embedded + ' / actual: ' + actual
+            );
+          }
+        })
+        .catch(function () {});
+    } catch (eVer) {}
   }
 
   function loadRegulationSpeedTable(done) {
@@ -1283,24 +1326,27 @@
     if (simpleSpeedCalcEnabled) ensurePollTimer();
   }
 
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
-    chrome.storage.onChanged.addListener(function (changes, areaName) {
-      if (areaName !== 'local') return;
-      var hit =
-        Object.prototype.hasOwnProperty.call(changes, SK_SPEED_UI.enabled) ||
-        Object.prototype.hasOwnProperty.call(changes, SK_SPEED_UI.tableShow) ||
-        Object.prototype.hasOwnProperty.call(changes, SK_SPEED_UI.tableTrigger);
-      if (!hit) return;
-      chrome.storage.local.get(SPEED_ALL_PREF_KEYS, function (got) {
-        if (chrome.runtime.lastError) return;
-        applySpeedPrefsFromStorage(got);
-        removeHost();
-        lastKey = '';
-        // F9: 비활성→활성 토글 시 인터벌 재가동, 활성→비활성 토글은 tick 안에서 stop.
-        if (simpleSpeedCalcEnabled) ensurePollTimer();
-        tick();
-      });
-    });
+  // F13: shared 헬퍼로 storage 변경 핸들러 통합. 변경 트리거 키만 한정해서 듣고
+  // 콜백에선 SPEED_ALL_PREF_KEYS 전체를 다시 한 번 받아 일관성 유지.
+  // (CS.onLocalPrefChange 가 자체적으로 storage.local.get(keys) 호출 → got 에는
+  //  SK_SPEED_UI 3 키만 들어옴. 우리는 옛 동작과 동일하게 SPEED_ALL_PREF_KEYS 전체를 다시 가져온다.)
+  var CSS = globalThis.nuoCsCommon;
+  if (CSS && CSS.onLocalPrefChange) {
+    CSS.onLocalPrefChange(
+      [SK_SPEED_UI.enabled, SK_SPEED_UI.tableShow, SK_SPEED_UI.tableTrigger],
+      function () {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
+        chrome.storage.local.get(SPEED_ALL_PREF_KEYS, function (got) {
+          if (chrome.runtime.lastError) return;
+          applySpeedPrefsFromStorage(got);
+          removeHost();
+          lastKey = '';
+          // F9: 비활성→활성 토글 시 인터벌 재가동, 활성→비활성 토글은 tick 안에서 stop.
+          if (simpleSpeedCalcEnabled) ensurePollTimer();
+          tick();
+        });
+      }
+    );
   }
 
   loadSpeedPrefsThenInit();
