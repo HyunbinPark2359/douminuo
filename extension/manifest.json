@@ -32,7 +32,9 @@
       "js": [
         "calcFillShared.js",
         "calcFill.js",
+        "teamBuilderShared.js",
         "teamBuilderFill.js",
+        "teamBuilderInlineAnnot.js",
         "regulationMaSpeedData.js",
         "speedOutspeedCalc.js"
       ],
