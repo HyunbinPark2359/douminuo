@@ -9,6 +9,10 @@
   var MSG_EXT = 'nuo-team-ext';
   var MSG_BRIDGE = 'nuo-team-bridge';
 
+  /**
+   * SW측 `shareToRaw.flattenSlot` 과 의미·alias 동일 사본. MAIN-world 는 globalThis 가
+   * 분리돼 있어 코드 공유 불가 — 두 곳을 갱신할 땐 양쪽을 함께 수정 (F10).
+   */
   function flattenSlot(slot) {
     if (!slot || typeof slot !== 'object') return {};
     var nested = slot.pokemon || slot.mon || slot.poke;

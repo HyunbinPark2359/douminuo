@@ -364,15 +364,6 @@
     return Math.round(base * fin);
   }
 
-  function flattenPokemonSlot(slotData) {
-    if (!slotData || typeof slotData !== 'object') return {};
-    var nested = slotData.pokemon || slotData.mon || slotData.poke;
-    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
-      return Object.assign({}, nested, slotData);
-    }
-    return Object.assign({}, slotData);
-  }
-
   /**
    * @param {object} slotData Smartnuo 공유 data 객체
    * @param {string[]} speciesTypesEn
@@ -386,7 +377,8 @@
     var poke = slotData && slotData.pokemon;
     if (!poke || !Array.isArray(poke.moves)) return out;
 
-    var flat = flattenPokemonSlot(slotData);
+    // F10: SR.flattenSlot 단일 출처 사용 (옛 flattenPokemonSlot 사본 제거).
+    var flat = globalThis.shareToRaw.flattenSlot(slotData);
     var itemRule = findItemRule(rules || {}, flat.equipment || flat.item || flat.Item || flat.hold);
     var abilityRule = findAbilityRule(rules || {}, flat.ability || flat.ab || flat.Ability);
 

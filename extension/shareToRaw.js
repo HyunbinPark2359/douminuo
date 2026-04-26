@@ -94,11 +94,26 @@
     throw new Error('unknown_share_shape');
   }
 
+  /**
+   * 슬롯 객체 평탄화. 사이트가 슬롯을 다양한 모양으로 직렬화하므로 가능한 모양을 모두 흡수:
+   *   slot.pokemon | slot.mon | slot.poke      → 공통
+   *   slot.data.pokemon | slot.data.mon | ...  → POST/GET 응답에서 한 단계 더 들어가는 케이스
+   *
+   * F10: 본 함수가 SW (background + importScripts) 측 단일 출처. simpleMovePower 의 옛
+   *   `flattenPokemonSlot` 은 제거 후 본 함수로 대체. MAIN-world(teamBuilderBridge) 는
+   *   다른 컨텍스트라 자체 사본을 유지하되 alias 목록은 본 함수와 동일하게 정렬.
+   */
   function flattenSlot(slot) {
     if (!slot || typeof slot !== 'object') return {};
     var nested = slot.pokemon || slot.mon || slot.poke;
+    if (!nested && slot.data && typeof slot.data === 'object' && !Array.isArray(slot.data)) {
+      nested = slot.data.pokemon || slot.data.mon || slot.data.poke;
+    }
     if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
       return Object.assign({}, nested, slot);
+    }
+    if (slot.data && typeof slot.data === 'object' && !Array.isArray(slot.data)) {
+      return Object.assign({}, slot.data, slot);
     }
     return Object.assign({}, slot);
   }

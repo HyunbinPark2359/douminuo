@@ -489,8 +489,18 @@
     return Math.floor(step1 * it);
   }
 
-  /** 우측 편집 패널 "스피드 수치" 실수값 `.v-input` 래퍼 반환. 못 찾으면 null. */
+  /**
+   * 우측 편집 패널 "스피드 수치" 실수값 `.v-input` 래퍼 반환. 못 찾으면 null.
+   *
+   * F9: 마지막으로 찾은 wrap 이 여전히 DOM 에 살아있고 우리가 기대하는 모양이면 그대로 재사용.
+   * 200ms tick 마다 전 문서 `p.mb-0` selector + DOM walk 을 도는 부담을 줄인다 — 정상 케이스
+   * (포켓몬 전환 없음) 에선 캐시 hit, Vuetify가 wrap 을 교체하면 isConnected 로 자동 미스.
+   */
   function findSpeedRealWrap() {
+    if (lastWrap && lastWrap.isConnected) {
+      var cachedInput = lastWrap.querySelector('input[disabled][readonly][type="text"]');
+      if (cachedInput) return lastWrap;
+    }
     var ps = document.querySelectorAll('p.mb-0');
     var speedLabel = null;
     for (var i = 0; i < ps.length; i++) {
@@ -1220,9 +1230,24 @@
     lastKey = '';
   }
 
+  /**
+   * F9: 마스터 스위치가 꺼졌으면 폴 인터벌 자체를 멈춰서 idle CPU 0 보장.
+   * storage 변경 핸들러가 다시 켤 때 ensurePollTimer() 로 재가동.
+   */
+  function ensurePollTimer() {
+    if (pollTimer) return;
+    pollTimer = setInterval(tick, 200);
+  }
+  function stopPollTimer() {
+    if (!pollTimer) return;
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+
   function tick() {
     if (!simpleSpeedCalcEnabled) {
       if (currentRoot) removeHost();
+      stopPollTimer();
       return;
     }
     var wrap = null;
@@ -1254,8 +1279,8 @@
     if (!isSmartnuoHost()) return;
     loadRegulationSpeedTable(function () {});
     tick();
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(tick, 200);
+    stopPollTimer();
+    if (simpleSpeedCalcEnabled) ensurePollTimer();
   }
 
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
@@ -1271,6 +1296,8 @@
         applySpeedPrefsFromStorage(got);
         removeHost();
         lastKey = '';
+        // F9: 비활성→활성 토글 시 인터벌 재가동, 활성→비활성 토글은 tick 안에서 stop.
+        if (simpleSpeedCalcEnabled) ensurePollTimer();
         tick();
       });
     });

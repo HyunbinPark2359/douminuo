@@ -4,12 +4,44 @@
 (function (g) {
   'use strict';
 
-  /** body 텍스트 기반: 계산기 화면 여부(계산기·팀빌더 플로팅 공용 숨김 조건). */
+  /**
+   * body 텍스트 기반: 계산기 화면 여부(계산기·팀빌더 플로팅 공용 숨김 조건).
+   *
+   * F2: `body.innerText` 는 layout flush 비용 큰 호출. 콘텐츠 스크립트 여러 곳의
+   * hot path (200ms tick · 500ms MO 디바운스 · refreshSlots · 인라인 어노테이션)
+   * 에서 자주 호출되므로 250ms TTL 메모로 dedupe. SPA 네비게이션 이벤트에선 즉시 무효화.
+   */
+  var calcViewMemoResult = false;
+  var calcViewMemoTime = 0;
+  var CALC_VIEW_MEMO_TTL_MS = 250;
+
   function isLikelyCalculatorView() {
+    var now = Date.now();
+    if (now - calcViewMemoTime < CALC_VIEW_MEMO_TTL_MS) {
+      return calcViewMemoResult;
+    }
     var t = document.body && document.body.innerText;
-    if (!t) return false;
-    return t.indexOf('교체') !== -1 && (t.indexOf('계산') !== -1 || t.indexOf('초기화') !== -1);
+    if (!t) {
+      calcViewMemoResult = false;
+    } else {
+      calcViewMemoResult =
+        t.indexOf('교체') !== -1 && (t.indexOf('계산') !== -1 || t.indexOf('초기화') !== -1);
+    }
+    calcViewMemoTime = now;
+    return calcViewMemoResult;
   }
+
+  function invalidateCalcViewMemo() {
+    calcViewMemoTime = 0;
+  }
+
+  try {
+    window.addEventListener('hashchange', invalidateCalcViewMemo);
+    window.addEventListener('popstate', invalidateCalcViewMemo);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) invalidateCalcViewMemo();
+    });
+  } catch (eMemo) {}
 
   /**
    * background 에게 MAIN 월드 브리지 주입 요청.
