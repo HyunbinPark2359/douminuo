@@ -220,6 +220,10 @@
     return out;
   }
 
+  /**
+   * @returns {Array|null} 점수 ≥10 인 underlying array (정규화 안 한 원본 ref) 또는 null.
+   *   호출자가 normalizeSix 로 6칸 패딩.
+   */
   function pickBestFromBucket(bucket) {
     var uniq = dedupeArrays(bucket);
     var best = null;
@@ -234,19 +238,31 @@
       }
     }
     if (!best || bestScore < 10) return null;
-    return normalizeSix(best);
+    return best;
   }
 
+  /**
+   * F11: 매 호출마다 new Set() (× 4 + nodes 루프 × 3) 으로 GC 부하가 컸음.
+   * 모듈-스코프 visited Set 한 개를 재사용. clear()로 호출 간 격리.
+   *
+   * 같은 deepHarvestIntoBucket 호출 안에서 visited 를 공유해도 의미 보존:
+   * 어느 root 에서 visit 했든 (1) 길이 1~6 객체 array 를 만나면 bucket 에 push 하고
+   * (2) 이미 본 객체는 skip — array 추출은 이미 끝났으므로 중복 traversal 만 회피.
+   */
+  var harvestVisitedWS = new Set();
+
   function deepHarvestIntoBucket(bucket) {
+    harvestVisitedWS.clear();
+
     var appEl = document.querySelector('#app');
 
     if (appEl && appEl.__vue__) {
       var v2 = appEl.__vue__;
       try {
-        if (v2.$data) harvestSlotSizedArrays(v2.$data, 0, 7, bucket, new Set());
+        if (v2.$data) harvestSlotSizedArrays(v2.$data, 0, 7, bucket, harvestVisitedWS);
       } catch (e) {}
       try {
-        if (v2.$store && v2.$store.state) harvestSlotSizedArrays(v2.$store.state, 0, 10, bucket, new Set());
+        if (v2.$store && v2.$store.state) harvestSlotSizedArrays(v2.$store.state, 0, 10, bucket, harvestVisitedWS);
       } catch (e2) {}
     }
 
@@ -256,10 +272,10 @@
         var gp = ap.config && ap.config.globalProperties;
         if (gp) {
           var st = gp.$store;
-          if (st && st.state) harvestSlotSizedArrays(st.state, 0, 10, bucket, new Set());
+          if (st && st.state) harvestSlotSizedArrays(st.state, 0, 10, bucket, harvestVisitedWS);
           var pinia = gp.$pinia;
           if (pinia && pinia.state && pinia.state.value) {
-            harvestSlotSizedArrays(pinia.state.value, 0, 12, bucket, new Set());
+            harvestSlotSizedArrays(pinia.state.value, 0, 12, bucket, harvestVisitedWS);
           }
         }
       } catch (e3) {}
@@ -272,18 +288,53 @@
       var inst = nodes[k].__vueParentComponent;
       if (!inst) continue;
       try {
-        if (inst.setupState) harvestSlotSizedArrays(inst.setupState, 0, 6, bucket, new Set());
+        if (inst.setupState) harvestSlotSizedArrays(inst.setupState, 0, 6, bucket, harvestVisitedWS);
       } catch (e4) {}
       try {
-        if (inst.ctx) harvestSlotSizedArrays(inst.ctx, 0, 5, bucket, new Set());
+        if (inst.ctx) harvestSlotSizedArrays(inst.ctx, 0, 5, bucket, harvestVisitedWS);
       } catch (e5) {}
       try {
-        if (inst.proxy) harvestSlotSizedArrays(inst.proxy, 0, 6, bucket, new Set());
+        if (inst.proxy) harvestSlotSizedArrays(inst.proxy, 0, 6, bucket, harvestVisitedWS);
       } catch (e6) {}
     }
   }
 
+  /**
+   * F4: 첫 성공한 underlying array reference 를 캐시하고, 다음 호출 때 score 재검증으로
+   * 그대로 재사용. 팀빌더 인라인 갱신 사이클(MO 디바운스 ~520ms)마다 50k+ 노드 traversal
+   * 하던 패턴을 깬다.
+   *
+   * 무효화: 10s TTL, score < 10, hashchange/visibilitychange.
+   *
+   * 한계: 사이트가 root 에서 array 를 통째로 교체(`state.party = newArray`)하면 캐시는
+   * 옛 (detached) array 를 반환할 수 있다. 가장 흔한 시나리오인 "공유 URL 로 파티 로드"
+   * 는 hashchange로 잡히며, 그 외엔 10s TTL로 자가복구.
+   */
+  var BEST_SLOTS_CACHE_TTL_MS = 10 * 1000;
+  var lastBestArray = null;
+  var lastBestArrayTime = 0;
+
+  function invalidateBestSlotsCache() {
+    lastBestArray = null;
+    lastBestArrayTime = 0;
+  }
+
+  try {
+    window.addEventListener('hashchange', invalidateBestSlotsCache);
+    window.addEventListener('visibilitychange', function () {
+      if (!document.hidden) invalidateBestSlotsCache();
+    });
+  } catch (eListen) {}
+
   function pickBestSlots() {
+    // F4: 캐시 hot path
+    if (lastBestArray && Date.now() - lastBestArrayTime < BEST_SLOTS_CACHE_TTL_MS) {
+      if (Array.isArray(lastBestArray) && scorePartySlotArray(lastBestArray) >= 10) {
+        return normalizeSix(lastBestArray);
+      }
+      invalidateBestSlotsCache();
+    }
+
     var bucket = [];
 
     var app = document.querySelector('#app');
@@ -313,7 +364,13 @@
 
     deepHarvestIntoBucket(bucket);
 
-    return pickBestFromBucket(bucket);
+    var best = pickBestFromBucket(bucket);
+    if (best) {
+      lastBestArray = best;
+      lastBestArrayTime = Date.now();
+      return normalizeSix(best);
+    }
+    return null;
   }
 
   function cloneSlots(slots) {
