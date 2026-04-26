@@ -181,7 +181,19 @@
     return pa > ps ? 'physical' : 'special';
   }
 
-  function oneMovePowerInternal(
+  /**
+   * F8: 한 번의 호출로 base 와 buffed 결정력을 동시에 계산.
+   * - 옛 코드는 `oneMovePowerInternal(...skipConditionalAbility)` 을 2회 호출 (true / false).
+   * - 신 코드는 pEff 를 (Base, Buffed) 두 변수로 병렬 추적. 공통 곱은 둘 다 적용,
+   *   조건부 곱(맹화·모래의힘·setsWeather/setsTerrain·spaBoostInSun) 은 Buffed 에만 적용.
+   * - Math.round 위치는 옛 코드와 동일하게 보존 — 동등성 임시 Node 러너로 검증됨.
+   * - abilityHasConditionalPowerDisplay 가 false 인(또는 조건부가 매치 안 되는) 경우
+   *   base === buffed 가 되어 결과가 옛 코드와 1:1 일치.
+   *
+   * @returns {{ base: number, buffed: number, cls: 'physical'|'special' }|null}
+   *   cls 는 호출자(ruin 보정 분기)가 활용. null 이면 변화기/위력 0/비공격기.
+   */
+  function oneMovePowerInternalDual(
     mv,
     atkReal,
     spaReal,
@@ -190,8 +202,7 @@
     itemRule,
     abilityRule,
     moveTagsBundle,
-    moveKoMap,
-    skipConditionalAbility
+    moveKoMap
   ) {
     if (!mv || typeof mv !== 'object') return null;
     var p = mv.power;
@@ -241,12 +252,17 @@
     if (!moveTypeEn) return null;
 
     var ar = abilityRule || {};
-    var pEff = pnum;
+    // pEff 를 (Base, Buffed) 두 갈래로 추적. 동일 round 시퀀스를 양쪽에 적용.
+    var pBase = pnum;
+    var pBuffed = pnum;
 
+    // ───────── 공통: ar.powerMul, tags 보정, 우격다짐, ate/normalize, boostType ─────────
     if (ar.powerMul != null && !ar.ifSheerForceMove) {
       var cap = ar.ifBasePowerAtMost;
       if (cap == null || pnum <= cap) {
-        pEff = Math.round(pEff * num(ar.powerMul, 1));
+        var mul0 = num(ar.powerMul, 1);
+        pBase = Math.round(pBase * mul0);
+        pBuffed = Math.round(pBuffed * mul0);
       }
     }
 
@@ -268,77 +284,98 @@
           if (btags.physicalOnly && !isPhys) tagOk = false;
           if (btags.specialOnly && !isSpec) tagOk = false;
           if (tagOk) {
-            pEff = Math.round(pEff * num(btags.powerMul, 1));
+            var mul1 = num(btags.powerMul, 1);
+            pBase = Math.round(pBase * mul1);
+            pBuffed = Math.round(pBuffed * mul1);
           }
         }
       }
     }
 
     if (ar.ifSheerForceMove && tags.sheerForceEligible) {
-      pEff = Math.round(pEff * num(ar.sheerForcePowerMul, 1.3));
+      var mul2 = num(ar.sheerForcePowerMul, 1.3);
+      pBase = Math.round(pBase * mul2);
+      pBuffed = Math.round(pBuffed * mul2);
     }
 
     if (ar.normalizeAllMoves) {
       moveTypeEn = 'normal';
-      pEff = Math.round(pEff * num(ar.normalizePowerMul, 1.2));
+      var mul3 = num(ar.normalizePowerMul, 1.2);
+      pBase = Math.round(pBase * mul3);
+      pBuffed = Math.round(pBuffed * mul3);
     } else if (ar.ateType && moveTypeEn === 'normal') {
       moveTypeEn = String(ar.ateType).toLowerCase().trim();
-      pEff = Math.round(pEff * num(ar.atePowerMul, 1.2));
+      var mul4 = num(ar.atePowerMul, 1.2);
+      pBase = Math.round(pBase * mul4);
+      pBuffed = Math.round(pBuffed * mul4);
     }
 
     var abBoostT = ar.boostType != null ? String(ar.boostType).toLowerCase().trim() : '';
     if (abBoostT && moveTypeEn === abBoostT) {
-      pEff = Math.round(pEff * num(ar.typedPowerMul, 1));
+      var mul5 = num(ar.typedPowerMul, 1);
+      pBase = Math.round(pBase * mul5);
+      pBuffed = Math.round(pBuffed * mul5);
     }
 
-    if (!skipConditionalAbility && ar.pinchBoostType != null) {
+    // ───────── 조건부 (Buffed only): 맹화·모래의힘·setsWeather·setsTerrain ─────────
+    if (ar.pinchBoostType != null) {
       var pbt = String(ar.pinchBoostType).toLowerCase().trim();
       if (moveTypeEn === pbt) {
-        pEff = Math.round(pEff * num(ar.pinchPowerMul, 1.5));
+        pBuffed = Math.round(pBuffed * num(ar.pinchPowerMul, 1.5));
       }
     }
 
-    if (!skipConditionalAbility && ar.sandForce) {
+    if (ar.sandForce) {
       if (moveTypeEn === 'ground' || moveTypeEn === 'rock' || moveTypeEn === 'steel') {
-        pEff = Math.round(pEff * num(ar.sandForcePowerMul, 1.3));
+        pBuffed = Math.round(pBuffed * num(ar.sandForcePowerMul, 1.3));
       }
     }
 
     var weatherKey =
       ar.setsWeather != null ? String(ar.setsWeather).toLowerCase().trim() : '';
-    if (!skipConditionalAbility && weatherKey && WEATHER_TYPE_POWER_MUL[weatherKey]) {
+    if (weatherKey && WEATHER_TYPE_POWER_MUL[weatherKey]) {
       var wm = WEATHER_TYPE_POWER_MUL[weatherKey][moveTypeEn];
       if (wm != null && !isNaN(wm)) {
-        pEff = Math.round(pEff * wm);
+        pBuffed = Math.round(pBuffed * wm);
       }
     }
 
     var terrainKey =
       ar.setsTerrain != null ? String(ar.setsTerrain).toLowerCase().trim() : '';
-    if (!skipConditionalAbility && terrainKey && TERRAIN_TYPE_POWER_MUL[terrainKey]) {
+    if (terrainKey && TERRAIN_TYPE_POWER_MUL[terrainKey]) {
       var tm = TERRAIN_TYPE_POWER_MUL[terrainKey][moveTypeEn];
       if (tm != null && !isNaN(tm)) {
-        pEff = Math.round(pEff * tm);
+        pBuffed = Math.round(pBuffed * tm);
       }
     }
 
+    // ───────── 공통: 도구 ─────────
     var ir = itemRule || {};
 
     var bt = ir.boostType != null ? String(ir.boostType).toLowerCase().trim() : '';
     if (bt && moveTypeEn === bt) {
-      pEff = Math.round(pEff * num(ir.typedPowerMul, 1));
+      var mul6 = num(ir.typedPowerMul, 1);
+      pBase = Math.round(pBase * mul6);
+      pBuffed = Math.round(pBuffed * mul6);
     }
 
     if (isPhys && ir.powerMulPhysical != null) {
-      pEff = Math.round(pEff * num(ir.powerMulPhysical, 1));
+      var mul7 = num(ir.powerMulPhysical, 1);
+      pBase = Math.round(pBase * mul7);
+      pBuffed = Math.round(pBuffed * mul7);
     }
     if (isSpec && ir.powerMulSpecial != null) {
-      pEff = Math.round(pEff * num(ir.powerMulSpecial, 1));
+      var mul8 = num(ir.powerMulSpecial, 1);
+      pBase = Math.round(pBase * mul8);
+      pBuffed = Math.round(pBuffed * mul8);
     }
     if (ir.powerMul != null) {
-      pEff = Math.round(pEff * num(ir.powerMul, 1));
+      var mul9 = num(ir.powerMul, 1);
+      pBase = Math.round(pBase * mul9);
+      pBuffed = Math.round(pBuffed * mul9);
     }
 
+    // ───────── STAB (공통) ─────────
     var stab = false;
     if (speciesTypesEn && speciesTypesEn.length) {
       var i;
@@ -350,18 +387,25 @@
       }
     }
     var stabMul = num(ar.stabMul, 1.5);
-    var adjPower = stab ? Math.round(pEff * stabMul) : pEff;
+    var adjBase = stab ? Math.round(pBase * stabMul) : pBase;
+    var adjBuffed = stab ? Math.round(pBuffed * stabMul) : pBuffed;
 
+    // ───────── 스탯 곱 (조건부 spaBoostInSun 만 Buffed 에) ─────────
     var atkM = num(ir.atkMulPhysical, 1) * num(ar.atkMulPhysical, 1);
-    var spaM = num(ir.spaMulSpecial, 1) * num(ar.spaMulSpecial, 1);
-    if (!skipConditionalAbility && ar.spaBoostInSun != null && isSpec) {
-      spaM *= num(ar.spaBoostInSun, 1.5);
+    var spaMBase = num(ir.spaMulSpecial, 1) * num(ar.spaMulSpecial, 1);
+    var spaMBuffed = spaMBase;
+    if (ar.spaBoostInSun != null && isSpec) {
+      spaMBuffed *= num(ar.spaBoostInSun, 1.5);
     }
-    var statMul = isPhys ? atkM : spaM;
+    var statMulBase = isPhys ? atkM : spaMBase;
+    var statMulBuffed = isPhys ? atkM : spaMBuffed;
 
-    var base = adjPower * stat * statMul;
+    // ───────── 최종 (공통) ─────────
     var fin = num(ir.finalDamageMul, 1) * num(ar.finalDamageMul, 1);
-    return Math.round(base * fin);
+    var finalBase = Math.round(adjBase * stat * statMulBase * fin);
+    var finalBuffed = Math.round(adjBuffed * stat * statMulBuffed * fin);
+
+    return { base: finalBase, buffed: finalBuffed };
   }
 
   /**
@@ -398,7 +442,8 @@
     var moves = poke.moves;
     var i;
     for (i = 0; i < 4 && i < moves.length; i++) {
-      var buffed = oneMovePowerInternal(
+      // F8: 단일 호출로 base + buffed 동시 산출.
+      var pair = oneMovePowerInternalDual(
         moves[i],
         atk,
         spa,
@@ -407,27 +452,11 @@
         itemRule,
         abilityRule,
         moveTagsJson,
-        moveKoMap,
-        false
+        moveKoMap
       );
-      if (buffed == null) {
+      if (pair == null) {
         out[i] = null;
         continue;
-      }
-      var baseVal = buffed;
-      if (abilityHasConditionalPowerDisplay(abilityRule)) {
-        baseVal = oneMovePowerInternal(
-          moves[i],
-          atk,
-          spa,
-          def,
-          speciesTypesEn || [],
-          itemRule,
-          abilityRule,
-          moveTagsJson,
-          moveKoMap,
-          true
-        );
       }
       var ar0 = abilityRule || {};
       var cls0 = effectiveDamageClassForRuin(moves[i], atk, spa, moveKoMap);
@@ -437,9 +466,11 @@
       } else if (cls0 === 'special') {
         ruinM = num(ar0.movePowerFoeSpDefenseRuinMul, 1);
       }
+      var buffed = pair.buffed;
+      var baseVal = pair.base;
       if (ruinM !== 1) {
         buffed = Math.round(buffed * ruinM);
-        if (baseVal != null) baseVal = Math.round(baseVal * ruinM);
+        baseVal = Math.round(baseVal * ruinM);
       }
       out[i] = { base: baseVal, buffed: buffed };
     }

@@ -12,16 +12,16 @@
  * 슬롯의 pokemon.name (영문 slug)으로 lookup → 타입이 한쪽만 있을 때 PokéAPI
  * 런타임 fetch가 일어나지 않게 한다 (어머니 사이트 보호 §A.4 / F20).
  *
- * 동시성: Promise.all chunk 12 — 다른 generate-* 스크립트와 동일.
+ * F-data-2: 페이지네이션·동시성은 scripts/lib/pokeapi.js 헬퍼 사용.
  */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const { fetchJson, mapInChunks } = require('./lib/pokeapi');
 
 const OUT = path.join(__dirname, '..', 'extension', 'pokemonTypeMap.json');
 const LIST_URL = 'https://pokeapi.co/api/v2/pokemon?limit=2000';
-const CHUNK = 12;
 
 function sortedTypes(types) {
   return (Array.isArray(types) ? types : [])
@@ -35,12 +35,6 @@ function sortedTypes(types) {
     .filter(Boolean);
 }
 
-async function fetchJson(url) {
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(url + ' ' + res.status);
-  return res.json();
-}
-
 async function main() {
   process.stdout.write('listing pokemon... ');
   const list = await fetchJson(LIST_URL);
@@ -48,25 +42,26 @@ async function main() {
   console.log(items.length + ' entries');
 
   const bySlug = Object.create(null);
-  let done = 0;
-  for (let i = 0; i < items.length; i += CHUNK) {
-    const slice = items.slice(i, i + CHUNK);
-    await Promise.all(
-      slice.map(async (it) => {
-        try {
-          const p = await fetchJson(it.url);
-          const types = sortedTypes(p.types);
-          if (p.name && types.length) bySlug[String(p.name).toLowerCase()] = types;
-        } catch (e) {
-          // 단건 실패는 건너뜀 — 신규/비공개 폼 등 PokéAPI 일관성 깨짐 케이스
+  await mapInChunks(
+    items,
+    async (it) => {
+      try {
+        const p = await fetchJson(it.url);
+        const types = sortedTypes(p.types);
+        if (p.name && types.length) bySlug[String(p.name).toLowerCase()] = types;
+      } catch (e) {
+        // 단건 실패는 건너뜀 — 신규/비공개 폼 등 PokéAPI 일관성 깨짐 케이스
+      }
+    },
+    {
+      chunk: 12,
+      onProgress: (done, total) => {
+        if (done % 100 === 0 || done === total) {
+          process.stdout.write('  ' + done + '/' + total + '\r');
         }
-      })
-    );
-    done += slice.length;
-    if (done % 100 === 0 || done === items.length) {
-      process.stdout.write('  ' + done + '/' + items.length + '\r');
+      },
     }
-  }
+  );
   console.log('\nresolved: ' + Object.keys(bySlug).length + ' pokemon');
 
   const out = {

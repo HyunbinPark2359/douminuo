@@ -5,11 +5,15 @@
  *   node scripts/generate-move-ko-map.js
  *
  * Node 18+ (fetch). 스크립트 끝에 흔한 표기 차이 별칭을 덧씌움.
+ *
+ * F-data-2: 페이지네이션·동시성은 scripts/lib/pokeapi.js 헬퍼 사용. chunk 사이 sleep
+ *   은 PokéAPI 부담 완화용으로 보존 (mapInChunks 의 onProgress 콜백에서).
  */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const { fetchJson, mapInChunks } = require('./lib/pokeapi');
 
 const MOVE_TAGS = path.join(__dirname, '..', 'extension', 'moveTags.json');
 const MOVE_KO_FALLBACK = path.join(__dirname, '..', 'extension', 'moveKoFallback.json');
@@ -28,9 +32,7 @@ function sleep(ms) {
 
 /** Showdown move id (하이픈 없음) → PokeAPI move.name (하이픈 구분) */
 async function buildCompactToPokeSlug() {
-  const res = await fetch('https://pokeapi.co/api/v2/move?limit=2000');
-  if (!res.ok) throw new Error('pokeapi move list ' + res.status);
-  const j = await res.json();
+  const j = await fetchJson('https://pokeapi.co/api/v2/move?limit=2000');
   const map = {};
   for (const r of j.results || []) {
     const slug = r.name;
@@ -42,9 +44,7 @@ async function buildCompactToPokeSlug() {
 }
 
 async function koNameForPokeSlug(slug) {
-  const res = await fetch('https://pokeapi.co/api/v2/move/' + encodeURIComponent(slug) + '/');
-  if (!res.ok) throw new Error('pokeapi move ' + slug + ' ' + res.status);
-  const j = await res.json();
+  const j = await fetchJson('https://pokeapi.co/api/v2/move/' + encodeURIComponent(slug) + '/');
   const row = (j.names || []).find((n) => n.language && n.language.name === 'ko');
   return row && row.name ? String(row.name).trim() : null;
 }
@@ -56,39 +56,46 @@ async function main() {
   const byKo = {};
   const collisions = [];
   const missing = [];
+  let chunkIdx = 0;
 
-  const batchSize = 12;
-  for (let i = 0; i < ids.length; i += batchSize) {
-    const chunk = ids.slice(i, i + batchSize);
-    const results = await Promise.all(
-      chunk.map((id) => {
-        const slug = compactToSlug[id];
-        if (!slug) {
-          missing.push(id);
-          return Promise.resolve({ id, ko: null });
-        }
-        return koNameForPokeSlug(slug)
-          .then((ko) => ({ id, ko }))
-          .catch((e) => {
-            console.error(id, slug, e.message);
-            return { id, ko: null };
-          });
-      })
-    );
-    for (const { id, ko } of results) {
-      if (!ko) continue;
-      const compact = ko.replace(/\s+/g, '');
-      function reg(key) {
-        if (!key) return;
-        if (byKo[key] != null && byKo[key] !== id) {
-          collisions.push({ key, was: byKo[key], now: id });
-        }
-        byKo[key] = id;
+  const results = await mapInChunks(
+    ids,
+    async (id) => {
+      const slug = compactToSlug[id];
+      if (!slug) {
+        missing.push(id);
+        return { id, ko: null };
       }
-      reg(compact);
-      if (ko !== compact) reg(ko);
+      try {
+        const ko = await koNameForPokeSlug(slug);
+        return { id, ko };
+      } catch (e) {
+        console.error(id, slug, e.message);
+        return { id, ko: null };
+      }
+    },
+    {
+      chunk: 12,
+      onProgress: async () => {
+        // 옛 코드의 청크 사이 sleep(120) 보존 — PokéAPI 부담 완화.
+        chunkIdx++;
+        await sleep(120);
+      },
     }
-    await sleep(120);
+  );
+
+  for (const { id, ko } of results) {
+    if (!ko) continue;
+    const compact = ko.replace(/\s+/g, '');
+    function reg(key) {
+      if (!key) return;
+      if (byKo[key] != null && byKo[key] !== id) {
+        collisions.push({ key, was: byKo[key], now: id });
+      }
+      byKo[key] = id;
+    }
+    reg(compact);
+    if (ko !== compact) reg(ko);
   }
 
   for (const [alias, id] of Object.entries(EXTRA_ALIASES)) {
