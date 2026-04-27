@@ -30,6 +30,9 @@
     {
       "matches": ["https://smartnuo.com/*", "https://www.smartnuo.com/*"],
       "js": [
+        "styles/calcPanel.js",
+        "styles/teamFab.js",
+        "styles/speedPanel.js",
         "calcFillShared.js",
         "calcFill.js",
         "teamBuilderShared.js",
