@@ -527,6 +527,11 @@
           clearTbInlineAnnotations();
           return null;
         }
+        // C-5a/b: 인라인 어노테이션도 슬롯 데이터를 받았으니 hot snapshot + 캐시 mirror.
+        // FAB 가 안 떠 있어도(옵션 OFF) 인라인이 켜져 있으면 이쪽이 single source.
+        if (typeof TBS.setSlotSnapshot === 'function') {
+          TBS.setSlotSnapshot({ slots: r.slots, slotArt: r.slotArt });
+        }
         ensureTbInlineStyle();
         var filled = r.filled || [];
         var art = r.slotArt || [];

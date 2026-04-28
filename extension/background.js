@@ -805,6 +805,9 @@ importScripts('showdownPaste.js');
         loadJsonUrl('moveKoFallback.json', { version: 0, byKo: {} }),
         ensureModifiersLoaded(),
         ensureMoveKoMapLoaded(), // F0: 한글 기술명 → Showdown id 번들 lookup
+        // 본 라운드: 슬러그 정규화 (hyphenless → hyphenated) — calcPayload 가 한 번만 reduce.
+        // 옛 코드는 hyphen 위치를 모르고 sequential 추측해 ~10 sequential 404 (~2~4초).
+        loadJsonUrl('moveSlugToEn.json', { bySlug: {} }),
       ])
         .then(function (arr) {
           return CP.buildSidePayloads(msg.atkUrl || '', msg.defUrl || '', {
@@ -814,6 +817,56 @@ importScripts('showdownPaste.js');
             moveKoFallbackDoc: arr[3],
             modifiersDoc: arr[4],
             moveKoDoc: arr[5],
+            moveSlugToEnDoc: arr[6],
+          });
+        })
+        .then(function (payloads) {
+          sendResponse({ ok: true, payloads: payloads });
+        })
+        .catch(function (err) {
+          sendResponse({
+            ok: false,
+            error: mapShareError(err) || String((err && err.message) || err),
+          });
+        });
+      return true;
+    }
+
+    /**
+     * 계산기 자동 입력 — 팀빌더 슬롯 직접 입력 경로. share GET 호출 없음.
+     * 입력: { slot, side: 'attacker'|'defender' }
+     * 출력: { ok: true, payloads: { attacker?, defender? } } — 한쪽만 채워짐.
+     */
+    if (msg.type === 'GET_CALC_PAYLOADS_FROM_SLOT') {
+      var CPs = globalThis.nuoCalcPayload;
+      if (!CPs || typeof CPs.buildSidePayloadFromSlot !== 'function') {
+        sendResponse({ ok: false, error: 'calc_payload_unavailable' });
+        return true;
+      }
+      var slotIn = msg.slot;
+      var sideIn = msg.side === 'defender' ? 'defender' : 'attacker';
+      if (!slotIn || typeof slotIn !== 'object' || SR.isSlotEmpty(slotIn)) {
+        sendResponse({ ok: false, error: mapShareError(new Error('empty_slot')) });
+        return true;
+      }
+      Promise.all([
+        loadJsonUrl('natureKoMap.json', { koToSlug: {} }),
+        loadJsonUrl('natureStatMul.json', { bySlug: {} }),
+        loadJsonUrl('typeKoMap.json', { byKo: {} }),
+        loadJsonUrl('moveKoFallback.json', { version: 0, byKo: {} }),
+        ensureModifiersLoaded(),
+        ensureMoveKoMapLoaded(),
+        loadJsonUrl('moveSlugToEn.json', { bySlug: {} }),
+      ])
+        .then(function (arr) {
+          return CPs.buildSidePayloadFromSlot(slotIn, sideIn, {
+            natureKoDoc: arr[0],
+            natureStatMulDoc: arr[1],
+            typeKoDoc: arr[2],
+            moveKoFallbackDoc: arr[3],
+            modifiersDoc: arr[4],
+            moveKoDoc: arr[5],
+            moveSlugToEnDoc: arr[6],
           });
         })
         .then(function (payloads) {

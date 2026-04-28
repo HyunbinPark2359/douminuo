@@ -812,6 +812,11 @@
           setPartyButtonEnabled(false);
           return;
         }
+        // C-5a/b: 슬롯 hot snapshot + 영속 캐시 갱신. 계산기 페이지가 같은 탭 내에서
+        // (또는 다음 부팅 후) 이 데이터를 읽어 “팀 슬롯 원클릭” 흐름에 사용.
+        if (typeof TBS.setSlotSnapshot === 'function') {
+          TBS.setSlotSnapshot({ slots: r.slots, slotArt: r.slotArt });
+        }
         setFabVisible(true);
         applyFilledState(r.filled);
         applySlotVisuals(r.slotArt, r.filled);

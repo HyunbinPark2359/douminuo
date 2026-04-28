@@ -6,8 +6,8 @@
  * - calcFillBridge.js 는 stats.*.real(실수값) 등 종족값/실수 표에 직접 쓰지 않음. effort·individual_* 만 "능력치" 쪽.
  */
 (function () {
-  if (window.__NUO_CALC_BRIDGE_V30__) return;
-  window.__NUO_CALC_BRIDGE_V30__ = true;
+  if (window.__NUO_CALC_BRIDGE_V31__) return;
+  window.__NUO_CALC_BRIDGE_V31__ = true;
 
   var applyQueue = [];
   var applyBusy = false;
@@ -334,6 +334,23 @@
     return physical ? 'physical' : 'special';
   }
 
+  /**
+   * 페이지에 이미 채워진 attacker 의 분류를 추론.
+   * 우선순위: vm.damage_class (top-level) → vm.attacker.move.damage_class.
+   * 본 라운드의 “defender 단독 적용 시 incomingPhysical 디폴트(true)를 페이지 실제 상태로 override” 에 사용.
+   * @returns {'physical'|'special'|null}
+   */
+  function inferAttackerDamageClass(vm) {
+    if (!vm) return null;
+    var top = vm.damage_class;
+    if (top === 'physical' || top === 'special') return top;
+    var am = vm.attacker && vm.attacker.move;
+    if (am && (am.damage_class === 'physical' || am.damage_class === 'special')) {
+      return am.damage_class;
+    }
+    return null;
+  }
+
   function patchMoveDamageClass(vm, moveObj, physical) {
     if (!moveObj || typeof moveObj !== 'object') return;
     var dcStr = smartNuoMoveDamageClassStr(physical);
@@ -498,7 +515,16 @@
     vm.$set(vm.defender, 'effort_for_defend', clampEv(physicalIncoming ? evs[2] : evs[4]));
     vm.$set(vm.defender, 'individual_value_for_hp', ivs[0] | 0);
     vm.$set(vm.defender, 'individual_value_for_defend', physicalIncoming ? ivs[2] | 0 : ivs[4] | 0);
-    var dp = payload.defenderPersonality;
+    // 본 라운드(#4 추가 픽스): SW 가 phys/spec personality scalar 양쪽을 보내면 우리가 page
+    // 실제 분류(physicalIncoming) 에 맞춰 픽업. 옛 페이로드(`defenderPersonality` 단일) 폴백.
+    var dp;
+    if (physicalIncoming && payload.defenderPersonalityPhys != null) {
+      dp = payload.defenderPersonalityPhys;
+    } else if (!physicalIncoming && payload.defenderPersonalitySpec != null) {
+      dp = payload.defenderPersonalitySpec;
+    } else {
+      dp = payload.defenderPersonality;
+    }
     if (dp === 0.9 || dp === 1 || dp === 1.1) vm.$set(vm.defender, 'personality', dp);
     if (payload.level != null && payload.level > 0) vm.$set(vm.defender, 'level', payload.level | 0);
     if (payload.abilityKo) vm.$set(vm.defender, 'ability', payload.abilityKo);
@@ -671,8 +697,23 @@
       if (pdFull && typeof pdFull.incomingPhysical === 'boolean') physDef = pdFull.incomingPhysical;
       else physDef = physAtk;
     } else if (pdFull && typeof pdFull.incomingPhysical === 'boolean') {
-      physAtk = pdFull.incomingPhysical;
-      physDef = pdFull.incomingPhysical;
+      // defender 단독 적용 (슬롯 경로 또는 onlyDefender URL 경로). SW 가 보낸
+      // pdFull.incomingPhysical 은 attacker 정보 없을 때 디폴트(true) 다 — 페이지에 이미
+      // 채워진 vm.attacker 의 실제 damage_class 를 source of truth 로 우선 사용.
+      // 사이트가 비공식적이지만 안정적으로 노출하는 vm.damage_class / vm.attacker.move.damage_class
+      // 두 자리 모두 점검 (set 시에도 두 곳을 모두 갱신함 — line 451 / 458).
+      var inferredDc = inferAttackerDamageClass(vm);
+      if (inferredDc === 'special') {
+        physAtk = false;
+        physDef = false;
+      } else if (inferredDc === 'physical') {
+        physAtk = true;
+        physDef = true;
+      } else {
+        // 페이지 fresh / 추론 실패 → SW 디폴트 그대로
+        physAtk = pdFull.incomingPhysical;
+        physDef = pdFull.incomingPhysical;
+      }
     }
 
     var hasA = !!paFull && !onlyDefender;

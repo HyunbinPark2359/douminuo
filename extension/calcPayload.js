@@ -23,6 +23,97 @@
     } catch (e) {}
   }
 
+  /**
+   * 새 샘플 첫 자동입력 시 5초+ 걸리던 병목 두 가지를 해결 (사용자 보고 #5):
+   *
+   *   A. 빌드타임 슬러그 정규화 맵 — 한글 기술명 번들(moveKoMap)이 hyphenless id 만 주므로
+   *      PokéAPI 의 hyphenated slug 를 알 수 없어 옛 코드는 “s-hadowclaw, sh-adowclaw...” 식
+   *      hyphen 위치 sequential 추측 (~10개 sequential 404). 이미 갖고 있는 moveSlugToEn.json
+   *      의 키(모두 PokéAPI hyphenated slug) 를 한 번 reduce 해 hyphenless → hyphenated 맵으로
+   *      만들면 단 1번 fetch 로 끝.
+   *
+   *   B. 영속 move meta 캐시 — 옛 moveMetaCache 는 SW 라이프타임 메모리. SW 가 idle 로 죽으면
+   *      다음 부팅에서 같은 기술 또 fetch. chrome.storage.local 에 mirror 해 SW 재부팅을 넘어
+   *      살아남도록.
+   */
+
+  /** A. 슬러그 정규화 맵 — moveSlugToEn.json 의 키 list 로부터 한 번만 빌드 (캐시). */
+  var slugCanonicalCache = null;
+  var slugCanonicalSourceRef = null;
+  function getSlugCanonicalMap(moveSlugToEnDoc) {
+    if (slugCanonicalCache && slugCanonicalSourceRef === moveSlugToEnDoc) {
+      return slugCanonicalCache;
+    }
+    var bySlug = (moveSlugToEnDoc && moveSlugToEnDoc.bySlug) || {};
+    var map = Object.create(null);
+    var k;
+    for (k in bySlug) {
+      if (!Object.prototype.hasOwnProperty.call(bySlug, k)) continue;
+      var hyphenless = String(k).replace(/-/g, '');
+      if (hyphenless && map[hyphenless] == null) map[hyphenless] = k;
+    }
+    slugCanonicalCache = map;
+    slugCanonicalSourceRef = moveSlugToEnDoc;
+    return map;
+  }
+
+  /** B. 영속 캐시 — chrome.storage.local mirror. SW 라이프타임 동안 1회 load. */
+  var MOVE_META_STORAGE_KEY = 'nuo_fmt_moveMetaCache';
+  var MOVE_META_SCHEMA = 1;
+  var moveMetaLoadPromise = null;
+  function ensureMoveMetaCacheLoaded() {
+    if (moveMetaLoadPromise) return moveMetaLoadPromise;
+    moveMetaLoadPromise = new Promise(function (resolve) {
+      try {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+          resolve();
+          return;
+        }
+        chrome.storage.local.get([MOVE_META_STORAGE_KEY], function (got) {
+          if (chrome.runtime.lastError) { resolve(); return; }
+          var c = got && got[MOVE_META_STORAGE_KEY];
+          if (c && c.schema === MOVE_META_SCHEMA && c.entries && typeof c.entries === 'object') {
+            var k;
+            for (k in c.entries) {
+              if (!Object.prototype.hasOwnProperty.call(c.entries, k)) continue;
+              if (!Object.prototype.hasOwnProperty.call(moveMetaCache, k)) {
+                moveMetaCache[k] = c.entries[k];
+              }
+            }
+          }
+          resolve();
+        });
+      } catch (e) { resolve(); }
+    });
+    return moveMetaLoadPromise;
+  }
+
+  /** 600ms 디바운스 batch write — 한 슬롯의 4기술 lookup 이 짧은 간격으로 들어오니. */
+  var moveMetaPersistTimer = null;
+  function schedulePersistMoveMetaCache() {
+    if (moveMetaPersistTimer) return;
+    moveMetaPersistTimer = setTimeout(function () {
+      moveMetaPersistTimer = null;
+      try {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
+        var entries = Object.create(null);
+        var k;
+        for (k in moveMetaCache) {
+          if (Object.prototype.hasOwnProperty.call(moveMetaCache, k)) {
+            // null(404) 도 캐시 — 동일 lookup 반복 방지. 새 PokéAPI 기술이 추가되면
+            // SW 재로드 또는 사용자 측 storage 비우기로 회복.
+            entries[k] = moveMetaCache[k];
+          }
+        }
+        var obj = {};
+        obj[MOVE_META_STORAGE_KEY] = { schema: MOVE_META_SCHEMA, entries: entries, savedAt: Date.now() };
+        chrome.storage.local.set(obj, function () {
+          // chrome.runtime.lastError 무시
+        });
+      } catch (e) {}
+    }, 600);
+  }
+
   function str(v) {
     return SR.str(v);
   }
@@ -212,26 +303,34 @@
   function fetchMoveMetaBySlug(slug) {
     if (!slug) return Promise.resolve(null);
     var k = String(slug).toLowerCase();
-    if (moveMetaCache[k]) return Promise.resolve(moveMetaCache[k]);
-    var url = 'https://pokeapi.co/api/v2/move/' + encodeURIComponent(k) + '/';
-    return fetch(url, { headers: { Accept: 'application/json' } })
-      .then(function (res) {
-        if (!res.ok) return null;
-        return res.json();
-      })
-      .then(function (j) {
-        if (!j) {
+    return ensureMoveMetaCacheLoaded().then(function () {
+      // hasOwnProperty 로 “캐시 안 됨” vs “캐시 된 null(404)” 구분.
+      if (Object.prototype.hasOwnProperty.call(moveMetaCache, k)) {
+        return moveMetaCache[k];
+      }
+      var url = 'https://pokeapi.co/api/v2/move/' + encodeURIComponent(k) + '/';
+      return fetch(url, { headers: { Accept: 'application/json' } })
+        .then(function (res) {
+          if (!res.ok) return null;
+          return res.json();
+        })
+        .then(function (j) {
+          if (!j) {
+            moveMetaCache[k] = null;
+            schedulePersistMoveMetaCache();
+            return null;
+          }
+          var meta = moveMetaFromJson(j);
+          moveMetaCache[k] = meta;
+          schedulePersistMoveMetaCache();
+          return meta;
+        })
+        .catch(function () {
           moveMetaCache[k] = null;
+          schedulePersistMoveMetaCache();
           return null;
-        }
-        var meta = moveMetaFromJson(j);
-        moveMetaCache[k] = meta;
-        return meta;
-      })
-      .catch(function () {
-        moveMetaCache[k] = null;
-        return null;
-      });
+        });
+    });
   }
 
   function normalizeMoveLabel(s) {
@@ -248,14 +347,27 @@
 
   /**
    * Showdown식 하이픈 없는 id (예: shadowclaw) → PokéAPI meta.
-   * 원문 그대로 시도 → 1자리씩 하이픈 삽입 후보 (shadow-claw 등) 순.
+   *
+   * A. slugCanonicalMap 이 있으면 hyphenless → hyphenated 1회 lookup → 단일 fetch (일반 케이스).
+   * B. 맵 미커버(신규 폼·기술) 시에만 옛 sequential 추측 폴백 — 옛 “s-hadowclaw, sh-adowclaw...”.
+   *
+   * @param {string} raw — Showdown식 id (보통 hyphenless, 영문 lowercase)
+   * @param {Record<string,string>=} slugCanonicalMap — getSlugCanonicalMap 결과
    */
-  function resolveMoveMetaFromShowdownStyleId(raw) {
+  function resolveMoveMetaFromShowdownStyleId(raw, slugCanonicalMap) {
     var id = String(raw || '')
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '');
     if (!id) return Promise.resolve(null);
+
+    // A. 빌드타임 정규화 맵 hit — 일반 케이스. 단일 fetch.
+    var canonical = slugCanonicalMap && slugCanonicalMap[id];
+    if (canonical) {
+      return fetchMoveMetaBySlug(canonical);
+    }
+
+    // 폴백 — 신규 폼/번들 미커버 시. 옛 sequential 추측 그대로.
     return fetchMoveMetaBySlug(id).then(function (meta) {
       if (meta) return meta;
       var len = id.length;
@@ -302,10 +414,11 @@
    * 스킵: 빈 칸, slug 해석 불가, 변화기, 위력 0 고정, PokéAPI 응답 실패.
    * 네 칸 모두 해당 없으면 null → 호출자가 몸통박치기 스텁.
    *
-   * F0 이후: PokéAPI 호출은 fetchMoveMetaBySlug 1건/슬롯 정도 (처음 발견되는 공격기에만).
-   * 콜드 스타트 시 ~900건 페이징 빌드 단계 제거됨.
+   * F0 이후: 한글 → showdown id 는 빌드타임 번들 lookup. PokéAPI 호출은 meta 조회만.
+   * 본 라운드(#5 픽스) 이후: slugCanonicalMap 으로 hyphenless → hyphenated 1회 lookup →
+   * 일반 케이스에서 단일 fetch. 신규 폼/번들 미커버 시에만 sequential 추측 폴백.
    */
-  function firstDamagingMoveMeta(slot, moveKoDoc, moveKoFallbackDoc) {
+  function firstDamagingMoveMeta(slot, moveKoDoc, moveKoFallbackDoc, slugCanonicalMap) {
     var moves = SR.getMoves(slot);
     var chain = Promise.resolve(null);
     var mi;
@@ -317,7 +430,7 @@
           if (!ko || ko === '--') return null;
           var sdId = showdownIdFromMoveLabel(ko, moveKoDoc, moveKoFallbackDoc);
           if (!sdId) return null;
-          return resolveMoveMetaFromShowdownStyleId(sdId).then(function (meta) {
+          return resolveMoveMetaFromShowdownStyleId(sdId, slugCanonicalMap).then(function (meta) {
             if (!meta) return null;
             if (meta.damage_class === 'status') return null;
             if (meta.power != null && meta.power !== '' && asInt(meta.power) === 0) return null;
@@ -371,6 +484,77 @@
     };
   }
 
+  /**
+   * 슬롯 하나(공유 응답의 single 또는 팀빌더 bridge 의 단일 슬롯)에서 한쪽 페이로드를 만든다.
+   * URL 경로(buildOneSide) 와 슬롯 직접 경로(buildOneSideFromSlot) 가 공유한다.
+   * @param {object} slot raw slot (SR.flattenSlot 적용 가능한 형태)
+   * @param {object} docs natureKoDoc / natureStatMulDoc / typeKoDoc / moveKoDoc / moveKoFallbackDoc / modifiersDoc
+   * @param {'attacker'|'defender'} role
+   * @returns {Promise<object>} { error } 또는 페이로드
+   */
+  function buildOneSideFromFlatSlot(slot, docs, role) {
+    if (SR.isSlotEmpty(slot)) {
+      return Promise.resolve({ error: 'empty_slot' });
+    }
+    var flat = SR.flattenSlot(slot);
+    var speciesKo = speciesKoFromFlat(flat);
+    if (!speciesKo) {
+      return Promise.resolve({ error: 'no_species' });
+    }
+
+    var evs = SR.getEvValuesSix(slot);
+    var ivs = getIvSix(flat);
+    var natureKo = natureKoFromFlat(flat);
+    var nr = natureRowForKo(natureKo, docs.natureKoDoc, docs.natureStatMulDoc);
+    var level = levelFromFlat(flat);
+
+    if (role === 'defender') {
+      var defEnv = envKeysFromAbilityKo(abilityKoFromFlat(flat), docs.modifiersDoc);
+      return Promise.resolve({
+        speciesKo: speciesKo,
+        evs: evs,
+        ivs: ivs,
+        level: level,
+        abilityKo: abilityKoFromFlat(flat),
+        itemKo: itemKoFromFlat(flat),
+        natureKo: natureKo,
+        _defNatureRow: nr.row,
+        abilityWeatherKey: defEnv.abilityWeatherKey,
+        abilityTerrainKey: defEnv.abilityTerrainKey,
+      });
+    }
+
+    var slugMap = getSlugCanonicalMap(docs.moveSlugToEnDoc);
+    return firstDamagingMoveMeta(slot, docs.moveKoDoc, docs.moveKoFallbackDoc, slugMap).then(function (movePack) {
+      var physicalMove = true;
+      if (movePack && movePack.meta && movePack.meta.damage_class === 'special') {
+        physicalMove = false;
+      }
+
+      var attackerPersonality = 1;
+      if (nr.row) {
+        attackerPersonality = personalityScalar(physicalMove ? nr.row.atk : nr.row.spa);
+      }
+
+      var atkEnv = envKeysFromAbilityKo(abilityKoFromFlat(flat), docs.modifiersDoc);
+      return {
+        speciesKo: speciesKo,
+        evs: evs,
+        ivs: ivs,
+        level: level,
+        abilityKo: abilityKoFromFlat(flat),
+        itemKo: itemKoFromFlat(flat),
+        physicalMove: physicalMove,
+        attackerPersonality: attackerPersonality,
+        attackerMove:
+          buildAttackerMovePayload(movePack, docs.typeKoDoc) ||
+          defaultAttackerMovePayload(docs.typeKoDoc),
+        abilityWeatherKey: atkEnv.abilityWeatherKey,
+        abilityTerrainKey: atkEnv.abilityTerrainKey,
+      };
+    });
+  }
+
   function buildOneSide(urlText, docs, role) {
     var full = SR.normalizePartyUrlInput(urlText);
     if (!full) return Promise.resolve({ error: 'empty_url' });
@@ -383,67 +567,36 @@
       if (cls.type !== 'single') {
         return { error: 'unknown_share_shape' };
       }
-      var slot = cls.slot;
-      if (SR.isSlotEmpty(slot)) {
-        return { error: 'empty_slot' };
-      }
-      var flat = SR.flattenSlot(slot);
-      var speciesKo = speciesKoFromFlat(flat);
-      if (!speciesKo) {
-        return { error: 'no_species' };
-      }
-
-      var evs = SR.getEvValuesSix(slot);
-      var ivs = getIvSix(flat);
-      var natureKo = natureKoFromFlat(flat);
-      var nr = natureRowForKo(natureKo, docs.natureKoDoc, docs.natureStatMulDoc);
-      var level = levelFromFlat(flat);
-
-      if (role === 'defender') {
-        var defEnv = envKeysFromAbilityKo(abilityKoFromFlat(flat), docs.modifiersDoc);
-        return {
-          speciesKo: speciesKo,
-          evs: evs,
-          ivs: ivs,
-          level: level,
-          abilityKo: abilityKoFromFlat(flat),
-          itemKo: itemKoFromFlat(flat),
-          natureKo: natureKo,
-          _defNatureRow: nr.row,
-          abilityWeatherKey: defEnv.abilityWeatherKey,
-          abilityTerrainKey: defEnv.abilityTerrainKey,
-        };
-      }
-
-      return firstDamagingMoveMeta(slot, docs.moveKoDoc, docs.moveKoFallbackDoc).then(function (movePack) {
-        var physicalMove = true;
-        if (movePack && movePack.meta && movePack.meta.damage_class === 'special') {
-          physicalMove = false;
-        }
-
-        var attackerPersonality = 1;
-        if (nr.row) {
-          attackerPersonality = personalityScalar(physicalMove ? nr.row.atk : nr.row.spa);
-        }
-
-        var atkEnv = envKeysFromAbilityKo(abilityKoFromFlat(flat), docs.modifiersDoc);
-        return {
-          speciesKo: speciesKo,
-          evs: evs,
-          ivs: ivs,
-          level: level,
-          abilityKo: abilityKoFromFlat(flat),
-          itemKo: itemKoFromFlat(flat),
-          physicalMove: physicalMove,
-          attackerPersonality: attackerPersonality,
-          attackerMove:
-            buildAttackerMovePayload(movePack, docs.typeKoDoc) ||
-            defaultAttackerMovePayload(docs.typeKoDoc),
-          abilityWeatherKey: atkEnv.abilityWeatherKey,
-          abilityTerrainKey: atkEnv.abilityTerrainKey,
-        };
-      });
+      return buildOneSideFromFlatSlot(cls.slot, docs, role);
     });
+  }
+
+  /**
+   * defender 페이로드의 _defNatureRow 후처리 + incomingPhysical 결정.
+   * buildSidePayloads(URL 두 개) 와 buildSidePayloadFromSlot(슬롯 한 개) 가 공유한다.
+   */
+  function finalizePair(attacker, defender) {
+    var incPhys = true;
+    if (attacker && !attacker.error) {
+      incPhys = defenderIncomingUsesDefenseStat(attacker);
+    }
+    if (defender && !defender.error) {
+      defender.incomingPhysical = incPhys;
+      var row = defender._defNatureRow;
+      delete defender._defNatureRow;
+      // 본 라운드(#4 추가 픽스): bridge 가 page 의 실제 attacker damage_class 로 physicalIncoming
+      // 을 override 할 수 있으므로, 여기서 한쪽 personality scalar 만 넘기면 bridge 의 override
+      // 와 어긋남(EV 는 특수, personality 는 물리 기준 같은 부분 적용 발생). 양쪽 모두 보낸다.
+      if (row) {
+        defender.defenderPersonalityPhys = personalityScalar(row.def);
+        defender.defenderPersonalitySpec = personalityScalar(row.spd);
+        defender.defenderPersonality = personalityScalar(incPhys ? row.def : row.spd);
+      } else {
+        defender.defenderPersonalityPhys = 1;
+        defender.defenderPersonalitySpec = 1;
+        defender.defenderPersonality = 1;
+      }
+    }
   }
 
   /**
@@ -471,25 +624,36 @@
     return Promise.all([pAtk, pDef]).then(function (pair) {
       var attacker = pair[0];
       var defender = pair[1];
-      var incPhys = true;
-      if (attacker && !attacker.error) {
-        incPhys = defenderIncomingUsesDefenseStat(attacker);
-      }
-      if (defender && !defender.error) {
-        defender.incomingPhysical = incPhys;
-        var row = defender._defNatureRow;
-        delete defender._defNatureRow;
-        if (row) {
-          defender.defenderPersonality = personalityScalar(incPhys ? row.def : row.spd);
-        } else {
-          defender.defenderPersonality = 1;
-        }
-      }
+      finalizePair(attacker, defender);
       return { attacker: attacker, defender: defender };
+    });
+  }
+
+  /**
+   * 팀빌더 슬롯 객체 한 개를 한쪽 패널 페이로드로 변환. URL fetch 없음 — 어머니 사이트 트래픽 0.
+   * @param {object} slot 팀빌더 bridge 가 준 single slot (SR.flattenSlot 적용 가능)
+   * @param {'attacker'|'defender'} side 어느 패널에 적용할지
+   * @param {object} docs buildSidePayloads 와 동일한 6개 doc
+   * @returns {Promise<{attacker?: object, defender?: object}>} 한쪽만 채워진 모양 (반대쪽은 null).
+   *   incomingPhysical 결정: attacker 단독이면 정의 안 됨 — 호출자가 onlyAttacker 를 줄 것.
+   *   defender 단독이면 디폴트 true (= URL 경로의 onlyDefender 케이스와 동일 동작).
+   */
+  function buildSidePayloadFromSlot(slot, side, docs) {
+    docs = docs || {};
+    cleanupLegacyKoSlugStorage();
+    var role = side === 'defender' ? 'defender' : 'attacker';
+    return buildOneSideFromFlatSlot(slot, docs, role).then(function (one) {
+      if (role === 'attacker') {
+        finalizePair(one, null);
+        return { attacker: one, defender: null };
+      }
+      finalizePair(null, one);
+      return { attacker: null, defender: one };
     });
   }
 
   globalThis.nuoCalcPayload = {
     buildSidePayloads: buildSidePayloads,
+    buildSidePayloadFromSlot: buildSidePayloadFromSlot,
   };
 })();
