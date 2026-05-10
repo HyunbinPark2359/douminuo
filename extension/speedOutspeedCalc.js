@@ -497,11 +497,9 @@
   }
 
   var CS = globalThis.nuoCsCommon || {};
-  var isLikelyCalculatorView =
-    CS.isLikelyCalculatorView ||
-    function () {
-      return false;
-    };
+  // R2/S1: 옛 "계산기 화면이 아니면 표시" 의 음의 정의 → "팀빌더 화면일 때만 표시" 양의 정의.
+  // 새 사이트는 /speed 가 별도 라우트라 "계산기 아니면 = 팀빌더" 등식이 깨졌고, 양의 정의가 안전.
+  var isTeamBuilderRoute = CS.isTeamBuilderRoute || function () { return false; };
 
   function isSmartnuoHost() {
     var h = (location.hostname || '').toLowerCase();
@@ -1011,7 +1009,8 @@
       return;
     }
     var wrap = null;
-    if (isSmartnuoHost() && !isLikelyCalculatorView()) {
+    // R2/S1: isTeamBuilderRoute 가 host 검사 포함 — /party 일 때만 wrap 탐색.
+    if (isTeamBuilderRoute()) {
       wrap = findSpeedRealWrap();
     }
     if (!wrap) {

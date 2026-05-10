@@ -40,7 +40,10 @@
   var CS = globalThis.nuoCsCommon || {};
   var TBS = globalThis.nuoTeamBuilderShared || {};
 
-  var isLikelyCalculatorView = CS.isLikelyCalculatorView;
+  // R2/D1: 옛 isLikelyCalculatorView 는 'calc' OR 'calc-speed' 합집합이라 /speed 에서도 true.
+  // 본 패널은 데미지 계산기 전용이므로 좁은 isCalculatorRoute (route === 'calc') 만 사용 →
+  // /speed 에서는 자동 hide. 후속 라운드에서 /speed 전용 패널이 추가되면 분기 확장.
+  var isCalculatorRoute = CS.isCalculatorRoute || function () { return false; };
 
   function mapErr(code) {
     return typeof globalThis.mapCalcFillError === 'function'
@@ -787,7 +790,7 @@
     }
 
     function syncCalcHeuristic() {
-      var on = isLikelyCalculatorView();
+      var on = isCalculatorRoute();
       setWrapVisible(on);
       if (on) {
         // 표시 시점에 1회 갱신
@@ -820,6 +823,10 @@
     window.addEventListener('hashchange', function () {
       setTimeout(syncCalcHeuristic, 100);
     });
+    // R3: SPA pushState 라우트 전환 시 즉시 표시/숨김 갱신.
+    if (CS.onRouteChange) {
+      CS.onRouteChange(syncCalcHeuristic);
+    }
 
     // 슬롯 데이터가 다른 콘텐츠 스크립트(팀빌더 FAB / 인라인 어노)에 의해 갱신되었을 때
     // 우리도 visuals 즉시 갱신할 수 있도록, dock 펼칠 때 + heuristic on 일 때 이미 갱신함.

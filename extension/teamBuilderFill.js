@@ -29,7 +29,8 @@
 
   var CS = globalThis.nuoCsCommon || {};
   var TBS = globalThis.nuoTeamBuilderShared || {};
-  var isLikelyCalculatorView = CS.isLikelyCalculatorView;
+  // R2/T1: 옛 "계산기 화면이면 hide" 의 음의 정의 → "팀빌더 화면이면 show" 양의 정의.
+  var isTeamBuilderRoute = CS.isTeamBuilderRoute || function () { return true; };
   var isSmartnuoHost = TBS.isSmartnuoHost;
   var injectTeamBridgeOnce = TBS.injectTeamBridgeOnce;
   var getSlotsFromBridge = TBS.getSlotsFromBridge;
@@ -796,13 +797,13 @@
 
     function refreshSlots() {
       if (!bridgeReady) return;
-      if (isLikelyCalculatorView()) {
+      if (!isTeamBuilderRoute()) {
         setFabVisible(false);
         setPartyButtonEnabled(false);
         return;
       }
       getSlotsFromBridge().then(function (r) {
-        if (isLikelyCalculatorView()) {
+        if (!isTeamBuilderRoute()) {
           setFabVisible(false);
           setPartyButtonEnabled(false);
           return;
@@ -825,7 +826,7 @@
     }
 
     function runCopyPartyShareUrl(sourceBtn) {
-      if (isLikelyCalculatorView()) return;
+      if (!isTeamBuilderRoute()) return;
       var fbBtn = sourceBtn || partyBtn;
       startCopyFeedback(fbBtn);
 
@@ -867,7 +868,7 @@
     }
 
     function runCopySlot(idx1, sourceBtn) {
-      if (isLikelyCalculatorView()) return;
+      if (!isTeamBuilderRoute()) return;
       var fbBtn = sourceBtn || slotBtns[idx1 - 1];
       startCopyFeedback(fbBtn);
 
@@ -940,6 +941,10 @@
     window.addEventListener('hashchange', function () {
       setTimeout(refreshSlots, 200);
     });
+    // R3: SPA pushState 라우트 전환 시 즉시 표시/숨김 갱신.
+    if (CS.onRouteChange) {
+      CS.onRouteChange(refreshSlots);
+    }
 
     return function teardown() {
       clearAllErrorToasts();

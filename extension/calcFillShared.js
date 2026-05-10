@@ -1,47 +1,111 @@
 /**
- * 계산기 기입 오류 코드 → 사용자 메시지 + calcFill·teamBuilderFill 공용 유틸.
+ * 계산기 기입 오류 코드 → 사용자 메시지 + 콘텐츠 스크립트 공용 유틸.
+ *
+ * R1 (2026-05-09): 페이지 식별을 본문 텍스트 휴리스틱에서 URL pathname 기반으로 교체.
+ * 사이트 리뉴얼(Nuxt 3 + Tailwind) 후 path 분리됨 — '/' = 데미지 계산기, '/party' = 팀빌더,
+ * '/speed' = 신규 스피드 계산기 탭. 옛 isLikelyCalculatorView 는 한 사이클 동안 alias 로 유지.
+ *
+ * R3 (2026-05-09): SPA pushState 라우트 전환 감지. 500ms pathname 폴링 + popstate/hashchange/
+ * visibilitychange 에서 즉시 체크. 변경 감지 시 'nuofmt:locchange' CustomEvent 발생.
  */
 (function (g) {
   'use strict';
 
-  /**
-   * body 텍스트 기반: 계산기 화면 여부(계산기·팀빌더 플로팅 공용 숨김 조건).
-   *
-   * F2: `body.innerText` 는 layout flush 비용 큰 호출. 콘텐츠 스크립트 여러 곳의
-   * hot path (200ms tick · 500ms MO 디바운스 · refreshSlots · 인라인 어노테이션)
-   * 에서 자주 호출되므로 250ms TTL 메모로 dedupe. SPA 네비게이션 이벤트에선 즉시 무효화.
-   */
-  var calcViewMemoResult = false;
-  var calcViewMemoTime = 0;
-  var CALC_VIEW_MEMO_TTL_MS = 250;
+  /* ===== R1: URL 기반 페이지 라우트 식별 ===== */
 
-  function isLikelyCalculatorView() {
-    var now = Date.now();
-    if (now - calcViewMemoTime < CALC_VIEW_MEMO_TTL_MS) {
-      return calcViewMemoResult;
-    }
-    var t = document.body && document.body.innerText;
-    if (!t) {
-      calcViewMemoResult = false;
-    } else {
-      calcViewMemoResult =
-        t.indexOf('교체') !== -1 && (t.indexOf('계산') !== -1 || t.indexOf('초기화') !== -1);
-    }
-    calcViewMemoTime = now;
-    return calcViewMemoResult;
+  /**
+   * 현재 페이지 라우트.
+   * @returns {'calc' | 'team' | 'calc-speed' | 'other'}
+   */
+  function getRoute() {
+    var h = '';
+    try { h = (location.hostname || '').toLowerCase(); } catch (eHost) { return 'other'; }
+    if (h !== 'smartnuo.com' && h !== 'www.smartnuo.com') return 'other';
+    // trailing slash 제거 후 비교 — 'smartnuo.com/' 도 'smartnuo.com' 과 같은 라우트.
+    var p = '/';
+    try { p = (location.pathname || '/').replace(/\/+$/, '') || '/'; } catch (ePath) { return 'other'; }
+    if (p === '/' || p === '/index' || p.indexOf('/index.') === 0) return 'calc';
+    if (p === '/party' || p.indexOf('/party/') === 0) return 'team';
+    if (p === '/speed' || p.indexOf('/speed/') === 0) return 'calc-speed';
+    if (p === '/docs' || p.indexOf('/docs/') === 0) return 'pokedex';
+    return 'other';
   }
 
-  function invalidateCalcViewMemo() {
-    calcViewMemoTime = 0;
+  function isCalculatorRoute()  { return getRoute() === 'calc'; }
+  function isTeamBuilderRoute() { return getRoute() === 'team'; }
+  function isCalcSpeedRoute()   { return getRoute() === 'calc-speed'; }
+  function isPokedexRoute()     { return getRoute() === 'pokedex'; }
+
+  /**
+   * 옛 호출자 호환 alias — "데미지 계산기-ish 화면인가" 의도이므로 /speed 도 true 로 흡수.
+   * 새 코드는 isCalculatorRoute / isTeamBuilderRoute / isCalcSpeedRoute 를 직접 사용.
+   * 본 alias 는 다음 사이클에 제거 예정.
+   */
+  function isLikelyCalculatorView() {
+    var r = getRoute();
+    return r === 'calc' || r === 'calc-speed';
+  }
+
+  /* ===== R3: SPA pushState 라우트 전환 감지 ===== */
+
+  /**
+   * 콘텐츠 스크립트 isolated world 의 history 와 MAIN world 의 history 는 별개 객체이므로
+   * isolated 측에서 monkey-patch 를 걸어도 사이트 라우터(MAIN)의 pushState 는 못 잡는다.
+   * Vue Router 류의 pushState 는 popstate 도 발생시키지 않으므로 가장 안전·저비용 방안은
+   * pathname 폴링. 비용: 500ms 마다 location.pathname read 한 번.
+   *
+   * 추가로 popstate/hashchange/visibilitychange 에서도 즉시 체크 — full reload 가 아닌 일반
+   * 브라우저 탐색에서는 이쪽이 폴링보다 먼저 발생.
+   */
+  var lastPathSeen = (function () {
+    try { return location.pathname || '/'; } catch (eInit) { return '/'; }
+  })();
+
+  function dispatchLocChange() {
+    try {
+      window.dispatchEvent(new CustomEvent('nuofmt:locchange', {
+        detail: { pathname: location.pathname, route: getRoute() }
+      }));
+    } catch (eDisp) {}
+  }
+
+  function checkPathChange() {
+    var p;
+    try { p = location.pathname || '/'; } catch (eRead) { return; }
+    if (p !== lastPathSeen) {
+      lastPathSeen = p;
+      dispatchLocChange();
+    }
   }
 
   try {
-    window.addEventListener('hashchange', invalidateCalcViewMemo);
-    window.addEventListener('popstate', invalidateCalcViewMemo);
+    window.addEventListener('popstate', checkPathChange);
+    window.addEventListener('hashchange', checkPathChange);
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) invalidateCalcViewMemo();
+      if (!document.hidden) checkPathChange();
     });
-  } catch (eMemo) {}
+    setInterval(checkPathChange, 500);
+  } catch (eWire) {}
+
+  /**
+   * 라우트 변경 구독. 'nuofmt:locchange' 의 얇은 wrapper.
+   * @param {(detail: { pathname: string, route: string }) => void} cb
+   * @returns {() => void} teardown — listener 제거.
+   */
+  function onRouteChange(cb) {
+    if (typeof cb !== 'function') return function () {};
+    var listener = function (ev) {
+      try {
+        cb(ev && ev.detail ? ev.detail : { pathname: location.pathname, route: getRoute() });
+      } catch (eCb) {}
+    };
+    window.addEventListener('nuofmt:locchange', listener);
+    return function () {
+      try { window.removeEventListener('nuofmt:locchange', listener); } catch (eRm) {}
+    };
+  }
+
+  /* ===== 브리지 주입 요청 (변경 없음) ===== */
 
   /**
    * background 에게 MAIN 월드 브리지 주입 요청.
@@ -63,6 +127,8 @@
       });
     });
   }
+
+  /* ===== 에러 매퍼 (변경 없음) ===== */
 
   /**
    * F14: 옛 if-체인을 dict lookup 으로. 같은 의미의 alias 들은 한 줄씩 나란히 적어 둠.
@@ -105,6 +171,8 @@
     return c || '알 수 없는 오류';
   }
 
+  /* ===== storage.onChanged 헬퍼 (변경 없음) ===== */
+
   /**
    * F13: chrome.storage.onChanged 보일러플레이트 통합.
    * 콘텐츠 스크립트 5+ 곳에서 같은 패턴(area 검사 → keys 변경 검출 → 전체 keys 재조회)을
@@ -141,7 +209,14 @@
 
   g.mapCalcFillError = mapCalcFillError;
   g.nuoCsCommon = {
+    getRoute: getRoute,
+    isCalculatorRoute: isCalculatorRoute,
+    isTeamBuilderRoute: isTeamBuilderRoute,
+    isCalcSpeedRoute: isCalcSpeedRoute,
+    isPokedexRoute: isPokedexRoute,
+    // 옛 이름 — 다음 사이클에 제거 예정. 의미는 'calc' OR 'calc-speed' 합집합.
     isLikelyCalculatorView: isLikelyCalculatorView,
+    onRouteChange: onRouteChange,
     requestBridgeInject: requestBridgeInject,
     onLocalPrefChange: onLocalPrefChange,
   };

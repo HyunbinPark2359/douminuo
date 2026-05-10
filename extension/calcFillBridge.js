@@ -205,10 +205,15 @@
     return best ? best.vm : null;
   }
 
+  // R2/C4 (2026-05-09): 본문 텍스트 휴리스틱 → URL pathname 기반.
+  // MAIN world 의 location 도 isolated world 와 같은 document URL 을 반영하므로 동일하게 동작.
+  // '/' = 데미지 계산기, '/speed' = 신규 스피드 탭. 둘 다 calc bridge 가 의미를 가짐.
   function isCalculatorContext() {
-    var t = document.body && document.body.innerText;
-    if (!t) return false;
-    return t.indexOf('교체') !== -1 && (t.indexOf('계산') !== -1 || t.indexOf('초기화') !== -1);
+    var p = '/';
+    try { p = (location.pathname || '/').replace(/\/+$/, '') || '/'; } catch (eCtx) { return false; }
+    if (p === '/' || p === '/index' || p.indexOf('/index.') === 0) return true;
+    if (p === '/speed' || p.indexOf('/speed/') === 0) return true;
+    return false;
   }
 
   /**

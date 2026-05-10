@@ -12,7 +12,8 @@
 
   var CS = globalThis.nuoCsCommon || {};
   var TBS = globalThis.nuoTeamBuilderShared || {};
-  var isLikelyCalculatorView = CS.isLikelyCalculatorView;
+  // R2/T1: 옛 "계산기 화면이면 hide" 의 음의 정의 → "팀빌더 화면이면 show" 양의 정의.
+  var isTeamBuilderRoute = CS.isTeamBuilderRoute || function () { return true; };
   var isSmartnuoHost = TBS.isSmartnuoHost;
   var injectTeamBridgeOnce = TBS.injectTeamBridgeOnce;
   var getSlotsFromBridge = TBS.getSlotsFromBridge;
@@ -502,7 +503,7 @@
       clearTbInlineAnnotations();
       return;
     }
-    if (isLikelyCalculatorView && isLikelyCalculatorView()) {
+    if (!isTeamBuilderRoute()) {
       clearTbInlineAnnotations();
       return;
     }
@@ -519,7 +520,7 @@
       })
       .then(function (r) {
         if (myGen !== tbInlineGen) return null;
-        if (isLikelyCalculatorView && isLikelyCalculatorView()) {
+        if (!isTeamBuilderRoute()) {
           clearTbInlineAnnotations();
           return null;
         }
@@ -600,6 +601,10 @@
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) scheduleTeamBuilderInlineAnnotate();
     });
+    // R3: SPA pushState 라우트 전환 시 어노테이션 즉시 갱신/제거.
+    if (CS && CS.onRouteChange) {
+      CS.onRouteChange(onDom);
+    }
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', onDom);
     } else {
