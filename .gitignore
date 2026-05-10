@@ -8,6 +8,10 @@ node_modules/
 /icon48.png
 /icon128.png
 
+# Local-only backup — not pushed (keep copies on disk only)
+.cursor/rules/karpathy-guidelines.mdc
+/RENEWAL_FIX_PLAN.md
+
 # Private working notes — kept local, not published on GitHub
 /BACKLOG.md
 /할일.md
