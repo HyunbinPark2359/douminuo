@@ -133,6 +133,33 @@
     return map;
   }
 
+  /**
+   * 슬러그 → 한칭 reverse 맵 — 구버전 공유 URL 에서 mv.name 이 영문 슬러그(예: 'ice-hammer')
+   * 만 들어오고 어떤 alias 에도 한칭이 없을 때, 사이트 표시용 ko 를 복구하기 위함.
+   * moveKoMap.byKo (한칭→Showdown id) + moveKoFallback.byKo 를 한 번 reduce.
+   */
+  var koByIdCache = null;
+  var koByIdSourceRef = null;
+  function getKoByShowdownId(moveKoDoc, moveKoFallbackDoc) {
+    if (koByIdCache && koByIdSourceRef === moveKoDoc) return koByIdCache;
+    var map = Object.create(null);
+    function ingest(doc) {
+      var byKo = doc && doc.byKo;
+      if (!byKo) return;
+      var k;
+      for (k in byKo) {
+        if (!Object.prototype.hasOwnProperty.call(byKo, k)) continue;
+        var id = String(byKo[k] || '').toLowerCase();
+        if (id && map[id] == null) map[id] = k;
+      }
+    }
+    ingest(moveKoDoc);
+    ingest(moveKoFallbackDoc);
+    koByIdCache = map;
+    koByIdSourceRef = moveKoDoc;
+    return map;
+  }
+
   /** B. 영속 캐시 — chrome.storage.local mirror. SW 라이프타임 동안 1회 load. */
   var MOVE_META_STORAGE_KEY = 'nuo_fmt_moveMetaCache';
   var MOVE_META_SCHEMA = 1;
@@ -541,7 +568,7 @@
    * 팀빌더 슬롯 pokemon.moves[] 만으로 첫 유효 공격기 추출 — PokeAPI·moveKoMap 없음 (신규 기술 대응).
    * URL 공유 경로(buildOneSide)는 옛 firstDamagingMoveMeta 유지.
    */
-  function firstDamagingMoveFromSlotPokemon(slot, typeKoDoc) {
+  function firstDamagingMoveFromSlotPokemon(slot, typeKoDoc, moveKoDoc, moveKoFallbackDoc) {
     var nested = (slot && slot.pokemon) || (slot && typeof slot === 'object' ? slot : null);
     if (!nested) return null;
     var moves = nested.moves;
@@ -565,6 +592,13 @@
       var ko = String(mv.name_kr || mv.nameKr || mv.kr || '').trim();
       if (!ko && mv.name && typeof mv.name === 'object') {
         ko = String(mv.name.kr || mv.name.name_kr || mv.name.nameKr || '').trim();
+      }
+      // 구버전 공유 URL: mv.name 이 영문 슬러그(예: 'ice-hammer')이고 어떤 한칭 alias 도 비어있음.
+      // moveKoMap reverse 로 복구해 사이트의 move.name.kr 라벨이 공란으로 그려지지 않게.
+      if (!ko && slug) {
+        var koMap = getKoByShowdownId(moveKoDoc, moveKoFallbackDoc);
+        var slugUndashed = slug.replace(/-/g, '');
+        if (koMap[slugUndashed]) ko = koMap[slugUndashed];
       }
       var typeKo = String(mv.type || '').trim();
       var typeEn = '';
@@ -709,7 +743,12 @@
     }
 
     var slugMap = getSlugCanonicalMap(docs.moveSlugToEnDoc);
-    var localPack = firstDamagingMoveFromSlotPokemon(slot, docs.typeKoDoc);
+    var localPack = firstDamagingMoveFromSlotPokemon(
+      slot,
+      docs.typeKoDoc,
+      docs.moveKoDoc,
+      docs.moveKoFallbackDoc
+    );
     var packPromise = localPack
       ? Promise.resolve(localPack)
       : firstDamagingMoveMeta(slot, docs.moveKoDoc, docs.moveKoFallbackDoc, slugMap);
