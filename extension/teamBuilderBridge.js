@@ -1,17 +1,142 @@
 /**
- * 팀빌더(MAIN). Vue2/3 + store 깊이 스캔으로 파티 슬롯(최대 6) 후보를 찾음.
- * NUO_TEAM_SLOTS_REPLY.slotArt: PokeAPI raw PNG 우선, 없으면 smartnuo.com/upload/sprite/… 허용. 빈 칸은 ''.
+ * 팀빌더(MAIN). Nuxt 3 — `window.__NUXT__.state['$sparty.slots']` 직접 읽기.
+ * NUO_TEAM_SLOTS_REPLY.slotArt: pokemon.sprite 우선(검증 통과 시 정규화 URL, 아니면 원문).
  */
 (function () {
-  if (window.__NUO_TEAM_BUILDER_BRIDGE_V3__) return;
-  window.__NUO_TEAM_BUILDER_BRIDGE_V3__ = true;
+  if (window.__NUO_TEAM_BUILDER_BRIDGE_V7__) return;
+  window.__NUO_TEAM_BUILDER_BRIDGE_V7__ = true;
 
   var MSG_EXT = 'nuo-team-ext';
   var MSG_BRIDGE = 'nuo-team-bridge';
 
+  function getNuxtState() {
+    try {
+      var nx = window.__NUXT__;
+      if (!nx) return null;
+      if (nx.state && typeof nx.state === 'object') return nx.state;
+      var pl = nx.payload;
+      if (pl && pl.state && typeof pl.state === 'object') return pl.state;
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /**
-   * SW측 `shareToRaw.flattenSlot` 과 의미·alias 동일 사본. MAIN-world 는 globalThis 가
-   * 분리돼 있어 코드 공유 불가 — 두 곳을 갱신할 땐 양쪽을 함께 수정 (F10).
+   * $spokemon_list 가 채워질 때까지 최대 2초 폴링 — 부팅 직후 augment 가 빈 도감으로 스킵되는 race 방지.
+   */
+  function waitForPokeListReady(maxMs, intervalMs) {
+    return new Promise(function (resolve) {
+      var deadline = Date.now() + (maxMs || 2000);
+      var step = intervalMs || 100;
+      function tick() {
+        var s = getNuxtState();
+        if (s) {
+          var pl = s['$spokemon_list'];
+          if (Array.isArray(pl) && pl.length > 0) return resolve(true);
+        }
+        if (Date.now() >= deadline) return resolve(false);
+        setTimeout(tick, step);
+      }
+      tick();
+    });
+  }
+
+  /**
+   * 슬롯 pokemon 을 도감($spokemon_list)으로 보강 — 한칭 슬롯은 name(slug) 부실·second_type 누락 가능.
+   * 얕은 복사만 해서 Nuxt reactive proxy 원본은 건드리지 않음.
+   */
+  function augmentSlotWithDex(slot, state) {
+    if (!slot || typeof slot !== 'object' || !slot.pokemon) return slot;
+    var poke = slot.pokemon;
+    var hasSlug = poke.name && typeof poke.name === 'string' && /^[a-z][a-z0-9-]*$/i.test(poke.name);
+    var slugFromNameObj = '';
+    if (poke.name && typeof poke.name === 'object') {
+      slugFromNameObj = String(poke.name.id || poke.name.smogon_id || '').toLowerCase().trim();
+    }
+    var hasBoth = poke.first_type && poke.second_type;
+    if (hasSlug && hasBoth) return slot;
+
+    var pokeList = state && state['$spokemon_list'];
+    if (!Array.isArray(pokeList) || pokeList.length === 0) return slot;
+
+    var entry = null;
+    var i;
+    var kr = String(poke.name_kr || '').trim();
+    if (kr) {
+      for (i = 0; i < pokeList.length; i++) {
+        if (pokeList[i] && String(pokeList[i].kr || '').trim() === kr) {
+          entry = pokeList[i];
+          break;
+        }
+      }
+    }
+    if (!entry && hasSlug) {
+      var slugLow = String(poke.name).toLowerCase();
+      var slugNoDash = slugLow.replace(/-/g, '');
+      for (i = 0; i < pokeList.length; i++) {
+        var p = pokeList[i];
+        if (!p) continue;
+        var pid = String(p.id || '').toLowerCase();
+        if (pid === slugLow || pid === slugNoDash) {
+          entry = p;
+          break;
+        }
+      }
+    }
+    if (!entry && slugFromNameObj) {
+      var slugObj = slugFromNameObj;
+      var slugObjNoDash = slugObj.replace(/-/g, '');
+      for (i = 0; i < pokeList.length; i++) {
+        p = pokeList[i];
+        if (!p) continue;
+        pid = String(p.id || '').toLowerCase();
+        if (pid === slugObj || pid === slugObjNoDash) {
+          entry = p;
+          break;
+        }
+      }
+    }
+    if (!entry) return slot;
+
+    var types = Array.isArray(entry.types) ? entry.types : [];
+    var t0 = types[0] ? String(types[0]).toLowerCase() : '';
+    var t1 = types[1] ? String(types[1]).toLowerCase() : '';
+
+    var newPoke = {};
+    var k;
+    for (k in poke) {
+      if (Object.prototype.hasOwnProperty.call(poke, k)) newPoke[k] = poke[k];
+    }
+    // name 이 이미 객체로 들어있으면 사이트가 의존하는 모양일 수 있어 덮어쓰지 않음.
+    if (!newPoke.name && entry.id) newPoke.name = entry.id;
+    if (!newPoke.first_type && t0) newPoke.first_type = t0;
+    if (!newPoke.second_type && t1) newPoke.second_type = t1;
+
+    var newSlot = {};
+    for (k in slot) {
+      if (Object.prototype.hasOwnProperty.call(slot, k)) newSlot[k] = slot[k];
+    }
+    newSlot.pokemon = newPoke;
+    return newSlot;
+  }
+
+  function pickBestSlots() {
+    var s = getNuxtState();
+    if (!s) return null;
+    var raw = s['$sparty.slots'];
+    if (!Array.isArray(raw)) return null;
+    var out = [];
+    var i;
+    for (i = 0; i < 6; i++) {
+      var slot = raw[i] != null ? raw[i] : {};
+      out.push(augmentSlotWithDex(slot, s));
+    }
+    return out;
+  }
+
+  /**
+   * SW측 shareToRaw.flattenSlot 과 의미·alias 동일 사본 (F10). name_kr 등은 nested 에만 있어도 flatten 후 상위와 합쳐짐.
    */
   function flattenSlot(slot) {
     if (!slot || typeof slot !== 'object') return {};
@@ -41,355 +166,16 @@
     return keys.length === 0;
   }
 
-  function normalizeSix(arr) {
-    var out = [];
-    var i;
-    for (i = 0; i < 6; i++) {
-      out.push(arr[i] != null ? arr[i] : {});
+  function pokemonBlockFromSlot(slot) {
+    if (!slot || typeof slot !== 'object') return null;
+    var p = slot.pokemon || slot.mon || slot.poke;
+    if (!p && slot.data && typeof slot.data === 'object' && !Array.isArray(slot.data)) {
+      p = slot.data.pokemon || slot.data.mon || slot.data.poke;
     }
-    return out;
+    if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
+    return p;
   }
 
-  function filledCount(slots) {
-    var n = 0;
-    var i;
-    for (i = 0; i < slots.length; i++) {
-      if (!slotEmpty(slots[i])) n++;
-    }
-    return n;
-  }
-
-  function vmArea(vm) {
-    var el = vm && vm.$el;
-    if (!el || el.nodeType !== 1) return 0;
-    var r = el.getBoundingClientRect();
-    return Math.max(0, r.width) * Math.max(0, r.height);
-  }
-
-  /** 객체 그래프에서 길이 1~6, 원소가 객체(또는 null)인 배열만 수집. */
-  function harvestSlotSizedArrays(value, depth, maxDepth, bucket, seenObjs) {
-    if (depth > maxDepth || value == null) return;
-    if (typeof value !== 'object') return;
-    if (value.__v_isRef === true) {
-      try {
-        harvestSlotSizedArrays(value.value, depth + 1, maxDepth, bucket, seenObjs);
-      } catch (e0) {}
-      return;
-    }
-    if (Array.isArray(value)) {
-      var len = value.length;
-      if (len >= 1 && len <= 6) {
-        var ok = true;
-        var j;
-        for (j = 0; j < len; j++) {
-          var e = value[j];
-          if (e != null && (typeof e !== 'object' || Array.isArray(e))) ok = false;
-        }
-        if (ok) bucket.push(value);
-      }
-      return;
-    }
-    if (seenObjs.has(value)) return;
-    seenObjs.add(value);
-    var keys = Object.keys(value);
-    var maxK = Math.min(keys.length, 100);
-    var i;
-    for (i = 0; i < maxK; i++) {
-      try {
-        harvestSlotSizedArrays(value[keys[i]], depth + 1, maxDepth, bucket, seenObjs);
-      } catch (err) {}
-    }
-  }
-
-  function scorePartySlotArray(arr) {
-    if (!Array.isArray(arr) || arr.length === 0 || arr.length > 6) return -1;
-    var score = arr.length === 6 ? 28 : arr.length * 3;
-    var filled = 0;
-    var slotMeta = 0;
-    var i;
-    for (i = 0; i < arr.length; i++) {
-      var s = arr[i];
-      if (s == null || typeof s !== 'object') {
-        score -= 12;
-        continue;
-      }
-      if (!slotEmpty(s)) filled++;
-      if ('slot' in s || 'slotIndex' in s || 'slot_index' in s || 'position' in s) slotMeta++;
-      if (s.pokemon || (s.data && s.data.pokemon)) score += 22;
-      var flat = flattenSlot(s);
-      var fk = Object.keys(flat);
-      var ki;
-      for (ki = 0; ki < fk.length; ki++) {
-        var k = fk[ki];
-        if (/namekr|species|sample|pokemon|terastal|tera|ability|item|hold|nature|effort|stats/i.test(k)) {
-          score += 4;
-          break;
-        }
-      }
-      if (fk.some(function (k2) { return /move|Move|skill|waza|technique/i.test(k2); })) score += 10;
-      if (flat.stats || (s.data && s.data.stats)) score += 8;
-    }
-    if (slotMeta >= 2) score += 22;
-    if (filled === 0 && slotMeta === 0) score -= 45;
-    return score;
-  }
-
-  function arrayLooksLikePartySlots(arr) {
-    return scorePartySlotArray(arr) >= 12;
-  }
-
-  function normalizePartyArrayToSix(a) {
-    if (!Array.isArray(a) || a.length === 0 || a.length > 6) return null;
-    return normalizeSix(a);
-  }
-
-  function slotsFromPartyLikeObject(party) {
-    if (!party || typeof party !== 'object' || Array.isArray(party)) return null;
-    var keys = ['slots', 'members', 'list', 'pokemon', 'mons', 'team', 'data', 'pokeSlots', 'partySlots'];
-    var ki;
-    for (ki = 0; ki < keys.length; ki++) {
-      var a = party[keys[ki]];
-      if (Array.isArray(a) && a.length >= 1 && a.length <= 6 && arrayLooksLikePartySlots(a)) {
-        return normalizeSix(a);
-      }
-    }
-    return null;
-  }
-
-  function tryArraysOnVm(vm) {
-    var out = [];
-    var cands = [
-      vm.slots,
-      vm.partySlots,
-      vm.party_slots,
-      vm.pokemonSlots,
-      vm.slotList,
-      vm.$data && vm.$data.slots,
-      vm.$data && vm.$data.partySlots,
-      vm.$data && vm.$data.party_slots,
-      vm.$data && vm.$data.pokemonSlots,
-      vm.$data && vm.$data.slotList,
-    ];
-    var partyObjs = [vm.party, vm.$data && vm.$data.party];
-    var st = vm.$store && vm.$store.state;
-    if (st) {
-      cands.push(st.slots);
-      if (st.party) {
-        partyObjs.push(st.party);
-        cands.push(st.party.slots);
-        cands.push(st.party.data);
-      }
-      cands.push(st.partySlots);
-    }
-    var pi;
-    for (pi = 0; pi < partyObjs.length; pi++) {
-      var fromP = slotsFromPartyLikeObject(partyObjs[pi]);
-      if (fromP) out.push(fromP);
-    }
-    var i;
-    for (i = 0; i < cands.length; i++) {
-      var a = cands[i];
-      if (Array.isArray(a) && a.length >= 1 && a.length <= 6 && arrayLooksLikePartySlots(a)) {
-        out.push(normalizeSix(a));
-      }
-    }
-    return out;
-  }
-
-  function collectFromTree(vm, depth, acc) {
-    if (!vm || depth > 120) return;
-    var arrs = tryArraysOnVm(vm);
-    var ai;
-    for (ai = 0; ai < arrs.length; ai++) {
-      acc.push({ slots: arrs[ai], depth: depth, area: vmArea(vm) });
-    }
-    var ch = vm.$children;
-    if (!ch || !ch.length) return;
-    var j;
-    for (j = 0; j < ch.length; j++) {
-      collectFromTree(ch[j], depth + 1, acc);
-    }
-  }
-
-  function dedupeArrays(bucket) {
-    var seen = new WeakSet();
-    var out = [];
-    var i;
-    for (i = 0; i < bucket.length; i++) {
-      var a = bucket[i];
-      if (!a || seen.has(a)) continue;
-      seen.add(a);
-      out.push(a);
-    }
-    return out;
-  }
-
-  /**
-   * @returns {Array|null} 점수 ≥10 인 underlying array (정규화 안 한 원본 ref) 또는 null.
-   *   호출자가 normalizeSix 로 6칸 패딩.
-   */
-  function pickBestFromBucket(bucket) {
-    var uniq = dedupeArrays(bucket);
-    var best = null;
-    var bestScore = -1e9;
-    var i;
-    for (i = 0; i < uniq.length; i++) {
-      var arr = uniq[i];
-      var sc = scorePartySlotArray(arr);
-      if (sc > bestScore) {
-        bestScore = sc;
-        best = arr;
-      }
-    }
-    if (!best || bestScore < 10) return null;
-    return best;
-  }
-
-  /**
-   * F11: 매 호출마다 new Set() (× 4 + nodes 루프 × 3) 으로 GC 부하가 컸음.
-   * 모듈-스코프 visited Set 한 개를 재사용. clear()로 호출 간 격리.
-   *
-   * 같은 deepHarvestIntoBucket 호출 안에서 visited 를 공유해도 의미 보존:
-   * 어느 root 에서 visit 했든 (1) 길이 1~6 객체 array 를 만나면 bucket 에 push 하고
-   * (2) 이미 본 객체는 skip — array 추출은 이미 끝났으므로 중복 traversal 만 회피.
-   */
-  var harvestVisitedWS = new Set();
-
-  function deepHarvestIntoBucket(bucket) {
-    harvestVisitedWS.clear();
-
-    var appEl = document.querySelector('#app');
-
-    if (appEl && appEl.__vue__) {
-      var v2 = appEl.__vue__;
-      try {
-        if (v2.$data) harvestSlotSizedArrays(v2.$data, 0, 7, bucket, harvestVisitedWS);
-      } catch (e) {}
-      try {
-        if (v2.$store && v2.$store.state) harvestSlotSizedArrays(v2.$store.state, 0, 10, bucket, harvestVisitedWS);
-      } catch (e2) {}
-    }
-
-    if (appEl && appEl.__vue_app__) {
-      try {
-        var ap = appEl.__vue_app__;
-        var gp = ap.config && ap.config.globalProperties;
-        if (gp) {
-          var st = gp.$store;
-          if (st && st.state) harvestSlotSizedArrays(st.state, 0, 10, bucket, harvestVisitedWS);
-          var pinia = gp.$pinia;
-          if (pinia && pinia.state && pinia.state.value) {
-            harvestSlotSizedArrays(pinia.state.value, 0, 12, bucket, harvestVisitedWS);
-          }
-        }
-      } catch (e3) {}
-    }
-
-    var nodes = document.querySelectorAll('*');
-    var max = Math.min(nodes.length, 14000);
-    var k;
-    for (k = 0; k < max; k++) {
-      var inst = nodes[k].__vueParentComponent;
-      if (!inst) continue;
-      try {
-        if (inst.setupState) harvestSlotSizedArrays(inst.setupState, 0, 6, bucket, harvestVisitedWS);
-      } catch (e4) {}
-      try {
-        if (inst.ctx) harvestSlotSizedArrays(inst.ctx, 0, 5, bucket, harvestVisitedWS);
-      } catch (e5) {}
-      try {
-        if (inst.proxy) harvestSlotSizedArrays(inst.proxy, 0, 6, bucket, harvestVisitedWS);
-      } catch (e6) {}
-    }
-  }
-
-  /**
-   * F4: 첫 성공한 underlying array reference 를 캐시하고, 다음 호출 때 score 재검증으로
-   * 그대로 재사용. 팀빌더 인라인 갱신 사이클(MO 디바운스 ~520ms)마다 50k+ 노드 traversal
-   * 하던 패턴을 깬다.
-   *
-   * 무효화: 10s TTL, score < 10, hashchange/visibilitychange.
-   *
-   * 한계: 사이트가 root 에서 array 를 통째로 교체(`state.party = newArray`)하면 캐시는
-   * 옛 (detached) array 를 반환할 수 있다. 가장 흔한 시나리오인 "공유 URL 로 파티 로드"
-   * 는 hashchange로 잡히며, 그 외엔 10s TTL로 자가복구.
-   */
-  var BEST_SLOTS_CACHE_TTL_MS = 10 * 1000;
-  var lastBestArray = null;
-  var lastBestArrayTime = 0;
-
-  function invalidateBestSlotsCache() {
-    lastBestArray = null;
-    lastBestArrayTime = 0;
-  }
-
-  try {
-    window.addEventListener('hashchange', invalidateBestSlotsCache);
-    window.addEventListener('visibilitychange', function () {
-      if (!document.hidden) invalidateBestSlotsCache();
-    });
-  } catch (eListen) {}
-
-  function pickBestSlots() {
-    // F4: 캐시 hot path
-    if (lastBestArray && Date.now() - lastBestArrayTime < BEST_SLOTS_CACHE_TTL_MS) {
-      if (Array.isArray(lastBestArray) && scorePartySlotArray(lastBestArray) >= 10) {
-        return normalizeSix(lastBestArray);
-      }
-      invalidateBestSlotsCache();
-    }
-
-    var bucket = [];
-
-    var app = document.querySelector('#app');
-    if (app && app.__vue__) {
-      var acc = [];
-      collectFromTree(app.__vue__, 0, acc);
-      var ai;
-      for (ai = 0; ai < acc.length; ai++) {
-        bucket.push(acc[ai].slots);
-      }
-    }
-
-    if (bucket.length === 0) {
-      var nodes = document.querySelectorAll('*');
-      var max = Math.min(nodes.length, 8000);
-      var k;
-      for (k = 0; k < max; k++) {
-        var vm = nodes[k].__vue__;
-        if (!vm) continue;
-        var arrs = tryArraysOnVm(vm);
-        var bi;
-        for (bi = 0; bi < arrs.length; bi++) {
-          bucket.push(arrs[bi]);
-        }
-      }
-    }
-
-    deepHarvestIntoBucket(bucket);
-
-    var best = pickBestFromBucket(bucket);
-    if (best) {
-      lastBestArray = best;
-      lastBestArrayTime = Date.now();
-      return normalizeSix(best);
-    }
-    return null;
-  }
-
-  function cloneSlots(slots) {
-    try {
-      return JSON.parse(JSON.stringify(slots));
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /**
-   * 누오가 주는 스프라이트는 보통
-   * raw.githubusercontent.com/PokeAPI/sprites/master/.../sprites/pokemon/.../*.png
-   * 이지만 메가·폼 등은 pokemon/ 아래 서브디렉터리나 http·// 프로토콜일 수 있어 넓게 허용한다.
-   */
   function normalizeAndValidatePokeapiRawSpriteUrl(raw) {
     if (raw == null || typeof raw !== 'string') return '';
     var u = raw.trim();
@@ -412,7 +198,6 @@
     }
   }
 
-  /** 신규 포켓몬 등 PokeAPI에 없을 때 누오 자체 업로드 스프라이트 (upload/sprite/...png) */
   function normalizeAndValidateSmartnuoSpriteUrl(raw) {
     if (raw == null || typeof raw !== 'string') return '';
     var u = raw.trim();
@@ -430,7 +215,8 @@
       var path = parsed.pathname || '';
       if (path.indexOf('..') !== -1) return '';
       var pl = path.toLowerCase();
-      if (pl.indexOf('/upload/sprite/') !== 0) return '';
+      // smartnuo sprite 두 경로: 옛 /upload/sprite/ … · 리뉴얼 후 share 로드 시 /data/sprite/ …
+      if (pl.indexOf('/upload/sprite/') !== 0 && pl.indexOf('/data/sprite/') !== 0) return '';
       if (!/\.png$/i.test(path)) return '';
       return parsed.href;
     } catch (eSn) {
@@ -438,52 +224,17 @@
     }
   }
 
-  function pushIfString(arr, v) {
-    if (v != null && typeof v === 'string' && v.trim()) arr.push(v);
-  }
-
-  function spriteCandidateStringsFromSlot(slot) {
-    var out = [];
-    var p = pokemonBlockFromSlot(slot);
-    if (p) {
-      pushIfString(out, p.sprite);
-      pushIfString(out, p.customSprite);
-      pushIfString(out, p.custom_sprite);
-      pushIfString(out, p.dotSprite);
-      pushIfString(out, p.dot_sprite);
-      pushIfString(out, p.spriteUrl);
-      pushIfString(out, p.sprite_url);
-    }
-    if (slot && typeof slot === 'object') {
-      pushIfString(out, slot.sprite);
-      pushIfString(out, slot.customSprite);
-      pushIfString(out, slot.custom_sprite);
-    }
-    return out;
-  }
-
-  function pokemonBlockFromSlot(slot) {
-    if (!slot || typeof slot !== 'object') return null;
-    var p = slot.pokemon || slot.mon || slot.poke;
-    if (!p && slot.data && typeof slot.data === 'object' && !Array.isArray(slot.data)) {
-      p = slot.data.pokemon || slot.data.mon || slot.data.poke;
-    }
-    if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
-    return p;
-  }
-
-  /** 슬롯 i → 누오 스프라이트 URL(PokeAPI raw 우선, 없으면 smartnuo.com/upload/sprite/). 빈/무효는 ''. */
   function spriteUrlFromSlot(slot) {
     if (slotEmpty(slot)) return '';
-    var cand = spriteCandidateStringsFromSlot(slot);
-    var i;
-    for (i = 0; i < cand.length; i++) {
-      var gh = normalizeAndValidatePokeapiRawSpriteUrl(cand[i]);
-      if (gh) return gh;
-      var sn = normalizeAndValidateSmartnuoSpriteUrl(cand[i]);
-      if (sn) return sn;
-    }
-    return '';
+    var p = pokemonBlockFromSlot(slot);
+    if (!p || typeof p.sprite !== 'string') return '';
+    var raw = p.sprite.trim();
+    if (!raw) return '';
+    var gh = normalizeAndValidatePokeapiRawSpriteUrl(raw);
+    if (gh) return gh;
+    var sn = normalizeAndValidateSmartnuoSpriteUrl(raw);
+    if (sn) return sn;
+    return raw;
   }
 
   function buildSlotArtUrls(slots) {
@@ -495,65 +246,74 @@
     return out;
   }
 
+  function cloneSlots(slots) {
+    try {
+      return JSON.parse(JSON.stringify(slots));
+    } catch (e) {
+      return null;
+    }
+  }
+
   window.addEventListener('message', function (ev) {
     var d = ev.data;
     if (!d || d.source !== MSG_EXT || d.type !== 'NUO_TEAM_GET_SLOTS') return;
     var rid = d.requestId != null ? String(d.requestId) : '';
-    var slots = pickBestSlots();
-    if (!slots) {
+    waitForPokeListReady(2000, 100).then(function () {
+      var slots = pickBestSlots();
+      if (!slots) {
+        window.postMessage(
+          {
+            source: MSG_BRIDGE,
+            type: 'NUO_TEAM_SLOTS_REPLY',
+            requestId: rid,
+            ok: false,
+            error: 'no_party_slots',
+            slots: null,
+            filled: null,
+          },
+          '*'
+        );
+        return;
+      }
+      var cloned = cloneSlots(slots);
+      if (!cloned) {
+        window.postMessage(
+          {
+            source: MSG_BRIDGE,
+            type: 'NUO_TEAM_SLOTS_REPLY',
+            requestId: rid,
+            ok: false,
+            error: 'clone_failed',
+            slots: null,
+            filled: null,
+          },
+          '*'
+        );
+        return;
+      }
+      var filled = [];
+      var i;
+      for (i = 0; i < 6; i++) {
+        filled.push(!slotEmpty(slots[i]));
+      }
+      var slotArt;
+      try {
+        slotArt = buildSlotArtUrls(slots);
+      } catch (eArt) {
+        slotArt = ['', '', '', '', '', ''];
+      }
       window.postMessage(
         {
           source: MSG_BRIDGE,
           type: 'NUO_TEAM_SLOTS_REPLY',
           requestId: rid,
-          ok: false,
-          error: 'no_party_slots',
-          slots: null,
-          filled: null,
+          ok: true,
+          slots: cloned,
+          filled: filled,
+          slotArt: slotArt,
         },
         '*'
       );
-      return;
-    }
-    var cloned = cloneSlots(slots);
-    if (!cloned) {
-      window.postMessage(
-        {
-          source: MSG_BRIDGE,
-          type: 'NUO_TEAM_SLOTS_REPLY',
-          requestId: rid,
-          ok: false,
-          error: 'clone_failed',
-          slots: null,
-          filled: null,
-        },
-        '*'
-      );
-      return;
-    }
-    var filled = [];
-    var i;
-    for (i = 0; i < 6; i++) {
-      filled.push(!slotEmpty(slots[i]));
-    }
-    var slotArt;
-    try {
-      slotArt = buildSlotArtUrls(slots);
-    } catch (eArt) {
-      slotArt = ['', '', '', '', '', ''];
-    }
-    window.postMessage(
-      {
-        source: MSG_BRIDGE,
-        type: 'NUO_TEAM_SLOTS_REPLY',
-        requestId: rid,
-        ok: true,
-        slots: cloned,
-        filled: filled,
-        slotArt: slotArt,
-      },
-      '*'
-    );
+    });
   });
-
 })();

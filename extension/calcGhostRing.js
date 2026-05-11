@@ -54,32 +54,19 @@
   }
 
   /**
-   * 패널 찾기 — 두 단 layered (사이트 변경 robust 화):
-   *
-   *   1순위: 사용자가 inspect 해서 알려준 layout selector (2026-04-27 캡처).
-   *          컨테이너 = `div.d-flex.justify-space-between.mt-5.pb-10` (mx-auto.align-center 등은
-   *          redundant 라 selector 에서 뺌 — 클래스 하나 빠져도 잡히도록). 자식 3개 중
-   *          nth-child(1) = 공격, nth-child(3) = 수비, 가운데 nth-child(2) 는 swap UI.
-   *
-   *   2순위 (fallback): 헤딩 텍스트 휴리스틱. 1순위 selector 가 깨지면 (사이트가 layout
-   *          유틸 클래스 셋을 바꾸면) 헤딩 검색으로 재시도. 헤딩 후보를 더 넓게 — 흔한
-   *          사이트 패턴들도 추가.
+   * 패널 찾기 — Nuxt 계산기 레이아웃: `main > div > div:nth-of-type(1)` 공격,
+   * `nth-of-type(3)` 수비 (가운데 스왑 UI). 깨지면 헤딩 텍스트 폴백.
    */
   function findCalcPanels() {
-    // 1순위 — layout selector
-    var c = document.querySelector('div.d-flex.justify-space-between.mt-5.pb-10');
-    if (c && c.children && c.children.length >= 3) {
-      var atk0 = c.children[0];
-      var def0 = c.children[2];
-      if (atk0 && def0 && atk0.nodeType === 1 && def0.nodeType === 1) {
-        var ra = atk0.getBoundingClientRect();
-        var rd = def0.getBoundingClientRect();
-        if (ra.width > 50 && ra.height > 50 && rd.width > 50 && rd.height > 50) {
-          return { atk: atk0, def: def0 };
-        }
+    var atk0 = document.querySelector('main > div > div:nth-of-type(1)');
+    var def0 = document.querySelector('main > div > div:nth-of-type(3)');
+    if (atk0 && def0 && atk0.nodeType === 1 && def0.nodeType === 1) {
+      var ra = atk0.getBoundingClientRect();
+      var rd = def0.getBoundingClientRect();
+      if (ra.width > 50 && ra.height > 50 && rd.width > 50 && rd.height > 50) {
+        return { atk: atk0, def: def0 };
       }
     }
-    // 2순위 — 헤딩 텍스트 휴리스틱 fallback
     return { atk: findPanelByHeading('공격'), def: findPanelByHeading('수비') };
   }
 

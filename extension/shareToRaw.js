@@ -20,6 +20,11 @@
     if (v == null) return '';
     if (typeof v === 'string') return v.trim();
     if (typeof v === 'number') return String(v);
+    // 한글 alias 를 영문 .name 보다 우선 — Nuxt 슬롯 객체가 { id, name(en), kr, ...} 일 때
+    // 사이트가 보여 주는 한글을 우선 추출.
+    if (typeof v === 'object' && v.kr != null) return str(v.kr);
+    if (typeof v === 'object' && v.name_kr != null) return str(v.name_kr);
+    if (typeof v === 'object' && v.nameKr != null) return str(v.nameKr);
     if (typeof v === 'object' && v.name != null) return str(v.name);
     if (typeof v === 'object' && v.label != null) return str(v.label);
     if (typeof v === 'object' && v.title != null) return str(v.title);
@@ -51,6 +56,25 @@
    */
   function classifyShareGetResponse(j) {
     var pack = unwrapShareJson(j);
+
+    // Phase 2.D: 래퍼 한 겹 추가 — pack.data 가 실제 파티/단일 페이로드. 옛 폴백은 아래 분기 유지.
+    if (pack && typeof pack === 'object' && pack.data !== undefined && pack.data !== null) {
+      var d = pack.data;
+      if (d && typeof d === 'object' && d.all === true && Array.isArray(d.data)) {
+        return { type: 'party', slots: d.data };
+      }
+      if (Array.isArray(d)) {
+        if (d.length >= 2) return { type: 'party', slots: d };
+        if (d.length === 1) return { type: 'single', slot: d[0] };
+        throw new Error('unknown_share_shape');
+      }
+      if (d && typeof d === 'object' && d.pokemon) {
+        return { type: 'single', slot: d };
+      }
+      if (d && typeof d === 'object' && typeof d.slot === 'number' && d.data && d.data.pokemon) {
+        pack = d;
+      }
+    }
 
     /** 단일 샘플: { slot, data: { sampleName, pokemon, nameKr, movesKr } } */
     if (pack && typeof pack.slot === 'number' && pack.data && pack.data.pokemon) {
@@ -102,6 +126,7 @@
    * F10: 본 함수가 SW (background + importScripts) 측 단일 출처. simpleMovePower 의 옛
    *   `flattenPokemonSlot` 은 제거 후 본 함수로 대체. MAIN-world(teamBuilderBridge) 는
    *   다른 컨텍스트라 자체 사본을 유지하되 alias 목록은 본 함수와 동일하게 정렬.
+   * Phase 2.B: Nuxt 슬롯은 pokemon.name_kr 등 nested 만 오는 경우가 많음 — flatten 후 flat 에 흡수.
    */
   function flattenSlot(slot) {
     if (!slot || typeof slot !== 'object') return {};
@@ -139,7 +164,7 @@
     return asInt(v) != null ? asInt(v) : 0;
   }
 
-  /** Smartnuo stats.hp = { value: 노력, real: 실수치 } */
+  /** Smartnuo stats.hp = { value|effort|effort_value: 노력, real: 실수치, individual_value } */
   function getRealEvSmartnuo(s, statIdx) {
     var st = s.stats;
     var apiKey = SMARTNUO_STAT_KEYS[statIdx];
@@ -176,25 +201,56 @@
     return 0;
   }
 
+  function koFromMaybeObj(v) {
+    if (v == null) return '';
+    if (typeof v === 'string') return str(v);
+    if (typeof v === 'object' && v.kr != null) return str(v.kr);
+    return str(v);
+  }
+
   function displayName(s) {
     var nick = str(s.nickname || s.nick || s.cn || s.displayName);
     if (nick) return nick;
     return (
-      str(s.nameKr || s.speciesName || s.species || s.name || s.baseName || s.pokemonName || s.label) || '--'
+      str(s.name_kr || s.nameKr || s.namekr || s.speciesName || s.species || s.name || s.baseName || s.pokemonName || s.label) ||
+      '--'
     );
   }
 
   /** 제목 `#n | …` 오른쪽: 샘플명(sampleName) 우선, 없으면 한글 종명 */
   function titleRest(s) {
-    return str(s.sampleName) || str(s.nameKr) || str(s.speciesName || s.speciesKo) || str(s.species) || str(s.name) || '--';
+    return (
+      str(s.sample_name || s.sampleName) ||
+      str(s.name_kr || s.nameKr || s.namekr) ||
+      str(s.speciesName || s.speciesKo) ||
+      str(s.species) ||
+      str(s.name) ||
+      '--'
+    );
   }
 
   /** 종 이름 줄(한글 우선) */
   function speciesNameLine(s) {
-    return str(s.nameKr) || str(s.speciesName || s.speciesKo) || str(s.species) || str(s.name) || '';
+    return (
+      str(s.name_kr || s.nameKr || s.namekr) ||
+      str(s.speciesName || s.speciesKo) ||
+      str(s.species) ||
+      str(s.name) ||
+      ''
+    );
   }
 
   function getMoves(s) {
+    if (!s || typeof s !== 'object') return ['', '', '', ''];
+    // 새 사이트: 기술 배열은 slot.pokemon.moves. flattenSlot 과 동일 우선순위로 상위 키가 nested 를 덮음.
+    if (
+      s.pokemon &&
+      typeof s.pokemon === 'object' &&
+      Array.isArray(s.pokemon.moves) &&
+      s.pokemon.moves.length
+    ) {
+      s = Object.assign({}, s.pokemon, s);
+    }
     if (s.movesKr && Array.isArray(s.movesKr) && s.movesKr.length) {
       var outK = ['', '', '', ''];
       var ki;
@@ -206,7 +262,31 @@
     if (!Array.isArray(m)) m = [m];
     var out = ['', '', '', ''];
     for (var i = 0; i < 4 && i < m.length; i++) {
-      out[i] = str(m[i]) || '';
+      var mv = m[i];
+      if (mv == null) {
+        out[i] = '';
+        continue;
+      }
+      if (typeof mv === 'string') {
+        out[i] = str(mv) || '';
+        continue;
+      }
+      if (typeof mv === 'object') {
+        out[i] = str(
+          mv.name_ko ||
+            mv.nameKo ||
+            mv.name_kr ||
+            mv.nameKr ||
+            mv.kr ||
+            mv.koName ||
+            mv.label ||
+            mv.name ||
+            mv.title ||
+            ''
+        );
+        continue;
+      }
+      out[i] = str(mv) || '';
     }
     return out;
   }
@@ -272,8 +352,8 @@
       lines.push(speciesLine);
     }
 
-    lines.push('특성 : ' + (str(s.ability || s.ab || s.Ability) || '--'));
-    lines.push('도구 : ' + (str(s.equipment || s.item || s.Item || s.hold) || '--'));
+    lines.push('특성 : ' + (koFromMaybeObj(s.ability || s.ab || s.Ability) || '--'));
+    lines.push('도구 : ' + (koFromMaybeObj(s.equipment || s.item || s.Item || s.hold || s.holdItem) || '--'));
     lines.push('성격 : ' + (str(s.personality || s.nature || s.Nature) || '--'));
 
     var ter = teraLine(s);

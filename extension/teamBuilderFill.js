@@ -40,6 +40,14 @@
     return;
   }
 
+  /** Nuxt 슬롯 pokemon.name_kr 과 옛 키 병행 — FAB 접근성·툴팁. */
+  function slotPokeKr(slot) {
+    var nested = (slot && slot.pokemon) || slot || {};
+    return String(
+      nested.name_kr || nested.nameKr || nested.namekr || nested.species || nested.speciesName || ''
+    ).trim();
+  }
+
   function copyTextBestEffort(text) {
     var s = text != null ? String(text) : '';
     if (!s) return;
@@ -720,7 +728,7 @@
       }
     }
 
-    function applySlotVisuals(slotArt, filled) {
+    function applySlotVisuals(slotArt, filled, slotsOptional) {
       var i;
       for (i = 0; i < 6; i++) {
         var btn = slotBtns[i];
@@ -731,6 +739,14 @@
         btn.classList.remove('fab-slot--has-mon');
         img.onload = null;
         img.onerror = null;
+        var kr = hasFill && slotsOptional && slotsOptional[i] ? slotPokeKr(slotsOptional[i]) : '';
+        if (kr) {
+          btn.setAttribute('aria-label', '#' + (i + 1) + ' 슬롯 ' + kr + ' 요약 샘플 복사');
+          btn.setAttribute('title', kr);
+        } else {
+          btn.setAttribute('aria-label', '#' + (i + 1) + ' 슬롯 요약 샘플 복사');
+          btn.removeAttribute('title');
+        }
         if (!url) {
           img.removeAttribute('src');
           continue;
@@ -820,7 +836,7 @@
         }
         setFabVisible(true);
         applyFilledState(r.filled);
-        applySlotVisuals(r.slotArt, r.filled);
+        applySlotVisuals(r.slotArt, r.filled, r.slots);
         setPartyButtonEnabled(true);
       });
     }

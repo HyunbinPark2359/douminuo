@@ -94,62 +94,43 @@
     return !!el.closest(tbExtHostSelector());
   }
 
-  function normalizeSpritePath(u) {
-    if (!u) return '';
+  /** 팀빌더 좌측 슬롯 리스트 루트 — DOM 변경 시 이 한 줄만 수정. */
+  var TB_SLOT_LIST_XPATH = '/html/body/div[1]/div/main/div/div[1]/div/div';
+
+  /**
+   * 슬롯 인덱스 0~5 → 해당 슬롯 카드 body element. 없으면 null.
+   * list.children[0] = capture-hide 헤더 → 슬롯 i 는 children[i+1];
+   * wrapper.children[1] = 카드 본체(라벨 헤더는 [0]).
+   */
+  function findSlotCardByIndex(slotIdx) {
+    if (slotIdx < 0 || slotIdx > 5) return null;
     try {
-      var a = document.createElement('a');
-      a.href = u;
-      return (a.pathname || '') + (a.search || '');
+      var list = document.evaluate(
+        TB_SLOT_LIST_XPATH,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+      ).singleNodeValue;
+      if (!list || !list.children) return null;
+      var wrapper = list.children[slotIdx + 1];
+      if (!wrapper || !wrapper.children) return null;
+      var body = wrapper.children[1] || wrapper.children[0];
+      return body || null;
     } catch (e) {
-      return String(u).replace(/\?[^#]*$/, '');
+      return null;
     }
-  }
-
-  function srcMatchesSprite(imgSrc, targetUrl) {
-    if (!imgSrc || !targetUrl) return false;
-    var a = normalizeSpritePath(imgSrc);
-    var b = normalizeSpritePath(targetUrl);
-    if (a === b) return true;
-    var fa = a.split('/').pop() || '';
-    var fb = b.split('/').pop() || '';
-    return (
-      (fa && fb && fa === fb) ||
-      (fa && b.indexOf(fa) !== -1) ||
-      (fb && a.indexOf(fb) !== -1)
-    );
-  }
-
-  function tbAllPageImgs() {
-    return Array.prototype.slice
-      .call(document.querySelectorAll('img[src]'))
-      .filter(function (im) {
-        return !isInTbExtHost(im);
-      });
-  }
-
-  function tbImgsMatchingUrl(wantUrl) {
-    return tbAllPageImgs().filter(function (im) {
-      return srcMatchesSprite(im.getAttribute('src') || im.src || '', wantUrl);
-    });
   }
 
   /**
-   * slotData 에서 "한글 종명 표시용" 후보를 뽑아 반환. 없으면 빈 문자열.
-   * 여러 네이밍 규약(nameKr / name_kr / speciesName / koName …) 지원.
+   * filled[i] 가 true 인 슬롯만 카드 body 매핑 (옛 sprite URL 매칭 대체).
    */
-  function speciesDisplayNameFromSlot(slotData) {
-    if (!slotData || typeof slotData !== 'object') return '';
-    var keys = ['nameKr', 'name_kr', 'speciesName', 'koName', 'nameKo', 'name_ko'];
-    var bags = [slotData];
-    if (slotData.pokemon && typeof slotData.pokemon === 'object') bags.push(slotData.pokemon);
-    var i, k;
-    for (i = 0; i < bags.length; i++) {
-      for (k = 0; k < keys.length; k++) {
-        var v = bags[i][keys[k]];
-        if (typeof v === 'string' && v.trim()) return v.trim();
-      }
+  function mapSlotsToCardEls(filled) {
+    var out = [null, null, null, null, null, null];
+    for (var i = 0; i < 6; i++) {
+      if (filled && filled[i]) out[i] = findSlotCardByIndex(i);
     }
-    return '';
+    return out;
   }
 
   /**
@@ -157,12 +138,22 @@
    *
    * - `textContent.indexOf(req) !== -1` 로 검사하여 "텍스트 + 접미사"가 붙은 노드도 매칭.
    * - leaf-most: 다른 매치 노드를 자손으로 포함하지 않는 것만 선택.
-   * - 다중 후보면 leftmost-topmost 로 정렬 (LEFT 파티 우선).
+   * - 다중 후보면 좌측 우선·같은 열은 위→아래 (슬롯 카드 vs 우측 패널 혼선 완화).
+   * @param {string[]} reqs
+   * @param {Element|null} [scopeRoot] 있으면 이 노드 하위만 검색 (카드 XPath 확정 후 좁힘).
    */
-  function findLeafAncestorContaining(reqs) {
-    var candidates = Array.prototype.slice.call(
-      document.querySelectorAll('div, section, article, li')
-    );
+  function findLeafAncestorContaining(reqs, scopeRoot) {
+    var candidates = [];
+    if (scopeRoot && scopeRoot.nodeType === 1) {
+      candidates.push(scopeRoot);
+      candidates = candidates.concat(
+        Array.prototype.slice.call(scopeRoot.querySelectorAll('div, section, article, li'))
+      );
+    } else {
+      candidates = Array.prototype.slice.call(
+        document.querySelectorAll('div, section, article, li')
+      );
+    }
     var matches = [];
     var i;
     for (i = 0; i < candidates.length; i++) {
@@ -204,15 +195,20 @@
     }
     if (!leaf.length) return null;
     if (leaf.length === 1) return leaf[0];
-    leaf.sort(compareTbImgPosition);
+    leaf.sort(function (a, b) {
+      var ra = a.getBoundingClientRect();
+      var rb = b.getBoundingClientRect();
+      if (Math.abs(ra.left - rb.left) > 50) return ra.left - rb.left;
+      if (Math.abs(ra.top - rb.top) > 10) return ra.top - rb.top;
+      return ra.left - rb.left;
+    });
     return leaf[0];
   }
 
   /**
    * 시각적 슬롯 카드 wrapper(파스텔 배경 + padding)로 한 단계 상승.
    * - parent 가 자신보다 1.5 배 이상 크면 grid/row 이므로 상승 안 함.
-   * - 이미지 기반 `findBestCardRootForMoves` 가 자연스럽게 parent(wrapper) 를 고르는 레이아웃
-   *   을 텍스트 기반 경로에서도 재현하기 위함.
+   * - 텍스트 기반 폴백 시 서브박스 대신 카드 단위로 맞추기 위함.
    */
   function ascendToSlotCardWrapper(node) {
     if (!node) return node;
@@ -232,59 +228,22 @@
   }
 
   /**
-   * 이미지 매칭 실패 시(신규 메가 등) 텍스트 시그니처로 LEFT 파티 슬롯 카드 루트를 찾는 폴백.
-   *
-   * 1차: 기술 4기 + **종명**을 모두 포함하는 leaf-most ancestor → wrapper 로 상승.
-   * 2차: 종명 없으면 기술명만. 이 때 leaf-most 는 "기술 영역" 서브박스일 수 있어 wrapper 까지
-   *      도달하려면 두 번 상승이 필요 (서브박스 → inner → padding wrapper).
+   * 이미지 매칭 실패 시(신규 메가 등) 텍스트 시그니처로 슬롯 카드 루트를 찾는 폴백.
+   * scopeRoot 가 있으면 그 안에서만 검색 — XPath 로 카드가 잡힌 뒤 결정력 앵커 좁힘용.
    */
-  function findCardRootByMoveTexts(moveNames, speciesName) {
+  function findCardRootByMoveTexts(moveNames, speciesName, scopeRoot) {
     var want = (moveNames || []).filter(function (n) {
       return n && n !== '--';
     });
     if (want.length < 2) return null;
     var sp = (speciesName || '').trim();
     if (sp) {
-      var cardWithSp = findLeafAncestorContaining(want.concat([sp]));
+      var cardWithSp = findLeafAncestorContaining(want.concat([sp]), scopeRoot);
       if (cardWithSp) return ascendToSlotCardWrapper(cardWithSp);
     }
-    var cardMoves = findLeafAncestorContaining(want);
+    var cardMoves = findLeafAncestorContaining(want, scopeRoot);
     if (!cardMoves) return null;
     return ascendToSlotCardWrapper(ascendToSlotCardWrapper(cardMoves));
-  }
-
-  function compareTbImgPosition(a, b) {
-    var ra = a.getBoundingClientRect();
-    var rb = b.getBoundingClientRect();
-    if (Math.abs(ra.top - rb.top) > 10) return ra.top - rb.top;
-    return ra.left - rb.left;
-  }
-
-  /** 슬롯 0..5 → 해당 스프라이트 img(동종 연속 URL은 화면 위→좌 순으로 매칭) */
-  function mapSlotsToSampleImgs(slotArt, filled) {
-    var slotToUrl = [];
-    var i;
-    for (i = 0; i < 6; i++) {
-      slotToUrl[i] = filled[i] && slotArt && slotArt[i] ? String(slotArt[i]).trim() : '';
-    }
-    var byUrl = {};
-    for (i = 0; i < 6; i++) {
-      var u = slotToUrl[i];
-      if (!u) continue;
-      if (!byUrl[u]) byUrl[u] = [];
-      byUrl[u].push(i);
-    }
-    var out = [null, null, null, null, null, null];
-    for (var url in byUrl) {
-      if (!Object.prototype.hasOwnProperty.call(byUrl, url)) continue;
-      var indices = byUrl[url];
-      var imgs = tbImgsMatchingUrl(url).sort(compareTbImgPosition);
-      var j;
-      for (j = 0; j < indices.length && j < imgs.length; j++) {
-        out[indices[j]] = imgs[j];
-      }
-    }
-    return out;
   }
 
   function moveDisplayNamesFromSlot(slotData) {
@@ -360,64 +319,6 @@
       if (!hasInner) return m;
     }
     return matches[matches.length - 1];
-  }
-
-  /**
-   * 기술 텍스트가 없을 때(채워졌지만 기술배치가 비어 있는 슬롯)
-   * 슬롯 카드 루트를 기하학적으로 추정한다.
-   * 이미지 너비의 2배 이상이 되는 첫 ancestor를 슬롯 카드 프레임으로 채택.
-   * (이미지 썸네일 래퍼는 보통 이미지와 같은 폭, 슬롯 카드는 2~5배 폭이라는 관찰 기반.)
-   */
-  function findCardRootByGeometry(imgEl, maxDepth) {
-    var max = typeof maxDepth === 'number' ? maxDepth : 14;
-    var imgW = 0;
-    try {
-      var r = imgEl.getBoundingClientRect();
-      imgW = r.width || imgEl.clientWidth || 0;
-    } catch (eGeo) {
-      imgW = imgEl.clientWidth || 0;
-    }
-    if (!imgW) return imgEl.parentElement || imgEl;
-    var threshold = imgW * 2;
-    var p = imgEl.parentElement;
-    var depth = 0;
-    while (p && p !== document.body && depth < max) {
-      var w = 0;
-      try {
-        w = p.getBoundingClientRect().width || p.clientWidth || 0;
-      } catch (eW) {
-        w = p.clientWidth || 0;
-      }
-      if (w >= threshold) return p;
-      p = p.parentElement;
-      depth++;
-    }
-    return imgEl.parentElement || imgEl;
-  }
-
-  function findBestCardRootForMoves(imgEl, moveNames) {
-    var want = moveNames.filter(function (x) {
-      return x && x !== '--';
-    });
-    if (!want.length) return findCardRootByGeometry(imgEl);
-    var p = imgEl;
-    var depth = 0;
-    var best = imgEl.parentElement || imgEl;
-    var bestScore = -1;
-    while (p && p !== document.body && depth < 14) {
-      var score = 0;
-      var w;
-      for (w = 0; w < want.length; w++) {
-        if (findExactTextNodeHost(p, want[w])) score++;
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        best = p;
-      }
-      p = p.parentElement;
-      depth++;
-    }
-    return best;
   }
 
   function requestSlotAnnot(slotData) {
@@ -535,8 +436,7 @@
         }
         ensureTbInlineStyle();
         var filled = r.filled || [];
-        var art = r.slotArt || [];
-        var imgMap = mapSlotsToSampleImgs(art, filled);
+        var cardMap = mapSlotsToCardEls(filled);
         // Phase 1: 슬롯별 어노테이션을 비동기로 모두 수집. 기존 어노테이션은 그대로 두어
         // 사용자에게는 stale 한 값이 잠깐 보이지만, "빈 상태"는 아예 노출되지 않음.
         var jobs = [];
@@ -544,15 +444,16 @@
         for (si = 0; si < 6; si++) {
           if (!filled[si]) continue;
           var sd = r.slots[si];
-          var im = imgMap[si];
-          (function (slotData, imgEl) {
+          var cardEl = cardMap[si];
+          if (!cardEl) continue;
+          (function (slotData, card) {
             jobs.push(
               requestSlotAnnot(slotData).then(function (ann) {
                 if (!ann || ann.empty) return null;
-                return { slotData: slotData, imgEl: imgEl, ann: ann };
+                return { slotData: slotData, card: card, ann: ann };
               })
             );
-          })(sd, im);
+          })(sd, cardEl);
         }
         return Promise.all(jobs);
       })
@@ -566,9 +467,7 @@
         results.forEach(function (item) {
           if (!item) return;
           var names = moveDisplayNamesFromSlot(item.slotData);
-          var card = item.imgEl
-            ? findBestCardRootForMoves(item.imgEl, names)
-            : findCardRootByMoveTexts(names, speciesDisplayNameFromSlot(item.slotData));
+          var card = item.card;
           if (!card) return;
           if (tbInlineMoveEnabled) {
             applyMovePowerSuffixes(card, names, item.ann.movePowerSuffixes || []);

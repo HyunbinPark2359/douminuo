@@ -473,21 +473,23 @@
     var snapshotInflight = false;
 
     function applySlotVisuals(slotArt, filledArr) {
-      var i, b, art, hasMon, imgEl;
+      var i, b, art, hasMon, hasArt, imgEl;
       for (i = 0; i < 6; i++) {
         b = slotBtns[i];
         if (!b) continue;
         art = (slotArt && slotArt[i]) || '';
-        hasMon = !!(filledArr && filledArr[i] && art);
+        hasMon = !!(filledArr && filledArr[i]);
+        hasArt = !!(hasMon && art);
         // 팀빌더 FAB 와 동일 패턴: disabled 안 걸고 .is-empty 클래스로만 “비어있음” 표시.
         // 그래야 빈 슬롯에도 hover 가 살아있어 ban 아이콘이 뜸 (disabled 상태에선
         // .fab-btn:not(:disabled):hover 셀렉터 발화 안 됨).
+        // sprite 빈 문자열 슬롯도 filled 면 클릭 가능 — 썸네일만 fallback 숫자.
         b.disabled = false;
         b.classList.toggle('is-empty', !hasMon);
         b.classList.toggle('has-mon', !!hasMon);
         imgEl = b.querySelector('.fab-slot-mon');
         if (imgEl) {
-          if (hasMon) {
+          if (hasArt) {
             if (imgEl.getAttribute('src') !== art) imgEl.setAttribute('src', art);
           } else {
             imgEl.removeAttribute('src');

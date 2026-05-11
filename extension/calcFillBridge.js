@@ -1,225 +1,24 @@
 /**
  * 페이지(MAIN) 컨텍스트에서 실행됨.
  *
- * - VM: attacker/defender/pokemon_list 후보를 점수화(__NUO_DUMP). 준비된 인스턴스 최대 3개에 순차 브로드캐스트·검증 없이 빠르게 완료.
- * - 공격측만 기술 스텁을 두면 수비 loadDefender 시 상대 기술/분류 참조로 터질 수 있어 수비에도 동일 패턴 스텁.
- * - calcFillBridge.js 는 stats.*.real(실수값) 등 종족값/실수 표에 직접 쓰지 않음. effort·individual_* 만 "능력치" 쪽.
+ * Phase 2.A (2026-05-09): 스마트누오 Nuxt 3 — Vue 인스턴스 대신 `window.__NUXT__.state` 의
+ * useState payload 에 attacker/defender 를 직접 쓴다. (RENEWAL_FIX_PLAN §15.2~15.3)
+ *
+ * 격리: isolated world 의 calcFill.js 가 postMessage 로 NUO_APPLY_CALC_V30 보내면
+ * 본 파일이 NUO_CALC_RESULT 로 응답한다. 프로토콜 유지.
  */
 (function () {
-  if (window.__NUO_CALC_BRIDGE_V31__) return;
-  window.__NUO_CALC_BRIDGE_V31__ = true;
+  if (window.__NUO_CALC_BRIDGE_V36__) return;
+  window.__NUO_CALC_BRIDGE_V36__ = true;
+
+  var KEY_POKE_LIST = '$spokemon_list';
+  var KEY_ATT = '$scalculator.attacker';
+  var KEY_DEF = '$scalculator.defender';
 
   var applyQueue = [];
   var applyBusy = false;
 
-  function isCalcVmShape(vm) {
-    return !!(vm && vm.attacker && vm.defender && Array.isArray(vm.pokemon_list));
-  }
-
-  /** 부모 체인에 숨김(display:none, visibility:hidden, hidden, aria-hidden)이 있으면 false */
-  function cascadeDisplayed(el) {
-    var e = el;
-    while (e && e.nodeType === 1) {
-      if (e.hasAttribute && e.hasAttribute('hidden')) return false;
-      var st = window.getComputedStyle(e);
-      if (st.display === 'none' || st.visibility === 'hidden') return false;
-      if (st.opacity === '0') return false;
-      if (e.getAttribute && e.getAttribute('aria-hidden') === 'true') return false;
-      e = e.parentElement;
-    }
-    return true;
-  }
-
-  /**
-   * 실제로 그려져 뷰포트와 겹치는 면적이 있는지. 유령 VM은 크기만 있고 visibility:hidden 이거나 화면 밖인 경우가 많음.
-   * @returns {{ ok: boolean, viewportArea: number, pixelArea: number, centerDist: number }}
-   */
-  function vmLayoutMetrics(vm) {
-    var el = vm && vm.$el;
-    if (!el || el.nodeType !== 1) {
-      return { ok: false, viewportArea: 0, pixelArea: 0, centerDist: 1e12 };
-    }
-    if (!cascadeDisplayed(el)) {
-      return { ok: false, viewportArea: 0, pixelArea: 0, centerDist: 1e12 };
-    }
-    var rects = el.getClientRects();
-    if (!rects || rects.length === 0) {
-      return { ok: false, viewportArea: 0, pixelArea: 0, centerDist: 1e12 };
-    }
-    var r = el.getBoundingClientRect();
-    if (r.width < 2 || r.height < 2) {
-      return { ok: false, viewportArea: 0, pixelArea: 0, centerDist: 1e12 };
-    }
-    var pixelArea = r.width * r.height;
-    var vx = Math.max(0, Math.min(r.right, window.innerWidth) - Math.max(r.left, 0));
-    var vy = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0));
-    var viewportArea = vx * vy;
-    var cx = (r.left + r.right) / 2;
-    var cy = (r.top + r.bottom) / 2;
-    var dx = cx - window.innerWidth / 2;
-    var dy = cy - window.innerHeight / 2;
-    var centerDist = dx * dx + dy * dy;
-    return { ok: true, viewportArea: viewportArea, pixelArea: pixelArea, centerDist: centerDist };
-  }
-
-  function collectCalcVmsFromTree(vm, depth, out) {
-    if (!vm || depth > 100) return;
-    if (isCalcVmShape(vm)) {
-      out.push({
-        vm: vm,
-        depth: depth,
-        hasLoad: typeof vm.loadAttacker === 'function',
-        metrics: vmLayoutMetrics(vm),
-      });
-    }
-    var ch = vm.$children;
-    if (!ch || !ch.length) return;
-    var i;
-    for (i = 0; i < ch.length; i++) {
-      collectCalcVmsFromTree(ch[i], depth + 1, out);
-    }
-  }
-
-  function scoreEntry(entry) {
-    var vm = entry.vm;
-    var m = entry.metrics;
-    var s = 0;
-    if (entry.hasLoad) s += 3200;
-    if (!m || !m.ok) return s - 200000;
-    s += Math.min(Math.log(m.viewportArea + 1) * 3200, 32000);
-    s += Math.min(Math.log(m.pixelArea + 1) * 450, 8000);
-    s -= Math.min(m.centerDist / 80000, 1200);
-    if (m.viewportArea < 200) s -= 6000;
-    var el = vm.$el;
-    if (el && el.nodeType === 1 && typeof el.innerText === 'string') {
-      var t = el.innerText;
-      if (t.indexOf('교체') !== -1) s += 900;
-      if (t.indexOf('계산') !== -1) s += 350;
-      if (t.indexOf('초기화') !== -1) s += 120;
-      if (t.indexOf('수비') !== -1 || t.indexOf('방어') !== -1) s += 500;
-    }
-    // 스마트누오: 상위 래퍼(DIV·v-app 근처, depth 작음)와 실제 패널(v-sheet 등, depth 큼)이 둘 다 같은 모양일 수 있음.
-    // 예전에는 depth 벌점으로 얕은 쪽이 소폭 우위 → 잘못된 VM 선택. 깊은 쪽(실제 UI에 붙은 인스턴스)을 가산.
-    var dep = typeof entry.depth === 'number' && entry.depth >= 0 ? entry.depth : 0;
-    s += Math.min(dep, 24) * 150;
-    return s;
-  }
-
-  function pickBestCalcEntry(entries) {
-    if (!entries || !entries.length) return null;
-    var displayed = entries.filter(function (e) {
-      return e.metrics && e.metrics.ok;
-    });
-    if (!displayed.length) {
-      function rawArea(e) {
-        var el = e.vm && e.vm.$el;
-        if (!el || el.nodeType !== 1) return 0;
-        var r = el.getBoundingClientRect();
-        return Math.max(0, r.width) * Math.max(0, r.height);
-      }
-      entries.sort(function (a, b) {
-        var ra = rawArea(a);
-        var rb = rawArea(b);
-        if (rb !== ra) return rb - ra;
-        return scoreEntry(b) - scoreEntry(a);
-      });
-      return entries[0];
-    }
-    var inView = displayed.filter(function (e) {
-      return e.metrics.viewportArea >= 300;
-    });
-    var pool = inView.length ? inView : displayed;
-    pool.sort(function (a, b) {
-      return scoreEntry(b) - scoreEntry(a);
-    });
-    return pool[0];
-  }
-
-  /** #app 트리에서만 수집; 없으면 DOM 전역 스캔(기존 동작). */
-  function collectAllCalcVmEntries() {
-    var out = [];
-    var app = document.querySelector('#app');
-    if (app && app.__vue__) {
-      collectCalcVmsFromTree(app.__vue__, 0, out);
-    }
-    var seen = new Set();
-    var i;
-    for (i = 0; i < out.length; i++) {
-      seen.add(out[i].vm);
-    }
-    if (out.length === 0) {
-      var nodes = document.querySelectorAll('*');
-      var max = Math.min(nodes.length, 12000);
-      var j;
-      for (j = 0; j < max; j++) {
-        var vm = nodes[j].__vue__;
-        if (!isCalcVmShape(vm) || seen.has(vm)) continue;
-        seen.add(vm);
-        out.push({
-          vm: vm,
-          depth: 1,
-          hasLoad: typeof vm.loadAttacker === 'function',
-          metrics: vmLayoutMetrics(vm),
-        });
-      }
-    }
-    return out;
-  }
-
-  /**
-   * 트리 + DOM 스캔을 합친 전체 후보(유령·중복 포함). 콘솔 디버그용.
-   */
-  function collectCalcVmEntriesMerged() {
-    var out = [];
-    var seen = new Set();
-    var app = document.querySelector('#app');
-    if (app && app.__vue__) {
-      collectCalcVmsFromTree(app.__vue__, 0, out);
-    }
-    var i;
-    for (i = 0; i < out.length; i++) {
-      seen.add(out[i].vm);
-    }
-    var nodes = document.querySelectorAll('*');
-    var max = Math.min(nodes.length, 12000);
-    var j;
-    for (j = 0; j < max; j++) {
-      var vm = nodes[j].__vue__;
-      if (!isCalcVmShape(vm) || seen.has(vm)) continue;
-      seen.add(vm);
-      out.push({
-        vm: vm,
-        depth: -1,
-        hasLoad: typeof vm.loadAttacker === 'function',
-        metrics: vmLayoutMetrics(vm),
-        fromDomScan: true,
-      });
-    }
-    return out;
-  }
-
-  function findCalcVm() {
-    var out = collectAllCalcVmEntries();
-    if (out.length === 0) return null;
-    var best = pickBestCalcEntry(out);
-    return best ? best.vm : null;
-  }
-
-  // R2/C4 (2026-05-09): 본문 텍스트 휴리스틱 → URL pathname 기반.
-  // MAIN world 의 location 도 isolated world 와 같은 document URL 을 반영하므로 동일하게 동작.
-  // '/' = 데미지 계산기, '/speed' = 신규 스피드 탭. 둘 다 calc bridge 가 의미를 가짐.
-  function isCalculatorContext() {
-    var p = '/';
-    try { p = (location.pathname || '/').replace(/\/+$/, '') || '/'; } catch (eCtx) { return false; }
-    if (p === '/' || p === '/index' || p.indexOf('/index.') === 0) return true;
-    if (p === '/speed' || p.indexOf('/speed/') === 0) return true;
-    return false;
-  }
-
-  /**
-   * 스마트누오 도감: 샘플은 실드폼 한글명만 오는데, 공격측은 블레이드폼 엔트리를 써야 할 종.
-   * 수비측은 원본 speciesKo 그대로(pickPokemonEn 에 defender 만 넘김).
-   */
+  /** 스마트누오 도감: 공격측 블레이드폼 remap */
   var ATTACKER_SPECIES_KO_REMAP = {
     킬가르도: '킬가르도 (블레이드)',
   };
@@ -231,19 +30,6 @@
     return mapped || speciesKo;
   }
 
-  function pickPokemonEn(vm, speciesKo) {
-    if (!speciesKo || !vm.pokemon_list) return speciesKo;
-    var pl = vm.pokemon_list;
-    var pi;
-    for (pi = 0; pi < pl.length; pi++) {
-      var p = pl[pi];
-      if (p && p.kr === speciesKo) {
-        return p.en ? p.en : speciesKo;
-      }
-    }
-    return speciesKo;
-  }
-
   function clampEv(n) {
     n = n | 0;
     if (n < 0) return 0;
@@ -251,17 +37,91 @@
     return n;
   }
 
-  function normName(x) {
-    return String(x == null ? '' : x)
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, '');
+  function num(x) {
+    var n = parseInt(String(x), 10);
+    return isNaN(n) ? 0 : n;
   }
 
   /**
-   * 스마트누오 데미지계산기(Common 번들): v-select 가 attacker.weather / attacker.field 에 한글 문자열로 바인딩됨.
-   * weather_list: 모래바람, 설경, 쾌청, 비바라기 — field_list: 그래스필드, 미스트필드, 사이코필드, 일렉트릭필드
+   * @returns {object|null}
    */
+  function getNuxtState() {
+    try {
+      var nx = window.__NUXT__;
+      if (!nx) return null;
+      if (nx.state && typeof nx.state === 'object') return nx.state;
+      var pl = nx.payload;
+      if (pl && pl.state && typeof pl.state === 'object') return pl.state;
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function isCalculatorContext() {
+    var p = '/';
+    try {
+      p = (location.pathname || '/').replace(/\/+$/, '') || '/';
+    } catch (eCtx) {
+      return false;
+    }
+    if (p === '/' || p === '/index' || p.indexOf('/index.') === 0) return true;
+    if (p === '/speed' || p.indexOf('/speed/') === 0) return true;
+    return false;
+  }
+
+  function calcShellReady(state) {
+    if (!state) return false;
+    var pl = state[KEY_POKE_LIST];
+    if (!Array.isArray(pl) || pl.length === 0) return false;
+    var att = state[KEY_ATT];
+    var def = state[KEY_DEF];
+    if (!att || typeof att !== 'object' || !def || typeof def !== 'object') return false;
+    return isCalculatorContext();
+  }
+
+  /** 한글 종명 1순위, share URL 에 영문 slug 만 온 경우 id / smogon_id / name 폴백. */
+  function findPokemonEntry(state, species) {
+    var list = state[KEY_POKE_LIST];
+    if (!Array.isArray(list)) return null;
+    var k = String(species || '').trim();
+    if (!k) return null;
+    var kLow = k.toLowerCase();
+    var i;
+    for (i = 0; i < list.length; i++) {
+      var p = list[i];
+      if (p && String(p.kr || '').trim() === k) return p;
+    }
+    for (i = 0; i < list.length; i++) {
+      p = list[i];
+      if (!p) continue;
+      if (String(p.id || '').toLowerCase() === kLow) return p;
+      if (String(p.smogon_id || '').toLowerCase() === kLow) return p;
+      if (String(p.name || '').toLowerCase() === kLow) return p;
+    }
+    return null;
+  }
+
+  function deriveSprite(entry) {
+    if (!entry || typeof entry !== 'object') return '';
+    if (entry.sprite) return String(entry.sprite);
+    var id = entry.id != null ? entry.id : entry.smogon_id;
+    if (id != null) {
+      return (
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/' +
+        num(id) +
+        '.png'
+      );
+    }
+    return '';
+  }
+
+  function defaultEvsIvs(evs, ivs) {
+    var e = evs && evs.length >= 6 ? evs : [0, 0, 0, 0, 0, 0];
+    var iv = ivs && ivs.length >= 6 ? ivs : [31, 31, 31, 31, 31, 31];
+    return { evs: e, ivs: iv };
+  }
+
   var WX_INTERNAL_TO_NUO = {
     sun: '쾌청',
     rain: '비바라기',
@@ -286,262 +146,249 @@
     return false;
   }
 
-  function wxReadWeather(vm) {
-    return vm && vm.attacker ? vm.attacker.weather : null;
-  }
-
-  function wxReadField(vm) {
-    return vm && vm.attacker ? vm.attacker.field : null;
-  }
-
-  function wxApplyWeather(vm, internalKey) {
-    if (!vm || !vm.attacker || !internalKey) return;
+  function wxApplyWeather(att, internalKey) {
+    if (!att || !internalKey) return;
     var ko = WX_INTERNAL_TO_NUO[String(internalKey).toLowerCase().trim()];
     if (!ko) return;
-    try {
-      vm.$set(vm.attacker, 'weather', ko);
-    } catch (e) {}
+    att.weather = ko;
   }
 
-  function wxApplyField(vm, internalKey) {
-    if (!vm || !vm.attacker || !internalKey) return;
+  function wxApplyField(att, internalKey) {
+    if (!att || !internalKey) return;
     var ko = FIELD_INTERNAL_TO_NUO[String(internalKey).toLowerCase().trim()];
     if (!ko) return;
-    try {
-      vm.$set(vm.attacker, 'field', ko);
-    } catch (e) {}
+    att.field = ko;
   }
 
-  /**
-   * 페이로드: abilityWeatherKey / abilityTerrainKey (modifiers.json setsWeather / setsTerrain).
-   * 공격측: 날씨·필드 각각 있으면 항상 반영. 수비측: 해당 슬롯이 비어 있을 때만 반영(날씨·필드 독립).
-   */
-  function applyWeatherAndTerrain(vm, pa, pd) {
-    if (!vm) return;
+  function applyWeatherAndTerrain(att, pa, pd) {
+    if (!att) return;
     try {
       if (pa && !pa.error) {
-        if (pa.abilityWeatherKey) wxApplyWeather(vm, pa.abilityWeatherKey);
-        if (pa.abilityTerrainKey) wxApplyField(vm, pa.abilityTerrainKey);
+        if (pa.abilityWeatherKey) wxApplyWeather(att, pa.abilityWeatherKey);
+        if (pa.abilityTerrainKey) wxApplyField(att, pa.abilityTerrainKey);
       }
       if (pd && !pd.error) {
-        if (pd.abilityWeatherKey && wxSlotLooksEmpty(wxReadWeather(vm))) {
-          wxApplyWeather(vm, pd.abilityWeatherKey);
+        if (pd.abilityWeatherKey && wxSlotLooksEmpty(att.weather)) {
+          wxApplyWeather(att, pd.abilityWeatherKey);
         }
-        if (pd.abilityTerrainKey && wxSlotLooksEmpty(wxReadField(vm))) {
-          wxApplyField(vm, pd.abilityTerrainKey);
+        if (pd.abilityTerrainKey && wxSlotLooksEmpty(att.field)) {
+          wxApplyField(att, pd.abilityTerrainKey);
         }
       }
     } catch (eWx) {}
   }
 
-  /** 스마트누오 데미지계산기: move.damage_class 는 "physical"|"special"|"status" 문자열로 비교함 (객체 아님). */
-  function smartNuoMoveDamageClassStr(physical) {
-    return physical ? 'physical' : 'special';
+  /** NUXT 의 state + data 양쪽에서 도감 배열 검색 — ability/equipment 는 dump 상 data 측에만 있음. */
+  function lookupDexArray(state, key) {
+    if (state && Array.isArray(state[key])) return state[key];
+    try {
+      var nx = typeof window !== 'undefined' ? window.__NUXT__ : null;
+      if (nx && nx.data && Array.isArray(nx.data[key])) return nx.data[key];
+    } catch (e) {}
+    return null;
   }
 
-  /**
-   * 페이지에 이미 채워진 attacker 의 분류를 추론.
-   * 우선순위: vm.damage_class (top-level) → vm.attacker.move.damage_class.
-   * 본 라운드의 “defender 단독 적용 시 incomingPhysical 디폴트(true)를 페이지 실제 상태로 override” 에 사용.
-   * @returns {'physical'|'special'|null}
-   */
-  function inferAttackerDamageClass(vm) {
-    if (!vm) return null;
-    var top = vm.damage_class;
-    if (top === 'physical' || top === 'special') return top;
-    var am = vm.attacker && vm.attacker.move;
-    if (am && (am.damage_class === 'physical' || am.damage_class === 'special')) {
-      return am.damage_class;
+  function lookupAbilityObj(state, kr, defenderSide) {
+    var key = defenderSide ? 'ability.cal_def' : 'ability.cal_att';
+    var arr = lookupDexArray(state, key);
+    var k = String(kr || '').trim();
+    if (!k) return { en: '?', kr: '' };
+    if (!arr) return { en: '?', kr: k };
+    var i;
+    for (i = 0; i < arr.length; i++) {
+      var a = arr[i];
+      if (a && String(a.kr || '').trim() === k) return a;
+    }
+    return { en: '?', kr: k };
+  }
+
+  function lookupEquipmentObj(state, kr, defenderSide) {
+    var key = defenderSide ? 'equipment.cal_def' : 'equipment.cal_att';
+    var arr = lookupDexArray(state, key);
+    var k = String(kr || '').trim();
+    if (!k) return { en: '?', kr: '' };
+    if (!arr) return { en: '?', kr: k };
+    var i;
+    for (i = 0; i < arr.length; i++) {
+      var a = arr[i];
+      if (a && String(a.kr || '').trim() === k) return a;
+    }
+    return { en: '?', kr: k };
+  }
+
+  /** Nuxt 는 `$smove_dex.row_map` 처럼 점 포함 단일 키. kr_map 은 slug → 한글. */
+  function findMoveRow(state, mp) {
+    if (!mp) return null;
+    var rm = state['$smove_dex.row_map'];
+    var km = state['$smove_dex.kr_map'];
+    if (rm && mp.name) {
+      var slug = String(mp.name).trim();
+      if (slug && rm[slug]) return rm[slug];
+      // 사이트 row_map 키는 dash 제거 slug. SW 페이로드는 play-rough 처럼 dash 포함 가능.
+      var noDash = slug.replace(/-/g, '');
+      if (noDash && noDash !== slug && rm[noDash]) return rm[noDash];
+    }
+    var krStr = String(mp.kr || '').trim();
+    if (km && krStr) {
+      var key;
+      for (key in km) {
+        if (Object.prototype.hasOwnProperty.call(km, key) && km[key] === krStr) {
+          if (rm && rm[key]) return rm[key];
+          break;
+        }
+      }
     }
     return null;
   }
 
-  function patchMoveDamageClass(vm, moveObj, physical) {
-    if (!moveObj || typeof moveObj !== 'object') return;
-    var dcStr = smartNuoMoveDamageClassStr(physical);
-    vm.$set(moveObj, 'damage_class', dcStr);
+  /** 사이트 STAB 판정이 move.type.en 과 attacker.types[i] 를 대소문자까지 동일 비교함 → 영문 타입은 PascalCase 로 맞춤. */
+  function capitalizeType(s) {
+    if (!s) return '';
+    var t = String(s).trim();
+    if (!t) return '';
+    return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
   }
 
-  function ensureSideMovePlaceholder(vm, side, physical) {
-    var mon = side === 'defender' ? vm.defender : vm.attacker;
-    if (!mon) return;
-    var stub = {
-      name: 'tackle',
-      kr: '몸통박치기',
-      power: 40,
-      type: '노말',
-      damage_class: smartNuoMoveDamageClassStr(physical),
-    };
-    var propNames = ['move', 'skill', 'technique', 'selectedMove', 'attackMove', 'currentMove'];
-    var i;
-    for (i = 0; i < propNames.length; i++) {
-      var k = propNames[i];
-      if (!Object.prototype.hasOwnProperty.call(mon, k)) continue;
-      var cur = mon[k];
-      if (cur == null || typeof cur !== 'object') {
-        vm.$set(mon, k, Object.assign({}, stub));
-      } else {
-        patchMoveDamageClass(vm, cur, physical);
-      }
+  /** 사이트 기대: move.name 은 도감 row 객체, damage_class 는 대문자 시작. */
+  function buildMoveObject(row, mp, physAtk) {
+    var dcStr = 'Physical';
+    if (physAtk === false) dcStr = 'Special';
+    else if (physAtk === true) dcStr = 'Physical';
+    else if (mp && mp.damageClass === 'special') dcStr = 'Special';
+    else if (mp && mp.damageClass === 'physical') dcStr = 'Physical';
+
+    // typeEn: nested mp.type.en → SW top-level mp.typeEn (소문자) → row.type 문자열. 기본 'Normal' 은 전부 실패 후.
+    var typeEn = '';
+    var typeKo = '';
+    if (mp && mp.type && typeof mp.type === 'object') {
+      if (mp.type.kr) typeKo = String(mp.type.kr).trim();
+      if (mp.type.en) typeEn = capitalizeType(mp.type.en);
     }
-    if (mon.move == null || typeof mon.move !== 'object') {
-      vm.$set(mon, 'move', Object.assign({}, stub));
+    if (!typeKo && mp && mp.typeKo) typeKo = String(mp.typeKo).trim();
+    if (!typeEn && mp && mp.typeEn) typeEn = capitalizeType(mp.typeEn);
+    if (!typeKo && row && row.type) {
+      if (typeof row.type === 'object' && row.type.kr) typeKo = String(row.type.kr).trim();
+      else if (typeof row.type === 'string') typeKo = row.type;
+    }
+    if (!typeEn && row && typeof row.type === 'string') {
+      typeEn = capitalizeType(row.type);
+    }
+    if (!typeEn) typeEn = 'Normal';
+    if (!typeKo) typeKo = '노말';
+
+    // SW 가 보낸 rich row 가 있으면 최우선. 사이트 특성(rule)이 flags.punch 등을 본다 —
+    // row_map placeholder 는 flags 가 없어 철주먹 등 배율이 빠짐.
+    var nameObj;
+    if (mp && mp.richNameRow && typeof mp.richNameRow === 'object') {
+      nameObj = mp.richNameRow;
+    } else if (row && typeof row === 'object') {
+      nameObj = row;
     } else {
-      patchMoveDamageClass(vm, mon.move, physical);
+      nameObj = {
+        id: (mp && mp.name) || '',
+        name: '',
+        kr: (mp && mp.kr) || '',
+        type: typeEn,
+        basePower: (mp && mp.power | 0) || 40,
+      };
     }
-    if (Array.isArray(mon.moves)) {
-      for (i = 0; i < mon.moves.length; i++) {
-        if (mon.moves[i] && typeof mon.moves[i] === 'object') patchMoveDamageClass(vm, mon.moves[i], physical);
-      }
-    }
-    ['attacks', 'skills', 'techniques'].forEach(function (arrKey) {
-      var arr = mon[arrKey];
-      if (!Array.isArray(arr)) return;
-      var j;
-      for (j = 0; j < arr.length; j++) {
-        if (arr[j] && typeof arr[j] === 'object') patchMoveDamageClass(vm, arr[j], physical);
-      }
-    });
-  }
 
-  function ensureAttackerMovePlaceholder(vm, physical) {
-    ensureSideMovePlaceholder(vm, 'attacker', physical);
-  }
+    var power =
+      mp && mp.power != null ? mp.power | 0 : row && row.basePower != null ? row.basePower | 0 : 40;
 
-  function ensureDefenderMovePlaceholder(vm, physical) {
-    ensureSideMovePlaceholder(vm, 'defender', physical);
-  }
-
-  function applyAttackerMovePayload(vm, mp) {
-    if (!mp || !vm.attacker) return;
-    var dcStr = mp.damageClass === 'special' ? 'special' : 'physical';
-    var enToKo = {
-      normal: '노말',
-      fire: '불꽃',
-      water: '물',
-      grass: '풀',
-      electric: '전기',
-      ice: '얼음',
-      fighting: '격투',
-      poison: '독',
-      ground: '땅',
-      flying: '비행',
-      psychic: '에스퍼',
-      bug: '벌레',
-      rock: '바위',
-      ghost: '고스트',
-      dragon: '드래곤',
-      dark: '악',
-      steel: '강철',
-      fairy: '페어리',
-      stellar: '스텔라',
-    };
-    var moveTypeKoSet = Object.create(null);
-    var sk;
-    for (sk in enToKo) {
-      if (Object.prototype.hasOwnProperty.call(enToKo, sk)) moveTypeKoSet[enToKo[sk]] = 1;
-    }
-    var typeKo = mp.typeKo != null ? String(mp.typeKo).trim() : '';
-    if (!typeKo && mp.type && typeof mp.type === 'object' && mp.type.kr != null) {
-      typeKo = String(mp.type.kr).trim();
-    }
-    if (!typeKo && mp.type && typeof mp.type === 'object' && mp.type.name != null) {
-      var nm = String(mp.type.name).trim();
-      var nml = nm.toLowerCase();
-      if (enToKo[nml]) typeKo = enToKo[nml];
-      else if (moveTypeKoSet[nm]) typeKo = nm;
-    }
-    if (!typeKo && typeof mp.type === 'string') {
-      var ts = String(mp.type).trim().toLowerCase();
-      if (enToKo[ts]) typeKo = enToKo[ts];
-    }
-    if (!typeKo) {
-      var typeEn = String(
-        mp.typeEn != null
-          ? mp.typeEn
-          : mp.type && typeof mp.type === 'object' && mp.type.en != null
-            ? mp.type.en
-            : 'normal'
-      ).toLowerCase();
-      typeKo = enToKo[typeEn] || '노말';
-    }
-    var merged = {
-      name: mp.name || 'tackle',
-      kr: mp.kr || '',
-      power: mp.power != null ? mp.power | 0 : 40,
-      type: typeKo,
+    return {
+      name: nameObj,
+      type: { en: typeEn, kr: typeKo },
+      power: power,
       damage_class: dcStr,
     };
-    vm.$set(vm.attacker, 'move', merged);
-    try {
-      if (typeof vm.damage_class_update_handler === 'function') {
-        vm.damage_class_update_handler(dcStr);
-      } else if (Object.prototype.hasOwnProperty.call(vm, 'damage_class')) {
-        vm.$set(vm, 'damage_class', dcStr);
-      }
-    } catch (eSync) {}
-    try {
-      if (typeof vm.$nextTick === 'function') {
-        vm.$nextTick(function () {
-          try {
-            if (typeof vm.loadMove === 'function') vm.loadMove();
-          } catch (eLm) {}
-        });
-      } else if (typeof vm.loadMove === 'function') {
-        vm.loadMove();
-      }
-    } catch (eTick) {}
   }
 
-  function trySyncDerived(vm) {
-    try {
-      if (typeof vm.syncNuoDamageDerivedState === 'function') {
-        vm.syncNuoDamageDerivedState();
-      }
-    } catch (e) {}
+  function inferIncomingPhysicalFromAttacker(att) {
+    if (!att || !att.move) return null;
+    var dc = String(att.move.damage_class || '').toLowerCase();
+    if (dc === 'special') return false;
+    if (dc === 'physical') return true;
+    return null;
   }
 
-  function applyAttackerScalars(vm, payload, physical) {
-    var evs = payload.evs && payload.evs.length >= 6 ? payload.evs : [0, 0, 0, 0, 0, 0];
-    var ivs = payload.ivs || [31, 31, 31, 31, 31, 31];
-    vm.$set(vm.attacker, 'effort', clampEv(physical ? evs[1] : evs[3]));
-    vm.$set(vm.attacker, 'individual_value', physical ? ivs[1] | 0 : ivs[3] | 0);
-    if (payload.level != null && payload.level > 0) vm.$set(vm.attacker, 'level', payload.level | 0);
-    if (payload.abilityKo) vm.$set(vm.attacker, 'ability', payload.abilityKo);
-    if (payload.itemKo) vm.$set(vm.attacker, 'equipment', payload.itemKo);
-    var ap = payload.attackerPersonality;
-    if (ap === 0.9 || ap === 1 || ap === 1.1) vm.$set(vm.attacker, 'personality', ap);
-  }
-
-  function applyDefenderScalars(vm, payload, physicalIncoming) {
-    var evs = payload.evs && payload.evs.length >= 6 ? payload.evs : [0, 0, 0, 0, 0, 0];
-    var ivs = payload.ivs || [31, 31, 31, 31, 31, 31];
-    vm.$set(vm.defender, 'effort_for_hp', clampEv(evs[0]));
-    vm.$set(vm.defender, 'effort_for_defend', clampEv(physicalIncoming ? evs[2] : evs[4]));
-    vm.$set(vm.defender, 'individual_value_for_hp', ivs[0] | 0);
-    vm.$set(vm.defender, 'individual_value_for_defend', physicalIncoming ? ivs[2] | 0 : ivs[4] | 0);
-    // 본 라운드(#4 추가 픽스): SW 가 phys/spec personality scalar 양쪽을 보내면 우리가 page
-    // 실제 분류(physicalIncoming) 에 맞춰 픽업. 옛 페이로드(`defenderPersonality` 단일) 폴백.
-    var dp;
-    if (physicalIncoming && payload.defenderPersonalityPhys != null) {
-      dp = payload.defenderPersonalityPhys;
-    } else if (!physicalIncoming && payload.defenderPersonalitySpec != null) {
-      dp = payload.defenderPersonalitySpec;
-    } else {
-      dp = payload.defenderPersonality;
+  function applyAttackerFromPayload(state, pa, physAtk, warnings) {
+    var att = state[KEY_ATT];
+    var species = speciesKoForAttacker(pa.speciesKo);
+    var entry = findPokemonEntry(state, species);
+    if (!entry) {
+      return { ok: false, error: 'species_not_in_dex' };
     }
-    if (dp === 0.9 || dp === 1 || dp === 1.1) vm.$set(vm.defender, 'personality', dp);
-    if (payload.level != null && payload.level > 0) vm.$set(vm.defender, 'level', payload.level | 0);
-    if (payload.abilityKo) vm.$set(vm.defender, 'ability', payload.abilityKo);
-    if (payload.itemKo) vm.$set(vm.defender, 'equipment', payload.itemKo);
+
+    att.name = entry;
+    if (entry.types) att.types = entry.types;
+    att.sprite = deriveSprite(entry);
+
+    var eiA = defaultEvsIvs(pa.evs, pa.ivs);
+    att.effort = clampEv(physAtk ? eiA.evs[1] : eiA.evs[3]);
+    att.individual_value = physAtk ? eiA.ivs[1] | 0 : eiA.ivs[3] | 0;
+    if (pa.level != null && pa.level > 0) att.level = pa.level | 0;
+
+    var ap = pa.attackerPersonality;
+    if (ap === 0.9 || ap === 1 || ap === 1.1) att.personality = ap;
+
+    // move 를 ability/equipment 보다 먼저 set — 그 다음 microtask 에서 move+ability 재주입으로 Vue 배치 후 재평가 유도.
+    var moveObj = null;
+    if (pa.attackerMove) {
+      var row = findMoveRow(state, pa.attackerMove);
+      moveObj = buildMoveObject(row, pa.attackerMove, physAtk);
+      att.move = moveObj;
+    }
+    var abilityObj = lookupAbilityObj(state, pa.abilityKo, false);
+    var equipmentObj = lookupEquipmentObj(state, pa.itemKo, false);
+    att.ability = abilityObj;
+    att.equipment = equipmentObj;
+
+    Promise.resolve().then(function () {
+      try {
+        if (moveObj) att.move = Object.assign({}, moveObj);
+        att.ability = Object.assign({}, abilityObj);
+      } catch (eKick) {}
+    });
+
+    return { ok: true };
   }
 
-  function syncScalars(vm, pa, pd, physAtk, hasD, physDefIncoming) {
-    if (physDefIncoming === undefined || physDefIncoming === null) physDefIncoming = physAtk;
-    ensureAttackerMovePlaceholder(vm, physAtk);
-    if (hasD) ensureDefenderMovePlaceholder(vm, physAtk);
-    if (pa) applyAttackerScalars(vm, pa, physAtk);
-    if (hasD && pd) applyDefenderScalars(vm, pd, physDefIncoming);
+  function applyDefenderFromPayload(state, pd, physInc, warnings) {
+    var def = state[KEY_DEF];
+    var entry = findPokemonEntry(state, pd.speciesKo);
+    if (!entry) {
+      return { ok: false, error: 'species_not_in_def_dex' };
+    }
+
+    def.name = entry;
+    if (entry.types) def.types = entry.types;
+    def.sprite = deriveSprite(entry);
+
+    var eiD = defaultEvsIvs(pd.evs, pd.ivs);
+    def.hp_effort = clampEv(eiD.evs[0]);
+    def.hp_individual_value = eiD.ivs[0] | 0;
+    def.effort = clampEv(physInc ? eiD.evs[2] : eiD.evs[4]);
+    def.individual_value = physInc ? eiD.ivs[2] | 0 : eiD.ivs[4] | 0;
+
+    if (pd.level != null && pd.level > 0) def.level = pd.level | 0;
+
+    var dp = pd.defenderPersonality;
+    if (dp === 0.9 || dp === 1 || dp === 1.1) def.personality = dp;
+
+    var defAbility = lookupAbilityObj(state, pd.abilityKo, true);
+    var defEquipment = lookupEquipmentObj(state, pd.itemKo, true);
+    def.ability = defAbility;
+    def.equipment = defEquipment;
+
+    Promise.resolve().then(function () {
+      try {
+        def.ability = Object.assign({}, defAbility);
+        def.equipment = Object.assign({}, defEquipment);
+      } catch (eKickDef) {}
+    });
+
+    return { ok: true };
   }
 
   function postResult(result, requestId) {
@@ -558,134 +405,7 @@
     );
   }
 
-  /** SPA·데이터 로딩: VM만 잡히고 pokemon_list 가 비어 있으면 pickPokemonEn 이 한글 그대로 들어가 로드가 실패하는 경우가 있음. */
-  var CALC_READY_MAX_ATTEMPTS = 55;
-  var CALC_READY_INTERVAL_MS = 85;
-
-  function calcShellReady(vm) {
-    if (!vm || !isCalcVmShape(vm)) return false;
-    if (!vm.pokemon_list || !vm.pokemon_list.length) return false;
-    var ctxOk = isCalculatorContext();
-    if (ctxOk) return true;
-    return typeof vm.loadAttacker === 'function' && typeof vm.loadDefender === 'function';
-  }
-
-  var MAX_CALC_BROADCAST_VMS = 3;
-
-  function collectBroadcastTargets() {
-    var entries = collectCalcVmEntriesMerged().filter(function (e) {
-      return calcShellReady(e.vm);
-    });
-    var seen = new Set();
-    var uniq = [];
-    var i;
-    for (i = 0; i < entries.length; i++) {
-      var ent = entries[i];
-      if (!ent.vm || seen.has(ent.vm)) continue;
-      seen.add(ent.vm);
-      uniq.push(ent);
-    }
-    uniq.sort(function (a, b) {
-      return scoreEntry(b) - scoreEntry(a);
-    });
-    var vms = [];
-    for (i = 0; i < uniq.length && i < MAX_CALC_BROADCAST_VMS; i++) {
-      vms.push(uniq[i].vm);
-    }
-    return vms;
-  }
-
-  function waitForCalcTargets(then) {
-    var n = 0;
-    function tick() {
-      n++;
-      var vms = collectBroadcastTargets();
-      if (vms.length > 0) {
-        then(vms);
-        return;
-      }
-      if (n >= CALC_READY_MAX_ATTEMPTS) {
-        then(null);
-        return;
-      }
-      setTimeout(tick, CALC_READY_INTERVAL_MS);
-    }
-    tick();
-  }
-
-  function runApplyCalcFillBroadcast(job, vms, done) {
-    if (!vms || !vms.length) {
-      done({ ok: false, error: 'vue_calc_not_found' });
-      return;
-    }
-    var idx = 0;
-    var anyOk = false;
-    var mergedWarnings = [];
-    var lastErr = null;
-    function step() {
-      if (idx >= vms.length) {
-        if (anyOk) {
-          done({ ok: true, warnings: mergedWarnings.length ? mergedWarnings : undefined });
-        } else {
-          done({
-            ok: false,
-            error: lastErr || 'calc_broadcast_all_failed',
-            warnings: mergedWarnings.length ? mergedWarnings : undefined,
-          });
-        }
-        return;
-      }
-      var vm = vms[idx++];
-      runApplyCalcFillCoreOneVm(job, vm, function (r) {
-        if (r && r.ok) {
-          anyOk = true;
-          if (r.warnings && r.warnings.length) {
-            var wi;
-            for (wi = 0; wi < r.warnings.length; wi++) {
-              mergedWarnings.push(r.warnings[wi]);
-            }
-          }
-        } else {
-          if (r && r.error) lastErr = r.error;
-          if (r && r.warnings && r.warnings.length) {
-            var wj;
-            for (wj = 0; wj < r.warnings.length; wj++) {
-              mergedWarnings.push(r.warnings[wj]);
-            }
-          }
-        }
-        step();
-      });
-    }
-    step();
-  }
-
-  function runApplyCalcFill(job, done) {
-    waitForCalcTargets(function (vms) {
-      if (!vms || !vms.length) {
-        var cand = collectCalcVmEntriesMerged();
-        var anyVm = null;
-        var hi;
-        for (hi = 0; hi < cand.length; hi++) {
-          if (cand[hi].vm && isCalcVmShape(cand[hi].vm)) {
-            anyVm = cand[hi].vm;
-            break;
-          }
-        }
-        if (!anyVm) {
-          done({ ok: false, error: 'vue_calc_not_found' });
-        } else if (!anyVm.pokemon_list || !anyVm.pokemon_list.length) {
-          done({ ok: false, error: 'calc_dex_not_ready' });
-        } else {
-          done({ ok: false, error: 'not_calculator_view' });
-        }
-        return;
-      }
-      runApplyCalcFillBroadcast(job, vms, done);
-    });
-  }
-
-  function runApplyCalcFillCoreOneVm(job, vm, done) {
+  function runApplyCalcFillCore(state, job, done) {
     var payloads = job.payloads || {};
     var onlyAttacker = !!job.onlyAttacker;
     var onlyDefender = !!job.onlyDefender;
@@ -702,20 +422,15 @@
       if (pdFull && typeof pdFull.incomingPhysical === 'boolean') physDef = pdFull.incomingPhysical;
       else physDef = physAtk;
     } else if (pdFull && typeof pdFull.incomingPhysical === 'boolean') {
-      // defender 단독 적용 (슬롯 경로 또는 onlyDefender URL 경로). SW 가 보낸
-      // pdFull.incomingPhysical 은 attacker 정보 없을 때 디폴트(true) 다 — 페이지에 이미
-      // 채워진 vm.attacker 의 실제 damage_class 를 source of truth 로 우선 사용.
-      // 사이트가 비공식적이지만 안정적으로 노출하는 vm.damage_class / vm.attacker.move.damage_class
-      // 두 자리 모두 점검 (set 시에도 두 곳을 모두 갱신함 — line 451 / 458).
-      var inferredDc = inferAttackerDamageClass(vm);
-      if (inferredDc === 'special') {
+      var attRef = state[KEY_ATT];
+      var inferred = inferIncomingPhysicalFromAttacker(attRef);
+      if (inferred === false) {
         physAtk = false;
         physDef = false;
-      } else if (inferredDc === 'physical') {
+      } else if (inferred === true) {
         physAtk = true;
         physDef = true;
       } else {
-        // 페이지 fresh / 추론 실패 → SW 디폴트 그대로
         physAtk = pdFull.incomingPhysical;
         physDef = pdFull.incomingPhysical;
       }
@@ -736,135 +451,50 @@
       return;
     }
 
-    var pa = hasA ? paFull : null;
-    var pd = hasD ? pdFull : null;
-
-    var RESYNC_TAIL_MS = 90;
-
-    function finishSuccess() {
-      trySyncDerived(vm);
-      done({ ok: true, warnings: warnings });
-    }
-
-    function scheduleDelayedResyncThenFinish(pax, pdx) {
-      setTimeout(function () {
-        try {
-          syncScalars(vm, pax, pdx, physAtk, !!pdx, physDef);
-          applyWeatherAndTerrain(vm, pax, pdx);
-          trySyncDerived(vm);
-          finishSuccess();
-        } catch (e) {
-          done({ ok: false, error: String((e && e.message) || e), warnings: warnings });
-        }
-      }, RESYNC_TAIL_MS);
-    }
-
     try {
+      var att = state[KEY_ATT];
       if (hasA) {
-        vm.$set(vm.attacker, 'name', pickPokemonEn(vm, speciesKoForAttacker(pa.speciesKo)));
-        ensureAttackerMovePlaceholder(vm, physAtk);
-        if (typeof vm.loadAttacker === 'function') vm.loadAttacker();
-        ensureAttackerMovePlaceholder(vm, physAtk);
-        vm.$nextTick(function () {
-          try {
-            ensureAttackerMovePlaceholder(vm, physAtk);
-            vm.$set(vm.attacker, 'name', pickPokemonEn(vm, speciesKoForAttacker(pa.speciesKo)));
-            applyAttackerScalars(vm, pa, physAtk);
-            if (pa.attackerMove) applyAttackerMovePayload(vm, pa.attackerMove);
-            vm.$nextTick(function () {
-              try {
-                ensureAttackerMovePlaceholder(vm, physAtk);
-                vm.$set(vm.attacker, 'name', pickPokemonEn(vm, speciesKoForAttacker(pa.speciesKo)));
-                if (pa.attackerMove) applyAttackerMovePayload(vm, pa.attackerMove);
-                if (hasD) {
-                  ensureDefenderMovePlaceholder(vm, physAtk);
-                  vm.$set(vm.defender, 'name', pickPokemonEn(vm, pd.speciesKo));
-                  if (typeof vm.loadDefender === 'function') vm.loadDefender();
-                  ensureDefenderMovePlaceholder(vm, physAtk);
-                  vm.$nextTick(function () {
-                    try {
-                      ensureDefenderMovePlaceholder(vm, physAtk);
-                      vm.$set(vm.defender, 'name', pickPokemonEn(vm, pd.speciesKo));
-                      applyDefenderScalars(vm, pd, physDef);
-                      vm.$nextTick(function () {
-                        try {
-                          syncScalars(vm, pa, pd, physAtk, true, physDef);
-                          if (pa.attackerMove) applyAttackerMovePayload(vm, pa.attackerMove);
-                          trySyncDerived(vm);
-                          scheduleDelayedResyncThenFinish(pa, pd);
-                        } catch (e) {
-                          done({ ok: false, error: String((e && e.message) || e), warnings: warnings });
-                        }
-                      });
-                    } catch (e) {
-                      done({ ok: false, error: String((e && e.message) || e), warnings: warnings });
-                    }
-                  });
-                } else {
-                  syncScalars(vm, pa, null, physAtk, false);
-                  if (pa.attackerMove) applyAttackerMovePayload(vm, pa.attackerMove);
-                  trySyncDerived(vm);
-                  scheduleDelayedResyncThenFinish(pa, null);
-                }
-              } catch (e) {
-                done({ ok: false, error: String((e && e.message) || e), warnings: warnings });
-              }
-            });
-          } catch (e) {
-            done({ ok: false, error: String((e && e.message) || e), warnings: warnings });
-          }
-        });
-      } else if (hasD) {
-        var pdOnly = pd;
-        ensureAttackerMovePlaceholder(vm, physAtk);
-        ensureDefenderMovePlaceholder(vm, physAtk);
-
-        function applyDefenderBranch() {
-          vm.$set(vm.defender, 'name', pickPokemonEn(vm, pdOnly.speciesKo));
-          ensureDefenderMovePlaceholder(vm, physAtk);
-          if (typeof vm.loadDefender === 'function') vm.loadDefender();
-          ensureDefenderMovePlaceholder(vm, physAtk);
-          vm.$nextTick(function () {
-            try {
-              ensureAttackerMovePlaceholder(vm, physAtk);
-              ensureDefenderMovePlaceholder(vm, physAtk);
-              vm.$set(vm.defender, 'name', pickPokemonEn(vm, pdOnly.speciesKo));
-              applyDefenderScalars(vm, pdOnly, physDef);
-              vm.$nextTick(function () {
-                try {
-                  syncScalars(vm, null, pdOnly, physAtk, true, physDef);
-                  trySyncDerived(vm);
-                  scheduleDelayedResyncThenFinish(null, pdOnly);
-                } catch (e) {
-                  done({ ok: false, error: String((e && e.message) || e), warnings: warnings });
-                }
-              });
-            } catch (e) {
-              done({ ok: false, error: String((e && e.message) || e), warnings: warnings });
-            }
-          });
+        var ra = applyAttackerFromPayload(state, paFull, physAtk, warnings);
+        if (!ra.ok) {
+          done({ ok: false, error: ra.error, warnings: warnings });
+          return;
         }
+        applyWeatherAndTerrain(att, paFull, hasD ? pdFull : null);
+      }
 
-        var atkEmpty = !normName(vm.attacker && vm.attacker.name);
-        if (atkEmpty && vm.pokemon_list && vm.pokemon_list[0]) {
-          var ph =
-            (vm.pokemon_list[0].en && String(vm.pokemon_list[0].en).trim()) ||
-            (vm.pokemon_list[0].kr && String(vm.pokemon_list[0].kr).trim()) ||
-            'pikachu';
-          vm.$set(vm.attacker, 'name', ph);
-          ensureAttackerMovePlaceholder(vm, physAtk);
-          if (typeof vm.loadAttacker === 'function') vm.loadAttacker();
-          ensureAttackerMovePlaceholder(vm, physAtk);
-          vm.$nextTick(function () {
-            setTimeout(applyDefenderBranch, 70);
-          });
-        } else {
-          applyDefenderBranch();
+      if (hasD) {
+        var rd = applyDefenderFromPayload(state, pdFull, physDef, warnings);
+        if (!rd.ok) {
+          done({ ok: false, error: rd.error, warnings: warnings });
+          return;
+        }
+        if (!hasA) {
+          applyWeatherAndTerrain(att, null, pdFull);
         }
       }
+
+      done({ ok: true, warnings: warnings.length ? warnings : undefined });
     } catch (e) {
       done({ ok: false, error: String((e && e.message) || e), warnings: warnings });
     }
+  }
+
+  function runApplyCalcFill(job, done) {
+    var state = getNuxtState();
+    if (!state) {
+      done({ ok: false, error: 'nuxt_state_not_found' });
+      return;
+    }
+    if (!calcShellReady(state)) {
+      var pl = state[KEY_POKE_LIST];
+      if (!Array.isArray(pl) || pl.length === 0) {
+        done({ ok: false, error: 'calc_dex_not_ready' });
+      } else {
+        done({ ok: false, error: 'vue_calc_not_found' });
+      }
+      return;
+    }
+    runApplyCalcFillCore(state, job, done);
   }
 
   function pumpQueue() {

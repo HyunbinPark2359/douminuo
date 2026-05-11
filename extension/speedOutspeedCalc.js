@@ -1,6 +1,6 @@
 /**
  * 팀빌더: 우측 편집 패널 스피드 실수값을 읽어 3 프리셋(최속/준속/무보정)으로
- * outspeed 가능한 최대 상대 base 스피드를 계산, 실수값 `.v-input` 래퍼 우측에
+ * outspeed 가능한 최대 상대 base 스피드를 계산하고, 스피드 실수 입력 wrap 우측에
  * inline 으로 붙어있는 Shadow DOM 패널에 표시.
  *
  * 프리셋 공식: `floor((base + 20 + EV) * nature) < S` 를 만족하는 최대 정수 base.
@@ -17,9 +17,8 @@
  *   좌표 추적 불필요.
  *
  * 스피드 실수값 읽기:
- *   "스피드 수치" <p> 라벨 기준 DOM 트래버설 → 같은 row 의 입력 셀에서
- *   `input[disabled][readonly][type="text"]` → 그 `.v-input` 래퍼.
- *   Vuetify 자동 ID(input-2673 등)는 언제든 바뀌므로 사용 안 함.
+ *   Phase 2.C: 사이트 Tailwind 전환으로 라벨 트래버설 폐기 → 고정 XPath 로 입력 칸
+ *   wrap(div, 자식 input) 을 집고 `readSpeedFromWrap` 이 동일 selector 로 값 읽음.
  *
  * 폴링 200ms: teamBuilderFill 과 동일 전략. Vuetify 가 포켓몬 전환 시 래퍼를
  * 교체하면 tick 이 감지해서 호스트를 재장착.
@@ -343,9 +342,8 @@
       if (wrap) {
         var S = readSpeedFromWrap(wrap);
         if (Number.isFinite(S)) {
-          var card = findCardRoot(wrap);
-          var abName = readHiddenByLabel(card, '특성');
-          var itName = readHiddenByLabel(card, '도구');
+          var abName = readInputValueByXPath(XPATH_SLOT_ABILITY_INPUT);
+          var itName = readInputValueByXPath(XPATH_SLOT_ITEM_INPUT);
           var F = computeFinal(S, abName, abilityOn, itName, itemOn);
           if (Number.isFinite(F) && F > 0) {
             var pn = presetEvNat(slot);
@@ -531,83 +529,77 @@
   }
 
   /**
-   * 우측 편집 패널 "스피드 수치" 실수값 `.v-input` 래퍼 반환. 못 찾으면 null.
+   * 우측 편집 패널 "스피드 수치" 실수값 입력 wrap 반환. 못 찾으면 null.
    *
-   * F9: 마지막으로 찾은 wrap 이 여전히 DOM 에 살아있고 우리가 기대하는 모양이면 그대로 재사용.
-   * 200ms tick 마다 전 문서 `p.mb-0` selector + DOM walk 을 도는 부담을 줄인다 — 정상 케이스
-   * (포켓몬 전환 없음) 에선 캐시 hit, Vuetify가 wrap 을 교체하면 isConnected 로 자동 미스.
+   * Phase 2.C (2026-05-09): 사이트 Tailwind 마이그레이션으로 옛 라벨 트래버스 깨짐.
+   * 사용자 제공 XPath 직접 사용 — ghost ring 의 선례. 매우 싸고 정확.
+   *
+   * F9 캐시 유지: lastWrap.isConnected 면 재사용, 그게 깨지면 XPath 재실행.
    */
   function findSpeedRealWrap() {
     if (lastWrap && lastWrap.isConnected) {
-      var cachedInput = lastWrap.querySelector('input[disabled][readonly][type="text"]');
+      var cachedInput = lastWrap.querySelector('input');
       if (cachedInput) return lastWrap;
     }
-    var ps = document.querySelectorAll('p.mb-0');
-    var speedLabel = null;
-    for (var i = 0; i < ps.length; i++) {
-      if ((ps[i].textContent || '').trim() === '스피드 수치') {
-        speedLabel = ps[i];
-        break;
-      }
+    var xpath = '/html/body/div[1]/div/main/div/div[3]/div/div[3]/div[3]/div[2]/div[4]';
+    try {
+      var result = document.evaluate(
+        xpath,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+      );
+      var node = result && result.singleNodeValue;
+      if (!node || node.nodeType !== 1) return null;
+      if (!node.querySelector('input')) return null;
+      return node;
+    } catch (e) {
+      return null;
     }
-    if (!speedLabel) return null;
-
-    var labelCell = speedLabel.parentElement;
-    var labelRow = labelCell && labelCell.parentElement;
-    if (!labelRow) return null;
-
-    /** 라벨 row 의 flex 셀만 수집 (우상단 absolute 뱃지 `SP 66/66` 제외) */
-    var flexCells = [];
-    var kids = labelRow.children;
-    for (var k = 0; k < kids.length; k++) {
-      var style = kids[k].getAttribute('style') || '';
-      if (/flex:\s*1\s+1\s+0%/.test(style)) flexCells.push(kids[k]);
-    }
-    var idx = flexCells.indexOf(labelCell);
-    if (idx < 0) return null;
-
-    var inputRow = labelRow.nextElementSibling;
-    if (!inputRow) return null;
-    var inputCells = inputRow.querySelectorAll(':scope > div.d-flex.align-center');
-    var cell = inputCells[idx];
-    if (!cell) return null;
-
-    var realInput = cell.querySelector('input[disabled][readonly][type="text"]');
-    if (!realInput) return null;
-    return realInput.closest('.v-input');
   }
 
-  /** 주어진 `.v-input` 래퍼에서 실수값 정수 추출. 못 읽으면 null. */
+  /** 우측 편집 패널 active 슬롯 — 특성·도구 입력 (Tailwind; XPath 고정). DOM 변경 시 여기만 수정. */
+  var XPATH_SLOT_ABILITY_INPUT =
+    '/html/body/div[1]/div/main/div/div[3]/div/div[4]/div/div[1]/div/input';
+  var XPATH_SLOT_ITEM_INPUT =
+    '/html/body/div[1]/div/main/div/div[3]/div/div[4]/div/div[2]/div/input';
+
+  /** XPath 로 element 찾고 .value 또는 textContent 반환. 못 찾으면 빈 string. */
+  function readInputValueByXPath(xpath) {
+    try {
+      var result = document.evaluate(
+        xpath,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+      );
+      var node = result && result.singleNodeValue;
+      if (!node) return '';
+      var raw =
+        node.value != null ? node.value : (node.getAttribute && node.getAttribute('value')) || '';
+      if (!raw && node.textContent) raw = node.textContent;
+      return String(raw || '').trim();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /** 주어진 스피드 실수값 입력 wrap 에서 정수 추출. 못 읽으면 null. */
   function readSpeedFromWrap(wrap) {
     if (!wrap) return null;
-    var input = wrap.querySelector('input[disabled][readonly][type="text"]');
+    // 새 사이트 input 의 attribute 가 옛 Vuetify 와 달라짐. wrap 자체가 정확한 출력란 cell
+    // (XPath 로 확정) 이라 그 안의 첫 input 이 곧 실수값. 옛 strict selector 폐기.
+    var input = wrap.querySelector('input');
     if (!input) return null;
-    var v = parseInt(input.value, 10);
-    return Number.isFinite(v) ? v : null;
-  }
-
-  /** 스피드 실수값 래퍼가 속한 샘플 편집 카드(rounded-12.v-sheet) 를 반환. */
-  function findCardRoot(wrap) {
-    if (!wrap) return document;
-    return wrap.closest('.rounded-12.v-sheet') || wrap.closest('.v-sheet') || document;
-  }
-
-  /**
-   * 카드 내 특정 라벨 텍스트(`특성`/`도구`) 에 해당하는 `.v-input` 의
-   * hidden input 값 반환. 없으면 빈 문자열.
-   */
-  function readHiddenByLabel(card, labelText) {
-    if (!card) return '';
-    var labels = card.querySelectorAll('.v-label');
-    for (var i = 0; i < labels.length; i++) {
-      if ((labels[i].textContent || '').trim() === labelText) {
-        var wrap = labels[i].closest('.v-input');
-        if (!wrap) continue;
-        var h = wrap.querySelector('input[type="hidden"]');
-        return h ? (h.value || '') : '';
-      }
+    var raw = input.value;
+    if (raw == null || raw === '') {
+      // value 가 비어 있으면 HTML value 속성 폴백 (드물지만 display-only 컴포넌트 케이스)
+      raw = input.getAttribute('value') || '';
     }
-    return '';
+    var v = parseInt(raw, 10);
+    return Number.isFinite(v) ? v : null;
   }
 
   /**
@@ -734,7 +726,7 @@
   }
 
   /**
-   * 지정된 `.v-input` 래퍼 자식으로 Shadow DOM 호스트 생성·부착.
+   * 지정된 스피드 실수값 입력 wrap 자식으로 Shadow DOM 호스트 생성·부착.
    * 호스트 inline style 로 래퍼 우측 바로 옆에 absolute 배치.
    * Shadow DOM 내부엔 Vuetify outlined 스타일 복제된 3 프리셋 패널 렌더.
    */
@@ -904,7 +896,7 @@
   }
 
   var pollTimer = null;
-  /** 마지막으로 장착한 `.v-input` 래퍼. Vuetify 가 교체하면 감지 후 재장착. */
+  /** 마지막으로 장착한 스피드 실수값 입력 wrap. DOM 교체 시 감지 후 재장착. */
   var lastWrap = null;
   var currentRoot = null;
   /** 변경 감지용 합성 키: `S|abName|abOn|itName|itOn`. */
@@ -1024,9 +1016,8 @@
       lastKey = '';
     }
     var S = readSpeedFromWrap(wrap);
-    var card = findCardRoot(wrap);
-    var abName = readHiddenByLabel(card, '특성');
-    var itName = readHiddenByLabel(card, '도구');
+    var abName = readInputValueByXPath(XPATH_SLOT_ABILITY_INPUT);
+    var itName = readInputValueByXPath(XPATH_SLOT_ITEM_INPUT);
     var key = S + '|' + abName + '|' + abilityOn + '|' + itName + '|' + itemOn + '|' + oppScarfOn;
     if (key === lastKey) return;
     lastKey = key;

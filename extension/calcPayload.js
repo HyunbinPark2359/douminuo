@@ -8,6 +8,82 @@
   var SR = globalThis.shareToRaw;
   var moveMetaCache = Object.create(null);
 
+  /** Iron Fist 등 — 사이트가 att.move.name.flags 를 본다. 번들 moveTags.json 을 SW 에서 1회 로드. */
+  var moveTagsBundleInflight = null;
+  var moveTagsBundleResolved = null;
+  function ensureMoveTagsLoaded() {
+    if (moveTagsBundleResolved) return Promise.resolve(moveTagsBundleResolved);
+    if (moveTagsBundleInflight) return moveTagsBundleInflight;
+    moveTagsBundleInflight = new Promise(function (resolve) {
+      try {
+        if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.getURL) {
+          moveTagsBundleInflight = null;
+          resolve({ moves: {} });
+          return;
+        }
+        fetch(chrome.runtime.getURL('moveTags.json'))
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (j) {
+            moveTagsBundleResolved = j && typeof j === 'object' ? j : { moves: {} };
+            moveTagsBundleInflight = null;
+            resolve(moveTagsBundleResolved);
+          })
+          .catch(function () {
+            moveTagsBundleInflight = null;
+            resolve({ moves: {} });
+          });
+      } catch (eLoad) {
+        moveTagsBundleInflight = null;
+        resolve({ moves: {} });
+      }
+    });
+    return moveTagsBundleInflight;
+  }
+
+  function buildRichMoveRow(slug, slugDashed, ko, typeEn, power, dcStr, moveTagsDoc, moveSlugToEnDoc) {
+    var enName = '';
+    var byS = moveSlugToEnDoc && moveSlugToEnDoc.bySlug;
+    if (byS) {
+      if (slugDashed && byS[slugDashed]) enName = String(byS[slugDashed]);
+      else if (slug && byS[slug]) enName = String(byS[slug]);
+    }
+
+    var rawFlags = null;
+    var movesTbl = moveTagsDoc && moveTagsDoc.moves;
+    if (movesTbl && typeof movesTbl === 'object' && slug) {
+      rawFlags = movesTbl[slug];
+    }
+    var flags = {};
+    if (rawFlags && typeof rawFlags === 'object') {
+      var fk;
+      for (fk in rawFlags) {
+        if (Object.prototype.hasOwnProperty.call(rawFlags, fk) && rawFlags[fk] === true) {
+          flags[fk] = 1;
+        }
+      }
+    }
+
+    var category =
+      dcStr === 'special' ? 'Special' : dcStr === 'physical' ? 'Physical' : 'Status';
+    var typeCapitalized = typeEn
+      ? typeEn.charAt(0).toUpperCase() + typeEn.slice(1).toLowerCase()
+      : 'Normal';
+
+    return {
+      id: slug,
+      name: enName,
+      kr: ko,
+      type: typeCapitalized,
+      basePower: power,
+      category: category,
+      flags: flags,
+      secondaries: false,
+      recoil: false,
+    };
+  }
+
   // F0: 옛 런타임 PokéAPI 인덱스의 storage 캐시 키. 이제 사용 안 함 — 다음
   // SW 부팅 시 1회 청소해서 사용자 디스크에 stale ~수십KB가 남지 않게.
   var LEGACY_KO_SLUG_STORAGE_KEY = 'nuo_calc_move_ko_slug_map';
@@ -161,6 +237,9 @@
 
   var SMARTNUO_STAT_KEYS = ['hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed'];
 
+  /**
+   * 인덱스는 HP, Atk, Def, SpA, SpD, Spe 순. Nuxt 슬롯은 stats.<key>.individual_value 형태.
+   */
   function getIvForStat(flat, statIdx) {
     var defIv = 31;
     var st = flat.stats;
@@ -199,7 +278,9 @@
 
   function speciesKoFromFlat(flat) {
     return (
+      str(flat.name_kr) ||
       str(flat.nameKr) ||
+      str(flat.namekr) ||
       str(flat.speciesName || flat.speciesKo) ||
       str(flat.species) ||
       str(flat.name) ||
@@ -208,11 +289,21 @@
   }
 
   function natureKoFromFlat(flat) {
-    return str(flat.personality || flat.nature || flat.Nature);
+    var p = flat.personality || flat.nature || flat.Nature;
+    if (p == null) return '';
+    if (typeof p === 'string') return str(p);
+    if (typeof p === 'object') {
+      return str(p.name || p.kr || p.koName || p.label || '');
+    }
+    return '';
   }
 
   function abilityKoFromFlat(flat) {
-    return str(flat.ability || flat.ab || flat.Ability);
+    var a = flat.ability || flat.ab || flat.Ability;
+    if (a == null) return '';
+    if (typeof a === 'string') return str(a);
+    if (typeof a === 'object' && a.kr != null) return str(a.kr);
+    return '';
   }
 
   /**
@@ -244,7 +335,11 @@
   }
 
   function itemKoFromFlat(flat) {
-    return str(flat.equipment || flat.item || flat.Item || flat.hold);
+    var e = flat.equipment || flat.item || flat.Item || flat.hold || flat.holdItem;
+    if (e == null) return '';
+    if (typeof e === 'string') return str(e);
+    if (typeof e === 'object' && e.kr != null) return str(e.kr);
+    return '';
   }
 
   function levelFromFlat(flat) {
@@ -442,6 +537,59 @@
     return chain;
   }
 
+  /**
+   * 팀빌더 슬롯 pokemon.moves[] 만으로 첫 유효 공격기 추출 — PokeAPI·moveKoMap 없음 (신규 기술 대응).
+   * URL 공유 경로(buildOneSide)는 옛 firstDamagingMoveMeta 유지.
+   */
+  function firstDamagingMoveFromSlotPokemon(slot, typeKoDoc) {
+    var nested = (slot && slot.pokemon) || (slot && typeof slot === 'object' ? slot : null);
+    if (!nested) return null;
+    var moves = nested.moves;
+    if (!Array.isArray(moves) || !moves.length) return null;
+    var i;
+    for (i = 0; i < 4 && i < moves.length; i++) {
+      var mv = moves[i];
+      if (!mv || typeof mv !== 'object') continue;
+      var dc = String(mv.damage_class || '').toLowerCase();
+      if (dc !== 'physical' && dc !== 'special') continue;
+      var power = asInt(mv.power);
+      if (power == null || power === 0) continue;
+      var slug = '';
+      if (typeof mv.name === 'string') {
+        slug = mv.name.toLowerCase().trim();
+      } else if (mv.name && typeof mv.name === 'object') {
+        slug = String(mv.name.id || mv.name.slug || '').toLowerCase().trim();
+      }
+      var ko = String(mv.name_kr || mv.nameKr || mv.kr || '').trim();
+      var typeKo = String(mv.type || '').trim();
+      var typeEn = '';
+      if (mv.name && typeof mv.name === 'object' && mv.name.type) {
+        typeEn = String(mv.name.type).toLowerCase();
+      }
+      if (!typeEn && typeKoDoc && typeKoDoc.byKo) {
+        var koLk;
+        for (koLk in typeKoDoc.byKo) {
+          if (!Object.prototype.hasOwnProperty.call(typeKoDoc.byKo, koLk)) continue;
+          if (koLk === typeKo) {
+            typeEn = String(typeKoDoc.byKo[koLk] || '').toLowerCase();
+            break;
+          }
+        }
+      }
+      return {
+        ko: ko,
+        slug: slug,
+        meta: {
+          slug: slug,
+          power: power,
+          typeEn: typeEn || 'normal',
+          damage_class: dc,
+        },
+      };
+    }
+    return null;
+  }
+
   function typeKoFromEnSlug(typeEn, typeKoDoc) {
     var slug = String(typeEn || 'normal').toLowerCase();
     var byKo = typeKoDoc && typeKoDoc.byKo;
@@ -455,25 +603,55 @@
     return '';
   }
 
-  function buildAttackerMovePayload(pack, typeKoDoc) {
+  function buildAttackerMovePayload(pack, typeKoDoc, moveTagsDoc, moveSlugToEnDoc) {
     if (!pack || !pack.meta) return null;
     var m = pack.meta;
     var dc = m.damage_class === 'special' ? 'special' : 'physical';
     var typeEn = String(m.typeEn || 'normal').toLowerCase();
     var typeKo = typeKoFromEnSlug(typeEn, typeKoDoc);
+    var slugUndashed = String(m.slug || 'tackle')
+      .toLowerCase()
+      .replace(/-/g, '');
+    var canonMap = getSlugCanonicalMap(moveSlugToEnDoc);
+    var slugDashed =
+      (canonMap && canonMap[slugUndashed]) || String(m.slug || 'tackle').toLowerCase();
+    var ko = pack.ko || '';
+    var power = m.power != null && m.power !== '' ? asInt(m.power) : 40;
+    var richRow = buildRichMoveRow(
+      slugUndashed,
+      slugDashed,
+      ko,
+      typeEn,
+      power,
+      dc,
+      moveTagsDoc,
+      moveSlugToEnDoc
+    );
+
     return {
-      name: m.slug || 'tackle',
-      kr: pack.ko || '',
-      power: m.power != null && m.power !== '' ? asInt(m.power) : 40,
+      name: slugUndashed,
+      kr: ko,
+      power: power,
       typeEn: typeEn,
       typeKo: typeKo,
       damageClass: dc,
+      richNameRow: richRow,
     };
   }
 
   /** PokeAPI/공식: 몸통박치기 tackle — 물리·노말·위력 40 (현행) */
-  function defaultAttackerMovePayload(typeKoDoc) {
+  function defaultAttackerMovePayload(typeKoDoc, moveTagsDoc, moveSlugToEnDoc) {
     var typeEn = 'normal';
+    var richRow = buildRichMoveRow(
+      'tackle',
+      'tackle',
+      '몸통박치기',
+      typeEn,
+      40,
+      'physical',
+      moveTagsDoc,
+      moveSlugToEnDoc
+    );
     return {
       name: 'tackle',
       kr: '몸통박치기',
@@ -481,6 +659,7 @@
       typeEn: typeEn,
       typeKo: typeKoFromEnSlug(typeEn, typeKoDoc) || '노말',
       damageClass: 'physical',
+      richNameRow: richRow,
     };
   }
 
@@ -525,7 +704,11 @@
     }
 
     var slugMap = getSlugCanonicalMap(docs.moveSlugToEnDoc);
-    return firstDamagingMoveMeta(slot, docs.moveKoDoc, docs.moveKoFallbackDoc, slugMap).then(function (movePack) {
+    var localPack = firstDamagingMoveFromSlotPokemon(slot, docs.typeKoDoc);
+    var packPromise = localPack
+      ? Promise.resolve(localPack)
+      : firstDamagingMoveMeta(slot, docs.moveKoDoc, docs.moveKoFallbackDoc, slugMap);
+    return packPromise.then(function (movePack) {
       var physicalMove = true;
       if (movePack && movePack.meta && movePack.meta.damage_class === 'special') {
         physicalMove = false;
@@ -537,21 +720,27 @@
       }
 
       var atkEnv = envKeysFromAbilityKo(abilityKoFromFlat(flat), docs.modifiersDoc);
-      return {
-        speciesKo: speciesKo,
-        evs: evs,
-        ivs: ivs,
-        level: level,
-        abilityKo: abilityKoFromFlat(flat),
-        itemKo: itemKoFromFlat(flat),
-        physicalMove: physicalMove,
-        attackerPersonality: attackerPersonality,
-        attackerMove:
-          buildAttackerMovePayload(movePack, docs.typeKoDoc) ||
-          defaultAttackerMovePayload(docs.typeKoDoc),
-        abilityWeatherKey: atkEnv.abilityWeatherKey,
-        abilityTerrainKey: atkEnv.abilityTerrainKey,
-      };
+      return ensureMoveTagsLoaded().then(function (moveTagsDoc) {
+        return {
+          speciesKo: speciesKo,
+          evs: evs,
+          ivs: ivs,
+          level: level,
+          abilityKo: abilityKoFromFlat(flat),
+          itemKo: itemKoFromFlat(flat),
+          physicalMove: physicalMove,
+          attackerPersonality: attackerPersonality,
+          attackerMove:
+            buildAttackerMovePayload(
+              movePack,
+              docs.typeKoDoc,
+              moveTagsDoc,
+              docs.moveSlugToEnDoc
+            ) || defaultAttackerMovePayload(docs.typeKoDoc, moveTagsDoc, docs.moveSlugToEnDoc),
+          abilityWeatherKey: atkEnv.abilityWeatherKey,
+          abilityTerrainKey: atkEnv.abilityTerrainKey,
+        };
+      });
     });
   }
 
