@@ -97,6 +97,9 @@
       if (!p) continue;
       if (String(p.id || '').toLowerCase() === kLow) return p;
       if (String(p.smogon_id || '').toLowerCase() === kLow) return p;
+      // 구버전 공유 URL: 슬롯 pokemon.name_kr 가 비고 슬러그(예: mimikyu-disguised)가
+      // species 로 흘러올 때, $spokemon_list entry 는 id='mimikyu' 지만 db_en 에 폼 슬러그가 들어있음.
+      if (String(p.db_en || '').toLowerCase() === kLow) return p;
       if (String(p.name || '').toLowerCase() === kLow) return p;
     }
     return null;
