@@ -560,7 +560,12 @@
       } else if (mv.name && typeof mv.name === 'object') {
         slug = String(mv.name.id || mv.name.slug || '').toLowerCase().trim();
       }
+      // 새 공유 URL: 사이트가 lazy 채운 rich row 가 mv.name 객체로 들어옴.
+      // 슬롯 직속 alias 들은 빈 string 이고 한칭은 mv.name.kr 에만 있음. (v6)
       var ko = String(mv.name_kr || mv.nameKr || mv.kr || '').trim();
+      if (!ko && mv.name && typeof mv.name === 'object') {
+        ko = String(mv.name.kr || mv.name.name_kr || mv.name.nameKr || '').trim();
+      }
       var typeKo = String(mv.type || '').trim();
       var typeEn = '';
       if (mv.name && typeof mv.name === 'object' && mv.name.type) {
