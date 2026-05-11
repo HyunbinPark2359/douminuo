@@ -3,8 +3,8 @@
  * NUO_TEAM_SLOTS_REPLY.slotArt: pokemon.sprite 우선(검증 통과 시 정규화 URL, 아니면 원문).
  */
 (function () {
-  if (window.__NUO_TEAM_BUILDER_BRIDGE_V7__) return;
-  window.__NUO_TEAM_BUILDER_BRIDGE_V7__ = true;
+  if (window.__NUO_TEAM_BUILDER_BRIDGE_V8__) return;
+  window.__NUO_TEAM_BUILDER_BRIDGE_V8__ = true;
 
   var MSG_EXT = 'nuo-team-ext';
   var MSG_BRIDGE = 'nuo-team-bridge';
@@ -55,10 +55,51 @@
       slugFromNameObj = String(poke.name.id || poke.name.smogon_id || '').toLowerCase().trim();
     }
     var hasBoth = poke.first_type && poke.second_type;
-    if (hasSlug && hasBoth) return slot;
+
+    // 구버전 공유 URL 로 sprite 가 빈 경우, 사이트의 $spokemon_dex.row_map 에서 도트 URL 복구.
+    // 키는 하이픈 없는 영문 id (예: clefablemega). ZA 메가 등 $spokemon_list 에 없는 폼도 커버.
+    // $spokemon_list 매칭/early return 보다 먼저 — 사이트 자체 dict 가 더 넓은 커버리지.
+    var spriteFromDex = '';
+    if (!poke.sprite) {
+      var rowMap = state && state['$spokemon_dex.row_map'];
+      if (rowMap && typeof rowMap === 'object') {
+        var compactCandidates = [];
+        if (hasSlug) compactCandidates.push(String(poke.name).toLowerCase().replace(/-/g, ''));
+        if (slugFromNameObj) compactCandidates.push(slugFromNameObj.replace(/-/g, ''));
+        var ci;
+        var dexRow = null;
+        for (ci = 0; ci < compactCandidates.length; ci++) {
+          var key = compactCandidates[ci];
+          if (key && rowMap[key]) {
+            dexRow = rowMap[key];
+            break;
+          }
+        }
+        var spritePath = dexRow && (dexRow.sprite_sample || dexRow.sprite);
+        if (spritePath && typeof spritePath === 'string' && spritePath.charAt(0) === '/') {
+          spriteFromDex = 'https://smartnuo.com' + spritePath;
+        }
+      }
+    }
+
+    if (hasSlug && hasBoth && !spriteFromDex) return slot;
 
     var pokeList = state && state['$spokemon_list'];
-    if (!Array.isArray(pokeList) || pokeList.length === 0) return slot;
+    if (!Array.isArray(pokeList) || pokeList.length === 0) {
+      if (!spriteFromDex) return slot;
+      var nP = {};
+      var nk;
+      for (nk in poke) {
+        if (Object.prototype.hasOwnProperty.call(poke, nk)) nP[nk] = poke[nk];
+      }
+      nP.sprite = spriteFromDex;
+      var nS = {};
+      for (nk in slot) {
+        if (Object.prototype.hasOwnProperty.call(slot, nk)) nS[nk] = slot[nk];
+      }
+      nS.pokemon = nP;
+      return nS;
+    }
 
     var entry = null;
     var i;
@@ -97,7 +138,21 @@
         }
       }
     }
-    if (!entry) return slot;
+    if (!entry) {
+      if (!spriteFromDex) return slot;
+      var npNoEntry = {};
+      var nkNoEntry;
+      for (nkNoEntry in poke) {
+        if (Object.prototype.hasOwnProperty.call(poke, nkNoEntry)) npNoEntry[nkNoEntry] = poke[nkNoEntry];
+      }
+      npNoEntry.sprite = spriteFromDex;
+      var nsNoEntry = {};
+      for (nkNoEntry in slot) {
+        if (Object.prototype.hasOwnProperty.call(slot, nkNoEntry)) nsNoEntry[nkNoEntry] = slot[nkNoEntry];
+      }
+      nsNoEntry.pokemon = npNoEntry;
+      return nsNoEntry;
+    }
 
     var types = Array.isArray(entry.types) ? entry.types : [];
     var t0 = types[0] ? String(types[0]).toLowerCase() : '';
@@ -112,6 +167,7 @@
     if (!newPoke.name && entry.id) newPoke.name = entry.id;
     if (!newPoke.first_type && t0) newPoke.first_type = t0;
     if (!newPoke.second_type && t1) newPoke.second_type = t1;
+    if (!newPoke.sprite && spriteFromDex) newPoke.sprite = spriteFromDex;
 
     var newSlot = {};
     for (k in slot) {

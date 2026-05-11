@@ -942,5 +942,12 @@ importScripts('showdownPaste.js');
         });
       return true;
     }
+
+    if (msg.type === 'GET_POKEMON_SLUG_TO_DEX') {
+      loadJsonUrl('pokemonSlugToDex.json', { bySlug: {} }).then(function (doc) {
+        sendResponse({ ok: true, doc: doc });
+      });
+      return true;
+    }
   });
 })();

@@ -40,19 +40,90 @@
   }
 
   /**
+   * 구버전 공유 URL 폴백: 사이트가 pokemon.sprite 를 못 채운 슬롯에 대해
+   * 슬러그(pokemon.name 또는 pokemon.name.id) → PokeAPI 내부 id → raw 스프라이트 URL 로 복구.
+   * pokemonSlugToDex.json 은 빌드타임 번들이며, 사이트의 정상 케이스 URL 패턴과 동일.
+   */
+  var slugDexCacheP = null;
+  function ensureSlugDexLoaded() {
+    if (slugDexCacheP) return slugDexCacheP;
+    slugDexCacheP = new Promise(function (resolve) {
+      try {
+        if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+          resolve({ bySlug: {} });
+          return;
+        }
+        chrome.runtime.sendMessage({ type: 'GET_POKEMON_SLUG_TO_DEX' }, function (resp) {
+          if (chrome.runtime.lastError || !resp || !resp.ok || !resp.doc || !resp.doc.bySlug) {
+            resolve({ bySlug: {} });
+            return;
+          }
+          resolve(resp.doc);
+        });
+      } catch (e) {
+        resolve({ bySlug: {} });
+      }
+    });
+    return slugDexCacheP;
+  }
+
+  function slugFromPoke(p) {
+    if (!p || typeof p !== 'object') return '';
+    if (typeof p.name === 'string' && /^[a-z][a-z0-9-]*$/.test(p.name)) {
+      return p.name.toLowerCase();
+    }
+    if (p.name && typeof p.name === 'object') {
+      var s = String(p.name.id || p.name.smogon_id || '').toLowerCase().trim();
+      if (s && /^[a-z][a-z0-9-]*$/.test(s)) return s;
+    }
+    return '';
+  }
+
+  function enrichSlotArtWithFallback(slots, slotArt, bySlug) {
+    if (!Array.isArray(slots) || !Array.isArray(slotArt) || !bySlug) return slotArt;
+    var out = slotArt.slice(0);
+    var i;
+    for (i = 0; i < out.length && i < slots.length; i++) {
+      if (out[i]) continue;
+      var s = slots[i];
+      var p = s && (s.pokemon || s.mon || s.poke);
+      var slug = slugFromPoke(p);
+      if (!slug) continue;
+      var dex = bySlug[slug];
+      if (!dex) continue;
+      out[i] = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/' + dex + '.png';
+    }
+    return out;
+  }
+
+  /**
    * MAIN bridge 의 NUO_TEAM_GET_SLOTS / NUO_TEAM_SLOTS_REPLY postMessage RPC.
    * 결과: { ok, slots, filled, slotArt, error }. 8초 timeout.
    */
   function getSlotsFromBridge() {
     return new Promise(function (resolve) {
       var rid = String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+      var done = false;
+
+      function finish(r) {
+        if (done) return;
+        done = true;
+        window.removeEventListener('message', onMsg);
+        if (!r.ok || !Array.isArray(r.slotArt) || !Array.isArray(r.slots)) {
+          resolve(r);
+          return;
+        }
+        ensureSlugDexLoaded().then(function (doc) {
+          r.slotArt = enrichSlotArtWithFallback(r.slots, r.slotArt, doc.bySlug);
+          resolve(r);
+        });
+      }
 
       function onMsg(ev) {
         var d = ev.data;
         if (!d || d.source !== MSG_BRIDGE || d.type !== 'NUO_TEAM_SLOTS_REPLY') return;
         if (String(d.requestId) !== rid) return;
-        window.removeEventListener('message', onMsg);
-        resolve({
+        finish({
           ok: !!d.ok,
           slots: d.slots,
           filled: d.filled,
@@ -72,8 +143,7 @@
       );
 
       setTimeout(function () {
-        window.removeEventListener('message', onMsg);
-        resolve({ ok: false, slots: null, filled: null, error: 'team_slots_timeout' });
+        finish({ ok: false, slots: null, filled: null, error: 'team_slots_timeout' });
       }, 8000);
     });
   }
