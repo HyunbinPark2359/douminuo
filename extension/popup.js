@@ -36,6 +36,23 @@
   var simpleSpeedCalcEnabledEl = document.getElementById('simpleSpeedCalcEnabled');
   var speedTableShowEl = document.getElementById('speedTableShow');
 
+  // 헤더 우상단의 버전 표시. manifest 의 version 을 단일 진실로 삼고
+  // 동적으로 주입한다 — 매니페스트 한 곳만 갱신하면 팝업도 따라옴.
+  var popupVersionEl = document.getElementById('popupVersion');
+  if (popupVersionEl) {
+    try {
+      var mf = chrome.runtime.getManifest();
+      var ver = mf && mf.version ? String(mf.version) : '';
+      if (ver) {
+        popupVersionEl.textContent = 'v' + ver;
+      } else {
+        popupVersionEl.style.display = 'none';
+      }
+    } catch (e) {
+      popupVersionEl.style.display = 'none';
+    }
+  }
+
   function syncSpeedTableOptionsDisabled() {
     var masterOn = simpleSpeedCalcEnabledEl && simpleSpeedCalcEnabledEl.checked;
     if (speedTableShowEl) {
