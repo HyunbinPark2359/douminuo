@@ -271,17 +271,22 @@
         out[i] = String(mv).trim();
         continue;
       }
-      out[i] = String(
-        mv.name_ko ||
-          mv.nameKo ||
-          mv.name_kr ||
-          mv.nameKr ||
-          mv.koName ||
-          mv.label ||
-          mv.name ||
-          mv.title ||
-          ''
-      ).trim();
+      // 슬롯 직속 한글 alias 우선 (옛 공유 URL / 손수 기입 케이스).
+      var picked =
+        mv.name_ko || mv.nameKo || mv.name_kr || mv.nameKr || mv.kr || mv.koName || mv.label || '';
+      if (!picked && mv.name) {
+        // 새 공유 URL: 사이트가 lazy 채운 rich row 가 mv.name 객체로 들어옴
+        //   { id, name(en), kr, type, base_power, category }
+        // 카드 DOM 은 mv.name.kr 한칭으로 렌더 → 우리도 그걸 골라야 매치.
+        if (typeof mv.name === 'object') {
+          picked = mv.name.kr || mv.name.name_kr || mv.name.nameKr || '';
+        } else {
+          // string slug — 사이트가 한칭 fetch 전이라 카드도 같은 영문 slug 로 렌더.
+          picked = mv.name;
+        }
+      }
+      if (!picked) picked = mv.title || '';
+      out[i] = String(picked).trim();
     }
     return out;
   }
