@@ -8,8 +8,8 @@
  * 본 파일이 NUO_CALC_RESULT 로 응답한다. 프로토콜 유지.
  */
 (function () {
-  if (window.__NUO_CALC_BRIDGE_V36__) return;
-  window.__NUO_CALC_BRIDGE_V36__ = true;
+  if (window.__NUO_CALC_BRIDGE_V37__) return;
+  window.__NUO_CALC_BRIDGE_V37__ = true;
 
   var KEY_POKE_LIST = '$spokemon_list';
   var KEY_ATT = '$scalculator.attacker';
@@ -209,14 +209,16 @@
     var key = defenderSide ? 'equipment.cal_def' : 'equipment.cal_att';
     var arr = lookupDexArray(state, key);
     var k = String(kr || '').trim();
-    if (!k) return { en: '?', kr: '' };
-    if (!arr) return { en: '?', kr: k };
+    // 2026-05-14: 사이트가 EQUIPMENT_TABLE[equipment.en] strict lookup 도입. 옛 {en:'?', kr}
+    // 폴백은 strict lookup miss → undefined.megaStone → calculate TypeError. 사이트의 “도구
+    // 없음” sentinel(= 초기 state 의 빈 문자열)을 그대로 사용해 폴백 경로를 막는다.
+    if (!k || !arr) return '';
     var i;
     for (i = 0; i < arr.length; i++) {
       var a = arr[i];
       if (a && String(a.kr || '').trim() === k) return a;
     }
-    return { en: '?', kr: k };
+    return '';
   }
 
   /** Nuxt 는 `$smove_dex.row_map` 처럼 점 포함 단일 키. kr_map 은 slug → 한글. */
@@ -387,7 +389,9 @@
     Promise.resolve().then(function () {
       try {
         def.ability = Object.assign({}, defAbility);
-        def.equipment = Object.assign({}, defEquipment);
+        if (defEquipment && typeof defEquipment === 'object') {
+          def.equipment = Object.assign({}, defEquipment);
+        }
       } catch (eKickDef) {}
     });
 
