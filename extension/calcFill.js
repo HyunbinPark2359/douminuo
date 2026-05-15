@@ -40,10 +40,16 @@
   var CS = globalThis.nuoCsCommon || {};
   var TBS = globalThis.nuoTeamBuilderShared || {};
 
-  // R2/D1: 옛 isLikelyCalculatorView 는 'calc' OR 'calc-speed' 합집합이라 /speed 에서도 true.
-  // 본 패널은 데미지 계산기 전용이므로 좁은 isCalculatorRoute (route === 'calc') 만 사용 →
-  // /speed 에서는 자동 hide. 후속 라운드에서 /speed 전용 패널이 추가되면 분기 확장.
-  var isCalculatorRoute = CS.isCalculatorRoute || function () { return false; };
+  // SPEED_FILL Phase 2: 표시 게이트는 'calc' OR 'calc-speed' 합집합 — nuoCsCommon.isLikelyCalculatorView().
+  // SW/bridge 에 넘기는 page 는 송신 직전 currentPage() 로만 평가(SPA 전환 후 stale 방지).
+  var isLikelyCalculatorView = CS.isLikelyCalculatorView || function () { return false; };
+  var isCalcSpeedRoute = CS.isCalcSpeedRoute || function () { return false; };
+
+  /** @returns {'calc'|'speed'} */
+  function currentPage() {
+    if (isCalcSpeedRoute()) return 'speed';
+    return 'calc';
+  }
 
   function mapErr(code) {
     return typeof globalThis.mapCalcFillError === 'function'
@@ -111,6 +117,7 @@
               payloads: payloads || {},
               onlyAttacker: onlyAttacker,
               onlyDefender: onlyDefender,
+              page: currentPage(),
             },
             '*'
           );
@@ -121,7 +128,12 @@
   function getCalcPayloadsFromBackground(atkUrl, defUrl) {
     return new Promise(function (resolve, reject) {
       chrome.runtime.sendMessage(
-        { type: 'GET_CALC_PAYLOADS', atkUrl: atkUrl || '', defUrl: defUrl || '' },
+        {
+          type: 'GET_CALC_PAYLOADS',
+          atkUrl: atkUrl || '',
+          defUrl: defUrl || '',
+          page: currentPage(),
+        },
         function (bg) {
           if (chrome.runtime.lastError) {
             reject(new Error(mapErr(chrome.runtime.lastError.message)));
@@ -145,6 +157,7 @@
           type: 'GET_CALC_PAYLOADS_FROM_SLOT',
           slot: slot,
           side: side === 'defender' ? 'defender' : 'attacker',
+          page: currentPage(),
         },
         function (bg) {
           if (chrome.runtime.lastError) {
@@ -792,7 +805,7 @@
     }
 
     function syncCalcHeuristic() {
-      var on = isCalculatorRoute();
+      var on = isLikelyCalculatorView();
       setWrapVisible(on);
       if (on) {
         // 표시 시점에 1회 갱신

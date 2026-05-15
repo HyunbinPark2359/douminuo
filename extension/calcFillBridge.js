@@ -8,12 +8,14 @@
  * 본 파일이 NUO_CALC_RESULT 로 응답한다. 프로토콜 유지.
  */
 (function () {
-  if (window.__NUO_CALC_BRIDGE_V37__) return;
-  window.__NUO_CALC_BRIDGE_V37__ = true;
+  if (window.__NUO_CALC_BRIDGE_V38__) return;
+  window.__NUO_CALC_BRIDGE_V38__ = true;
 
   var KEY_POKE_LIST = '$spokemon_list';
   var KEY_ATT = '$scalculator.attacker';
   var KEY_DEF = '$scalculator.defender';
+  var KEY_SPEED_ATT = '$sspeed.attacker';
+  var KEY_SPEED_DEF = '$sspeed.defender';
 
   var applyQueue = [];
   var applyBusy = false;
@@ -70,10 +72,21 @@
     return false;
   }
 
-  function calcShellReady(state) {
+  /**
+   * @param {object} state
+   * @param {'calc'|'speed'=} page — 미지정은 데미지 계산기(`$scalculator.*`).
+   */
+  function calcShellReady(state, page) {
+    if (!page) page = 'calc';
     if (!state) return false;
     var pl = state[KEY_POKE_LIST];
     if (!Array.isArray(pl) || pl.length === 0) return false;
+    if (page === 'speed') {
+      var sa = state[KEY_SPEED_ATT];
+      var sd = state[KEY_SPEED_DEF];
+      if (!sa || typeof sa !== 'object' || !sd || typeof sd !== 'object') return false;
+      return isCalculatorContext();
+    }
     var att = state[KEY_ATT];
     var def = state[KEY_DEF];
     if (!att || typeof att !== 'object' || !def || typeof def !== 'object') return false;
@@ -191,8 +204,14 @@
     return null;
   }
 
+  /** @param {boolean|'speed'} defenderSide false=공격측 cal_att | true=수비측 cal_def | 'speed'=스피드 전용 */
   function lookupAbilityObj(state, kr, defenderSide) {
-    var key = defenderSide ? 'ability.cal_def' : 'ability.cal_att';
+    var key =
+      defenderSide === 'speed'
+        ? 'ability.speed'
+        : defenderSide
+          ? 'ability.cal_def'
+          : 'ability.cal_att';
     var arr = lookupDexArray(state, key);
     var k = String(kr || '').trim();
     if (!k) return { en: '?', kr: '' };
@@ -205,8 +224,14 @@
     return { en: '?', kr: k };
   }
 
+  /** @param {boolean|'speed'} defenderSide — lookupAbilityObj 와 동일 규칙 */
   function lookupEquipmentObj(state, kr, defenderSide) {
-    var key = defenderSide ? 'equipment.cal_def' : 'equipment.cal_att';
+    var key =
+      defenderSide === 'speed'
+        ? 'equipment.speed'
+        : defenderSide
+          ? 'equipment.cal_def'
+          : 'equipment.cal_att';
     var arr = lookupDexArray(state, key);
     var k = String(kr || '').trim();
     // 2026-05-14: 사이트가 EQUIPMENT_TABLE[equipment.en] strict lookup 도입. 옛 {en:'?', kr}
@@ -317,12 +342,13 @@
     return null;
   }
 
-  function applyAttackerFromPayload(state, pa, physAtk, warnings) {
-    var att = state[KEY_ATT];
+  function applyAttackerFromPayload(state, pa, physAtk, warnings, page) {
+    if (!page) page = 'calc';
+    var att = state[page === 'speed' ? KEY_SPEED_ATT : KEY_ATT];
     var species = speciesKoForAttacker(pa.speciesKo);
     var entry = findPokemonEntry(state, species);
     if (!entry) {
-      return { ok: false, error: 'species_not_in_dex' };
+      return { ok: false, error: page === 'speed' ? 'species_not_in_speed_dex' : 'species_not_in_dex' };
     }
 
     att.name = entry;
@@ -330,22 +356,28 @@
     att.sprite = deriveSprite(entry);
 
     var eiA = defaultEvsIvs(pa.evs, pa.ivs);
-    att.effort = clampEv(physAtk ? eiA.evs[1] : eiA.evs[3]);
-    att.individual_value = physAtk ? eiA.ivs[1] | 0 : eiA.ivs[3] | 0;
+    if (page === 'speed') {
+      att.effort = clampEv(eiA.evs[5]);
+      att.individual_value = eiA.ivs[5] | 0;
+    } else {
+      att.effort = clampEv(physAtk ? eiA.evs[1] : eiA.evs[3]);
+      att.individual_value = physAtk ? eiA.ivs[1] | 0 : eiA.ivs[3] | 0;
+    }
     if (pa.level != null && pa.level > 0) att.level = pa.level | 0;
 
-    var ap = pa.attackerPersonality;
+    var ap = page === 'speed' ? pa.personality : pa.attackerPersonality;
     if (ap === 0.9 || ap === 1 || ap === 1.1) att.personality = ap;
 
     // move 를 ability/equipment 보다 먼저 set — 그 다음 microtask 에서 move+ability 재주입으로 Vue 배치 후 재평가 유도.
     var moveObj = null;
-    if (pa.attackerMove) {
+    if (page !== 'speed' && pa.attackerMove) {
       var row = findMoveRow(state, pa.attackerMove);
       moveObj = buildMoveObject(row, pa.attackerMove, physAtk);
       att.move = moveObj;
     }
-    var abilityObj = lookupAbilityObj(state, pa.abilityKo, false);
-    var equipmentObj = lookupEquipmentObj(state, pa.itemKo, false);
+    var dexSide = page === 'speed' ? 'speed' : false;
+    var abilityObj = lookupAbilityObj(state, pa.abilityKo, dexSide);
+    var equipmentObj = lookupEquipmentObj(state, pa.itemKo, dexSide);
     att.ability = abilityObj;
     att.equipment = equipmentObj;
 
@@ -359,11 +391,12 @@
     return { ok: true };
   }
 
-  function applyDefenderFromPayload(state, pd, physInc, warnings) {
-    var def = state[KEY_DEF];
+  function applyDefenderFromPayload(state, pd, physInc, warnings, page) {
+    if (!page) page = 'calc';
+    var def = state[page === 'speed' ? KEY_SPEED_DEF : KEY_DEF];
     var entry = findPokemonEntry(state, pd.speciesKo);
     if (!entry) {
-      return { ok: false, error: 'species_not_in_def_dex' };
+      return { ok: false, error: page === 'speed' ? 'species_not_in_speed_def_dex' : 'species_not_in_def_dex' };
     }
 
     def.name = entry;
@@ -371,18 +404,24 @@
     def.sprite = deriveSprite(entry);
 
     var eiD = defaultEvsIvs(pd.evs, pd.ivs);
-    def.hp_effort = clampEv(eiD.evs[0]);
-    def.hp_individual_value = eiD.ivs[0] | 0;
-    def.effort = clampEv(physInc ? eiD.evs[2] : eiD.evs[4]);
-    def.individual_value = physInc ? eiD.ivs[2] | 0 : eiD.ivs[4] | 0;
+    if (page === 'speed') {
+      def.effort = clampEv(eiD.evs[5]);
+      def.individual_value = eiD.ivs[5] | 0;
+    } else {
+      def.hp_effort = clampEv(eiD.evs[0]);
+      def.hp_individual_value = eiD.ivs[0] | 0;
+      def.effort = clampEv(physInc ? eiD.evs[2] : eiD.evs[4]);
+      def.individual_value = physInc ? eiD.ivs[2] | 0 : eiD.ivs[4] | 0;
+    }
 
     if (pd.level != null && pd.level > 0) def.level = pd.level | 0;
 
-    var dp = pd.defenderPersonality;
+    var dp = page === 'speed' ? pd.personality : pd.defenderPersonality;
     if (dp === 0.9 || dp === 1 || dp === 1.1) def.personality = dp;
 
-    var defAbility = lookupAbilityObj(state, pd.abilityKo, true);
-    var defEquipment = lookupEquipmentObj(state, pd.itemKo, true);
+    var dexSideDef = page === 'speed' ? 'speed' : true;
+    var defAbility = lookupAbilityObj(state, pd.abilityKo, dexSideDef);
+    var defEquipment = lookupEquipmentObj(state, pd.itemKo, dexSideDef);
     def.ability = defAbility;
     def.equipment = defEquipment;
 
@@ -416,6 +455,7 @@
     var payloads = job.payloads || {};
     var onlyAttacker = !!job.onlyAttacker;
     var onlyDefender = !!job.onlyDefender;
+    var page = job.page === 'speed' ? 'speed' : 'calc';
 
     var warnings = [];
 
@@ -459,9 +499,9 @@
     }
 
     try {
-      var att = state[KEY_ATT];
+      var att = page === 'speed' ? state[KEY_SPEED_ATT] : state[KEY_ATT];
       if (hasA) {
-        var ra = applyAttackerFromPayload(state, paFull, physAtk, warnings);
+        var ra = applyAttackerFromPayload(state, paFull, physAtk, warnings, page);
         if (!ra.ok) {
           done({ ok: false, error: ra.error, warnings: warnings });
           return;
@@ -470,7 +510,7 @@
       }
 
       if (hasD) {
-        var rd = applyDefenderFromPayload(state, pdFull, physDef, warnings);
+        var rd = applyDefenderFromPayload(state, pdFull, physDef, warnings, page);
         if (!rd.ok) {
           done({ ok: false, error: rd.error, warnings: warnings });
           return;
@@ -492,10 +532,13 @@
       done({ ok: false, error: 'nuxt_state_not_found' });
       return;
     }
-    if (!calcShellReady(state)) {
+    var page = job.page === 'speed' ? 'speed' : 'calc';
+    if (!calcShellReady(state, page)) {
       var pl = state[KEY_POKE_LIST];
       if (!Array.isArray(pl) || pl.length === 0) {
         done({ ok: false, error: 'calc_dex_not_ready' });
+      } else if (page === 'speed') {
+        done({ ok: false, error: 'speed_state_not_found' });
       } else {
         done({ ok: false, error: 'vue_calc_not_found' });
       }
@@ -532,6 +575,7 @@
       requestId: rid,
       onlyAttacker: !!d.onlyAttacker,
       onlyDefender: !!d.onlyDefender,
+      page: d.page === 'speed' ? 'speed' : 'calc',
     });
     pumpQueue();
   });

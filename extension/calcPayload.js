@@ -1,6 +1,6 @@
 /**
  * Service worker: 샘플 공유 URL → 계산기 기입용 페이로드.
- * globalThis.nuoCalcPayload.buildSidePayloads(atkUrl, defUrl, docs)
+ * globalThis.nuoCalcPayload.buildSidePayloads(atkUrl, defUrl, docs, page)
  */
 (function () {
   'use strict';
@@ -708,9 +708,11 @@
    * @param {object} slot raw slot (SR.flattenSlot 적용 가능한 형태)
    * @param {object} docs natureKoDoc / natureStatMulDoc / typeKoDoc / moveKoDoc / moveKoFallbackDoc / modifiersDoc
    * @param {'attacker'|'defender'} role
+   * @param {'calc'|'speed'=} page — 미지정·옛 호출자는 'calc'. 스피드 계산기는 move 없이 nature.spe 만 반영.
    * @returns {Promise<object>} { error } 또는 페이로드
    */
-  function buildOneSideFromFlatSlot(slot, docs, role) {
+  function buildOneSideFromFlatSlot(slot, docs, role, page) {
+    if (!page) page = 'calc';
     if (SR.isSlotEmpty(slot)) {
       return Promise.resolve({ error: 'empty_slot' });
     }
@@ -725,6 +727,23 @@
     var natureKo = natureKoFromFlat(flat);
     var nr = natureRowForKo(natureKo, docs.natureKoDoc, docs.natureStatMulDoc);
     var level = levelFromFlat(flat);
+
+    if (page === 'speed') {
+      var envSp = envKeysFromAbilityKo(abilityKoFromFlat(flat), docs.modifiersDoc);
+      var persSp = 1;
+      if (nr.row) persSp = personalityScalar(nr.row.spe);
+      return Promise.resolve({
+        speciesKo: speciesKo,
+        evs: evs,
+        ivs: ivs,
+        level: level,
+        abilityKo: abilityKoFromFlat(flat),
+        itemKo: itemKoFromFlat(flat),
+        personality: persSp,
+        abilityWeatherKey: envSp.abilityWeatherKey,
+        abilityTerrainKey: envSp.abilityTerrainKey,
+      });
+    }
 
     if (role === 'defender') {
       var defEnv = envKeysFromAbilityKo(abilityKoFromFlat(flat), docs.modifiersDoc);
@@ -788,7 +807,8 @@
     });
   }
 
-  function buildOneSide(urlText, docs, role) {
+  function buildOneSide(urlText, docs, role, page) {
+    if (!page) page = 'calc';
     var full = SR.normalizePartyUrlInput(urlText);
     if (!full) return Promise.resolve({ error: 'empty_url' });
 
@@ -800,7 +820,7 @@
       if (cls.type !== 'single') {
         return { error: 'unknown_share_shape' };
       }
-      return buildOneSideFromFlatSlot(cls.slot, docs, role);
+      return buildOneSideFromFlatSlot(cls.slot, docs, role, page);
     });
   }
 
@@ -844,20 +864,23 @@
    *   modifiersDoc?: { abilities?: object }
    * }} docs
    */
-  function buildSidePayloads(atkUrl, defUrl, docs) {
+  function buildSidePayloads(atkUrl, defUrl, docs, page) {
+    if (!page) page = 'calc';
     docs = docs || {};
     cleanupLegacyKoSlugStorage();  // F0: 옛 storage 캐시 1회 청소
     var pAtk = (atkUrl || '').trim()
-      ? buildOneSide(atkUrl, docs, 'attacker')
+      ? buildOneSide(atkUrl, docs, 'attacker', page)
       : Promise.resolve(null);
     var pDef = (defUrl || '').trim()
-      ? buildOneSide(defUrl, docs, 'defender')
+      ? buildOneSide(defUrl, docs, 'defender', page)
       : Promise.resolve(null);
 
     return Promise.all([pAtk, pDef]).then(function (pair) {
       var attacker = pair[0];
       var defender = pair[1];
-      finalizePair(attacker, defender);
+      if (page !== 'speed') {
+        finalizePair(attacker, defender);
+      }
       return { attacker: attacker, defender: defender };
     });
   }
@@ -871,11 +894,16 @@
    *   incomingPhysical 결정: attacker 단독이면 정의 안 됨 — 호출자가 onlyAttacker 를 줄 것.
    *   defender 단독이면 디폴트 true (= URL 경로의 onlyDefender 케이스와 동일 동작).
    */
-  function buildSidePayloadFromSlot(slot, side, docs) {
+  function buildSidePayloadFromSlot(slot, side, docs, page) {
+    if (!page) page = 'calc';
     docs = docs || {};
     cleanupLegacyKoSlugStorage();
     var role = side === 'defender' ? 'defender' : 'attacker';
-    return buildOneSideFromFlatSlot(slot, docs, role).then(function (one) {
+    return buildOneSideFromFlatSlot(slot, docs, role, page).then(function (one) {
+      if (page === 'speed') {
+        if (role === 'attacker') return { attacker: one, defender: null };
+        return { attacker: null, defender: one };
+      }
       if (role === 'attacker') {
         finalizePair(one, null);
         return { attacker: one, defender: null };

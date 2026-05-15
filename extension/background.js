@@ -818,7 +818,7 @@ importScripts('showdownPaste.js');
             modifiersDoc: arr[4],
             moveKoDoc: arr[5],
             moveSlugToEnDoc: arr[6],
-          });
+          }, msg.page);
         })
         .then(function (payloads) {
           sendResponse({ ok: true, payloads: payloads });
@@ -867,7 +867,7 @@ importScripts('showdownPaste.js');
             modifiersDoc: arr[4],
             moveKoDoc: arr[5],
             moveSlugToEnDoc: arr[6],
-          });
+          }, msg.page);
         })
         .then(function (payloads) {
           sendResponse({ ok: true, payloads: payloads });
