@@ -139,22 +139,28 @@
   }
 
   var WX_INTERNAL_TO_NUO = {
-    sun: '쾌청',
-    rain: '비바라기',
-    sand: '모래바람',
-    snow: '설경',
-    strongwinds: '',
+    sun: { kr: '쾌청', en: 'Sun' },
+    rain: { kr: '비바라기', en: 'Rain' },
+    sand: { kr: '모래바람', en: 'Sand' },
+    snow: { kr: '설경', en: 'Snow' },
+    strongwinds: { kr: '', en: '' },
   };
 
   var FIELD_INTERNAL_TO_NUO = {
-    electric: '일렉트릭필드',
-    grassy: '그래스필드',
-    misty: '미스트필드',
-    psychic: '사이코필드',
+    electric: { kr: '일렉트릭필드', en: 'Electric Terrain' },
+    grassy: { kr: '그래스필드', en: 'Grassy Terrain' },
+    misty: { kr: '미스트필드', en: 'Misty Terrain' },
+    psychic: { kr: '사이코필드', en: 'Psychic Terrain' },
   };
 
+  /** att.weather / att.field 는 사이트 기대상 {en, kr} 객체. 초기값은 빈 string ''. */
   function wxSlotLooksEmpty(v) {
     if (v == null || v === '') return true;
+    if (typeof v === 'object') {
+      var k = v.kr ? String(v.kr).trim() : '';
+      var e = v.en ? String(v.en).trim() : '';
+      return !k && !e;
+    }
     if (typeof v !== 'string') return false;
     var d = v.trim().toLowerCase();
     if (!d) return true;
@@ -164,16 +170,17 @@
 
   function wxApplyWeather(att, internalKey) {
     if (!att || !internalKey) return;
-    var ko = WX_INTERNAL_TO_NUO[String(internalKey).toLowerCase().trim()];
-    if (!ko) return;
-    att.weather = ko;
+    var pair = WX_INTERNAL_TO_NUO[String(internalKey).toLowerCase().trim()];
+    if (!pair || !pair.kr) return;
+    // 사이트는 weather/field 를 {en, kr} 객체로 기대 (§16-9 equipment 와 동일 family).
+    att.weather = { en: pair.en, kr: pair.kr };
   }
 
   function wxApplyField(att, internalKey) {
     if (!att || !internalKey) return;
-    var ko = FIELD_INTERNAL_TO_NUO[String(internalKey).toLowerCase().trim()];
-    if (!ko) return;
-    att.field = ko;
+    var pair = FIELD_INTERNAL_TO_NUO[String(internalKey).toLowerCase().trim()];
+    if (!pair || !pair.kr) return;
+    att.field = { en: pair.en, kr: pair.kr };
   }
 
   function applyWeatherAndTerrain(att, pa, pd) {
