@@ -236,6 +236,46 @@
     });
   }
 
+  /**
+   * 팀빌더 좌측 슬롯 리스트 컨테이너 — 카드 XPath·MO 가드 등에서 공용.
+   * DOM 구조 변경 시 teamBuilderInlineAnnot 의 findSlotCardByIndex 와 같이 갱신.
+   * @returns {Element|null}
+   */
+  function getTbSlotListRoot() {
+    try {
+      return (
+        document.evaluate(
+          '/html/body/div[1]/div/main/div/div[1]/div/div',
+          document,
+          null,
+          XPathResult.FIRST_ORDERED_NODE_TYPE,
+          null
+        ).singleNodeValue || null
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * MO 콜백 records 중 슬롯 리스트 컨테이너(또는 그 자손) 변경이 하나라도 있으면 true.
+   * getTbSlotListRoot() 가 null 이면 가드 생략(항상 true) — 컨테이너 mount 전 폴백.
+   * @param {MutationRecord[]} records
+   * @returns {boolean}
+   */
+  function tbMoRecordsTouchSlotList(records) {
+    var root = getTbSlotListRoot();
+    if (!root) return true;
+    if (!records || !records.length) return false;
+    var i;
+    for (i = 0; i < records.length; i++) {
+      var t = records[i] && records[i].target;
+      if (!t) continue;
+      if (t === root || root.contains(t)) return true;
+    }
+    return false;
+  }
+
   g.nuoTeamBuilderShared = {
     isSmartnuoHost: isSmartnuoHost,
     injectTeamBridge: injectTeamBridge,
@@ -244,5 +284,7 @@
     setSlotSnapshot: setSlotSnapshot,
     getHotSnapshot: getHotSnapshot,
     getCacheSnapshot: getCacheSnapshot,
+    getTbSlotListRoot: getTbSlotListRoot,
+    tbMoRecordsTouchSlotList: tbMoRecordsTouchSlotList,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

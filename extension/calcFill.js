@@ -340,6 +340,11 @@
     '<path d="M4.9 4.9l14.2 14.2" />' +
     '</svg>';
 
+  /** F46: 그라데이션 ::before/::after 와 분리한 은은한 glow( opacity cross-fade 전용 span ). */
+  var FAB_GLOW_RINGS_HTML =
+    '<span class="fab-glow-ring fab-glow-ring-a" aria-hidden="true"></span>' +
+    '<span class="fab-glow-ring fab-glow-ring-b" aria-hidden="true"></span>';
+
   /** 슬롯/토글 공통 피드백 layer (hover/busy/done/err). */
   function feedbackHtmlForSlot() {
     return (
@@ -377,6 +382,7 @@
       '      <div class="fab-dock-main">' +
       '        <div class="fab-write-wrap" id="fabWriteWrap">' +
       '          <div class="fab-write-morph" id="fabWriteMorph" tabindex="0" role="group" aria-label="공유 URL 입력">' +
+      FAB_GLOW_RINGS_HTML +
       '            <span class="fab-write-bg-expanded" aria-hidden="true"></span>' +
       '            <div class="fab-write-gear" aria-hidden="true">' + PEN_TO_SQUARE_SVG + '</div>' +
       '            <div class="fab-write-panel-content">' +
@@ -396,6 +402,7 @@
       '          <div class="fab-slots" id="fabSlots"></div>' +
       '          <div class="fab-party-wrap">' +
       '            <button type="button" class="fab-btn fab-mode-toggle" id="fabModeToggle" aria-label="공격으로 적용 / 클릭 시 수비로 전환">' +
+      FAB_GLOW_RINGS_HTML +
       '              <span class="fab-toggle-ic fab-toggle-ic-atk">' + SWORD_SVG + '</span>' +
       '              <span class="fab-toggle-ic fab-toggle-ic-def">' + SHIELD_SVG + '</span>' +
       feedbackHtmlForToggle() +
@@ -467,6 +474,7 @@
         b.setAttribute('data-slot-idx', String(idx1));
         b.setAttribute('aria-label', '#' + idx1 + ' 슬롯');
         b.innerHTML =
+          FAB_GLOW_RINGS_HTML +
           '<span class="fab-slot-label">' +
           '<img class="fab-slot-mon" alt="" decoding="async" />' +
           '<span class="fab-slot-fallback-num">' + idx1 + '</span>' +
@@ -825,15 +833,6 @@
     applyModeClass();
     syncCalcHeuristic();
     refreshWriteInputForMode();
-
-    var heuristicTimer = null;
-    var mo = new MutationObserver(function () {
-      clearTimeout(heuristicTimer);
-      heuristicTimer = setTimeout(syncCalcHeuristic, 400);
-    });
-    try {
-      mo.observe(document.body, { childList: true, subtree: true, characterData: true });
-    } catch (e) {}
 
     window.addEventListener('hashchange', function () {
       setTimeout(syncCalcHeuristic, 100);

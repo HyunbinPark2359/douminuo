@@ -43,9 +43,14 @@
     '  --nuo-cf-vis-def: 1;',
     '}',
     /* ===== keyframes ===== */
-    '@keyframes nuo-cf-glow {',
-    '  0%, 100% { box-shadow: 0 4px 14px var(--nuo-cf-glow-1), 0 0 0 1px var(--nuo-cf-glow-2); }',
-    '  50% { box-shadow: 0 6px 18px var(--nuo-cf-glow-3), 0 0 0 1px var(--nuo-cf-glow-2); }',
+    /* F46: box-shadow 보간 대신 glow ring span 의 opacity cross-fade (calcFill 마크업) */
+    '@keyframes nuo-cf-glow-xfade-a {',
+    '  0%, 100% { opacity: 1; }',
+    '  50% { opacity: 0; }',
+    '}',
+    '@keyframes nuo-cf-glow-xfade-b {',
+    '  0%, 100% { opacity: 0; }',
+    '  50% { opacity: 1; }',
     '}',
     '@keyframes nuo-cf-bounce {',
     '  0% { transform: scale(0.96); }',
@@ -112,9 +117,21 @@
     '  background-image: linear-gradient(155deg, #f5fffa 0%, #d1fae5 44%, #6ee7b7 100%);',
     '  opacity: var(--nuo-cf-vis-def);',
     '}',
+    '/* F46: mode 그라데이션과 별도 — span.fab-glow-ring 에 정적 box-shadow + opacity 애니 */',
+    '.fab-glow-ring {',
+    '  position: absolute; left: 0; top: 0; right: 0; bottom: 0;',
+    '  border-radius: inherit; pointer-events: none; z-index: -2;',
+    '}',
+    '.fab-glow-ring-a {',
+    '  box-shadow: 0 4px 14px var(--nuo-cf-glow-1), 0 0 0 1px var(--nuo-cf-glow-2);',
+    '  animation: nuo-cf-glow-xfade-a 3.4s ease-in-out -0.6s infinite;',
+    '}',
+    '.fab-glow-ring-b {',
+    '  box-shadow: 0 6px 18px var(--nuo-cf-glow-3), 0 0 0 1px var(--nuo-cf-glow-2);',
+    '  animation: nuo-cf-glow-xfade-b 3.4s ease-in-out -0.6s infinite;',
+    '}',
     '.fab-btn:not(:disabled) {',
     /* 배경은 ::before/::after 가 담당. 여기엔 background-image 없음. */
-    '  animation: nuo-cf-glow 3.4s ease-in-out -0.6s infinite;',
     '  transition: transform 0.22s ease, filter 0.2s ease, opacity 0.2s ease, color 0.18s ease;',
     '}',
     '.fab-btn:not(:disabled):not(.fab-busy):not(.fab-done):not(.fab-err):hover {',
@@ -132,7 +149,7 @@
     '  color: #64748b;',
     '  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(148, 163, 184, 0.35);',
     '}',
-    '.fab-btn.fab-bounce { animation: nuo-cf-glow 3.4s ease-in-out -0.6s infinite, nuo-cf-bounce 0.18s cubic-bezier(0.22, 1, 0.36, 1) !important; }',
+    '.fab-btn.fab-bounce { animation: nuo-cf-bounce 0.18s cubic-bezier(0.22, 1, 0.36, 1) !important; }',
     /* ===== .fab-mode-toggle (큰 버튼 — 검·방패 SVG) ===== */
     /* 두 아이콘을 같은 자리에 absolute 로 깔고 opacity 변수로 cross-fade. flex 부모가 그대로 남아 */
     /* SVG 가 정중앙에 위치(#1) + opacity transition 으로 mode 전환 부드러움(#4). */
@@ -172,6 +189,7 @@
     '}',
     /* 빈 슬롯의 mode 그라데이션 가짜 요소는 숨김 — 회색 직배경이 보이도록. */
     '.fab-slot.is-empty::before, .fab-slot.is-empty::after { opacity: 0 !important; }',
+    '.fab-slot.is-empty .fab-glow-ring-a, .fab-slot.is-empty .fab-glow-ring-b { display: none !important; }',
     /* (옛 .fab-slot-write 인-슬롯 위치 CSS 는 Write 가 좌측 puck 으로 이전되며 폐기) */
     /* ===== hover/busy/done/err feedback — 팀빌더 FAB 의 fab-btn-feedback 패턴 그대로 베낌 ===== */
     /* 핵심: hover/done bg 는 “밝은 반투명 화이트”(rgba(255,255,255,0.5x)), 아이콘은 진한 색. */
@@ -249,7 +267,6 @@
     '  width: 52px; min-height: 52px; max-height: 52px; border-radius: 26px;',
     '  overflow: hidden;',
     '  color: var(--nuo-cf-color);',
-    '  animation: nuo-cf-glow 3.4s ease-in-out -0.6s infinite;',
     '  cursor: pointer;',
     '  transition: width 0.22s ease, min-height 0.24s ease, max-height 0.24s ease, border-radius 0.2s ease,',
     '    box-shadow 0.35s ease, filter 0.2s ease, transform 0.22s ease, color 0.18s ease;',
@@ -275,6 +292,12 @@
     '  width: 280px; min-height: 168px; max-height: 240px; border-radius: 14px;',
     '  animation: none;',
     '  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(15, 23, 42, 0.08);',
+    '}',
+    '.fab-write-wrap:hover .fab-write-morph .fab-glow-ring-a,',
+    '.fab-write-wrap:hover .fab-write-morph .fab-glow-ring-b,',
+    '.fab-write-wrap:focus-within .fab-write-morph .fab-glow-ring-a,',
+    '.fab-write-wrap:focus-within .fab-write-morph .fab-glow-ring-b {',
+    '  animation: none !important; opacity: 0 !important;',
     '}',
     /* 확장 시 뜨는 “밝은” 배경 — 팀빌더처럼 그라데이션 위로 layered. mode-neutral 로 단순화. */
     '.fab-write-bg-expanded {',
@@ -368,6 +391,15 @@
     '  transition: opacity 0.16s ease, visibility 0.16s;',
     '}',
     '.fab-dock--open .fab-head-toast.show { opacity: 1; visibility: visible; }',
+    '@media (prefers-reduced-motion: reduce) {',
+    '  .fab-glow-ring-a, .fab-glow-ring-b { animation: none !important; opacity: 1 !important; }',
+    '}',
+    '.fab-root.nuo-off .fab-glow-ring-a, .fab-root.nuo-off .fab-glow-ring-b,',
+    '.fab-root .fab-dock:not(.fab-dock--open) .fab-glow-ring-a,',
+    '.fab-root .fab-dock:not(.fab-dock--open) .fab-glow-ring-b {',
+    '  animation-play-state: paused;',
+    '}',
+    '.fab-btn:disabled .fab-glow-ring-a, .fab-btn:disabled .fab-glow-ring-b { display: none !important; }',
     ''
   ].join('\n');
 })(typeof globalThis !== 'undefined' ? globalThis : self);

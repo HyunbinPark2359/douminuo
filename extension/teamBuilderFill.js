@@ -946,13 +946,20 @@
       });
 
     var moTimer = null;
-    var mo = new MutationObserver(function () {
+    var tbMoTouchSlot =
+      typeof TBS.tbMoRecordsTouchSlotList === 'function'
+        ? TBS.tbMoRecordsTouchSlotList
+        : function () {
+            return true;
+          };
+    var mo = new MutationObserver(function (records) {
+      if (!tbMoTouchSlot(records)) return;
       clearTimeout(moTimer);
       moTimer = setTimeout(refreshSlots, 500);
     });
     try {
       mo.observe(document.body, { childList: true, subtree: true, characterData: true });
-    } catch (e) {}
+    } catch (eMo) {}
 
     window.addEventListener('hashchange', function () {
       setTimeout(refreshSlots, 200);

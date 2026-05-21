@@ -30,6 +30,12 @@
   var tbInlineGen = 0;
   var tbInlineTimer = null;
   var tbInlineMo = null;
+  var tbMoTouchSlot =
+    typeof TBS.tbMoRecordsTouchSlotList === 'function'
+      ? TBS.tbMoRecordsTouchSlotList
+      : function () {
+          return true;
+        };
   var tbInlineAnnotInited = false;
   var tbInlineHandlersWired = false;
   var tbInlineMoveEnabled = true;
@@ -94,24 +100,11 @@
     return !!el.closest(tbExtHostSelector());
   }
 
-  /** 팀빌더 좌측 슬롯 리스트 루트 — DOM 변경 시 이 한 줄만 수정. */
-  var TB_SLOT_LIST_XPATH = '/html/body/div[1]/div/main/div/div[1]/div/div';
-
-  /**
-   * 슬롯 인덱스 0~5 → 해당 슬롯 카드 body element. 없으면 null.
-   * list.children[0] = capture-hide 헤더 → 슬롯 i 는 children[i+1];
-   * wrapper.children[1] = 카드 본체(라벨 헤더는 [0]).
-   */
+  /** 팀빌더 좌측 슬롯 리스트 루트 — DOM 변경 시 teamBuilderShared.getTbSlotListRoot 와 같이 갱신. */
   function findSlotCardByIndex(slotIdx) {
     if (slotIdx < 0 || slotIdx > 5) return null;
     try {
-      var list = document.evaluate(
-        TB_SLOT_LIST_XPATH,
-        document,
-        null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE,
-        null
-      ).singleNodeValue;
+      var list = typeof TBS.getTbSlotListRoot === 'function' ? TBS.getTbSlotListRoot() : null;
       if (!list || !list.children) return null;
       var wrapper = list.children[slotIdx + 1];
       if (!wrapper || !wrapper.children) return null;
@@ -291,29 +284,27 @@
     return out;
   }
 
-  function findExactTextNodeHost(root, text) {
-    var want = String(text || '').trim();
-    if (!want || want === '--' || want.length > 48) return null;
-    var nodes = root.querySelectorAll('span, div, button, a, p, td, li, label, h3, h4, strong, em');
-    var matches = [];
-    var i;
-    for (i = 0; i < nodes.length; i++) {
-      var el = nodes[i];
-      if (isInTbExtHost(el)) continue;
-      if (el.querySelector('.nuo-fmt-tb-ann')) continue;
-      if (el.textContent.trim() !== want) continue;
-      if (el.children.length > 6) continue;
-      matches.push(el);
-    }
-    if (!matches.length) return null;
-    // 다른 매치를 자손으로 포함하지 않는 노드(leaf-most) 우선 반환.
-    // 1기 슬롯에서 기술 행 컨테이너가 잎 span보다 먼저 매치되어 결정력이
-    // 카드 좌측 하단으로 떨어지는 회귀 방지.
+  /** want 문자열이 기술명 매칭에서 제외되는지(옛 findExactTextNodeHost 와 동일). */
+  function tbMoveWantSkippable(want) {
+    want = String(want || '').trim();
+    if (!want || want === '--' || want.length > 48) return true;
+    return false;
+  }
+
+  /**
+   * 후보 element 배열에서 leaf-most 하나 선택(옛 findExactTextNodeHost 와 동일 규칙).
+   * @param {Element[]} matches
+   * @returns {Element|null}
+   */
+  function tbPickLeafMostHost(matches) {
+    if (!matches || !matches.length) return null;
     var j;
+    var k;
+    var m;
+    var hasInner;
     for (j = 0; j < matches.length; j++) {
-      var m = matches[j];
-      var hasInner = false;
-      var k;
+      m = matches[j];
+      hasInner = false;
       for (k = 0; k < matches.length; k++) {
         if (j === k) continue;
         if (m.contains(matches[k])) {
@@ -324,6 +315,51 @@
       if (!hasInner) return m;
     }
     return matches[matches.length - 1];
+  }
+
+  /**
+   * 카드 내 4기술 표시명에 대응하는 호스트 element 를 TreeWalker 1패스로 찾는다(F37 옵션 C).
+   * @param {Element} cardRoot
+   * @param {string[]} want4 길이 4 (moveNames)
+   * @returns {(Element|null)[]} 길이 4, 못 찾은 칸은 null
+   */
+  function mapMoveNamesToHostsInCard(cardRoot, want4) {
+    var out = [null, null, null, null];
+    if (!cardRoot || cardRoot.nodeType !== 1) return out;
+    var buckets = [[], [], [], []];
+    var walker;
+    try {
+      walker = document.createTreeWalker(cardRoot, NodeFilter.SHOW_TEXT, null, false);
+    } catch (eTw) {
+      return out;
+    }
+    var node;
+    var t;
+    var pe;
+    var mi;
+    var wantStr;
+    while (walker.nextNode()) {
+      node = walker.currentNode;
+      t = String(node.nodeValue || '').trim();
+      if (!t) continue;
+      pe = node.parentElement;
+      if (!pe || pe.nodeType !== 1) continue;
+      if (isInTbExtHost(pe)) continue;
+      try {
+        if (pe.querySelector('.nuo-fmt-tb-ann')) continue;
+      } catch (eQ) {}
+      if (pe.children.length > 6) continue;
+      for (mi = 0; mi < 4; mi++) {
+        wantStr = want4 && want4[mi] != null ? String(want4[mi]).trim() : '';
+        if (tbMoveWantSkippable(wantStr)) continue;
+        if (t !== wantStr) continue;
+        buckets[mi].push(pe);
+      }
+    }
+    for (mi = 0; mi < 4; mi++) {
+      out[mi] = tbPickLeafMostHost(buckets[mi]);
+    }
+    return out;
   }
 
   function requestSlotAnnot(slotData) {
@@ -340,13 +376,14 @@
 
   function applyMovePowerSuffixes(cardRoot, moveNames, suff) {
     if (!Array.isArray(suff)) return;
+    var hosts = mapMoveNamesToHostsInCard(cardRoot, moveNames);
     var mi;
     for (mi = 0; mi < 4; mi++) {
       var suf = suff[mi];
       if (!suf) continue;
       var name = moveNames[mi];
       if (!name || name === '--') continue;
-      var el = findExactTextNodeHost(cardRoot, name);
+      var el = hosts[mi];
       if (!el) continue;
       if (el.querySelector('.nuo-fmt-tb-ann')) continue;
       // 기술명(한글)과 결정력이 한 줄에 안 들어갈 때 한글 이름 중간이 아닌 이름/결정력
@@ -518,7 +555,8 @@
 
   function tbEnsureMutationObserver() {
     if (!tbInlineAnyEnabled() || tbInlineMo) return;
-    tbInlineMo = new MutationObserver(function () {
+    tbInlineMo = new MutationObserver(function (records) {
+      if (!tbMoTouchSlot(records)) return;
       scheduleTeamBuilderInlineAnnotate();
     });
     try {
