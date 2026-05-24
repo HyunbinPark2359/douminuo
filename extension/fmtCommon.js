@@ -43,7 +43,13 @@
       pushRaw(hold);
       return out;
     }
+    // F50 (2026-05-24): 리뉴얼 후 slot.equipment/ability 등 hold 객체의 한칭은 `kr` 필드.
+    // 다른 코드(`shareToRaw.koFromMaybeObj`, `teamBuilderInlineAnnot.moveDisplayNamesFromSlot`,
+    // `teamBuilderBridge.augmentSlotWithDex`) 가 이미 `kr` 을 1차 진실로 다룸 — 본 함수만
+    // 누락이었어 화력증강도구(목탄/구애머리띠 등) 결정력 매치가 끊겨 있었음.
+    // 'kr' 가 first-match-wins (seen 가드) 라 옛 공유 URL 의 문자열 케이스는 무영향.
     var keys = [
+      'kr',
       'nameKr',
       'name_kr',
       'nameKO',
