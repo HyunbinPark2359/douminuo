@@ -93,8 +93,18 @@
     var embedded = globalThis.NUO_REGULATION_MA_SPEED_SOURCE_HASH;
     if (typeof embedded !== 'string') return;
     if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.getURL) return;
+    // 확장 context invalidated 가드 — chrome.runtime.id 미정 시 getURL 이
+    // 'chrome-extension://invalid/' 를 반환하고 fetch 가 ERR_FAILED 로 콘솔 잡음.
+    if (typeof chrome.runtime.id !== 'string' || !chrome.runtime.id) return;
+    var url;
     try {
-      fetch(chrome.runtime.getURL('regulationMaSpeedTable.json'))
+      url = chrome.runtime.getURL('regulationMaSpeedTable.json');
+    } catch (eU) {
+      return;
+    }
+    if (!url || url.indexOf('chrome-extension://invalid') === 0) return;
+    try {
+      fetch(url)
         .then(function (r) { return r.ok ? r.text() : null; })
         .then(function (text) {
           if (text == null) return;

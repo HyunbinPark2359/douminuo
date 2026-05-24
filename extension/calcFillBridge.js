@@ -20,6 +20,63 @@
   var applyQueue = [];
   var applyBusy = false;
 
+  /** F33: $spokemon_list lazy 인덱스 — list ref 변경 시 재빌드, first-set-wins. */
+  var pokeIxByKr = null;
+  var pokeIxByEn = null;
+  var pokeIxSourceRef = null;
+
+  /** F34: dex 키별 { kr, ref } — 6개 ability/equipment 배열. */
+  var dexIxCache = Object.create(null);
+
+  function ensurePokeIxBuilt(list) {
+    if (!Array.isArray(list)) {
+      pokeIxByKr = null;
+      pokeIxByEn = null;
+      pokeIxSourceRef = null;
+      return;
+    }
+    if (pokeIxSourceRef === list) return;
+    pokeIxByKr = Object.create(null);
+    pokeIxByEn = Object.create(null);
+    var i;
+    var p;
+    var kr;
+    var keys = ['id', 'smogon_id', 'db_en', 'name'];
+    var ki;
+    var v;
+    for (i = 0; i < list.length; i++) {
+      p = list[i];
+      if (!p) continue;
+      kr = String(p.kr || '').trim();
+      if (kr && !pokeIxByKr[kr]) pokeIxByKr[kr] = p;
+      for (ki = 0; ki < keys.length; ki++) {
+        v = String(p[keys[ki]] || '').toLowerCase().trim();
+        if (v && !pokeIxByEn[v]) pokeIxByEn[v] = p;
+      }
+    }
+    pokeIxSourceRef = list;
+  }
+
+  function lookupByDex(state, key, kr) {
+    var arr = lookupDexArray(state, key);
+    if (!arr) return null;
+    var c = dexIxCache[key];
+    if (!c || c.ref !== arr) {
+      c = { kr: Object.create(null), ref: arr };
+      var i;
+      var a;
+      var k;
+      for (i = 0; i < arr.length; i++) {
+        a = arr[i];
+        if (!a) continue;
+        k = String(a.kr || '').trim();
+        if (k && !c.kr[k]) c.kr[k] = a;
+      }
+      dexIxCache[key] = c;
+    }
+    return c.kr[String(kr || '').trim()] || null;
+  }
+
   /** 스마트누오 도감: 공격측 블레이드폼 remap */
   var ATTACKER_SPECIES_KO_REMAP = {
     킬가르도: '킬가르도 (블레이드)',
@@ -96,26 +153,11 @@
   /** 한글 종명 1순위, share URL 에 영문 slug 만 온 경우 id / smogon_id / name 폴백. */
   function findPokemonEntry(state, species) {
     var list = state[KEY_POKE_LIST];
-    if (!Array.isArray(list)) return null;
+    ensurePokeIxBuilt(list);
+    if (!pokeIxByKr) return null;
     var k = String(species || '').trim();
     if (!k) return null;
-    var kLow = k.toLowerCase();
-    var i;
-    for (i = 0; i < list.length; i++) {
-      var p = list[i];
-      if (p && String(p.kr || '').trim() === k) return p;
-    }
-    for (i = 0; i < list.length; i++) {
-      p = list[i];
-      if (!p) continue;
-      if (String(p.id || '').toLowerCase() === kLow) return p;
-      if (String(p.smogon_id || '').toLowerCase() === kLow) return p;
-      // 구버전 공유 URL: 슬롯 pokemon.name_kr 가 비고 슬러그(예: mimikyu-disguised)가
-      // species 로 흘러올 때, $spokemon_list entry 는 id='mimikyu' 지만 db_en 에 폼 슬러그가 들어있음.
-      if (String(p.db_en || '').toLowerCase() === kLow) return p;
-      if (String(p.name || '').toLowerCase() === kLow) return p;
-    }
-    return null;
+    return pokeIxByKr[k] || pokeIxByEn[k.toLowerCase()] || null;
   }
 
   function deriveSprite(entry) {
@@ -219,15 +261,10 @@
         : defenderSide
           ? 'ability.cal_def'
           : 'ability.cal_att';
-    var arr = lookupDexArray(state, key);
     var k = String(kr || '').trim();
     if (!k) return { en: '?', kr: '' };
-    if (!arr) return { en: '?', kr: k };
-    var i;
-    for (i = 0; i < arr.length; i++) {
-      var a = arr[i];
-      if (a && String(a.kr || '').trim() === k) return a;
-    }
+    var hit = lookupByDex(state, key, k);
+    if (hit) return hit;
     return { en: '?', kr: k };
   }
 
@@ -239,17 +276,13 @@
         : defenderSide
           ? 'equipment.cal_def'
           : 'equipment.cal_att';
-    var arr = lookupDexArray(state, key);
     var k = String(kr || '').trim();
     // 2026-05-14: 사이트가 EQUIPMENT_TABLE[equipment.en] strict lookup 도입. 옛 {en:'?', kr}
     // 폴백은 strict lookup miss → undefined.megaStone → calculate TypeError. 사이트의 “도구
     // 없음” sentinel(= 초기 state 의 빈 문자열)을 그대로 사용해 폴백 경로를 막는다.
-    if (!k || !arr) return '';
-    var i;
-    for (i = 0; i < arr.length; i++) {
-      var a = arr[i];
-      if (a && String(a.kr || '').trim() === k) return a;
-    }
+    if (!k) return '';
+    var hit = lookupByDex(state, key, k);
+    if (hit) return hit;
     return '';
   }
 

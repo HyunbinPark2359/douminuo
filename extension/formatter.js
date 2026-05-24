@@ -176,6 +176,25 @@
     return { physBase: physBase, specBase: specBase, physBuffed: physBuffed, specBuffed: specBuffed };
   }
 
+  /**
+   * F42 (2026-05-24): 미리 계산된 comp 로 두 줄 포맷.
+   * background.js ANNOTATE_BUILDER_SLOT 가 computeBulkPhysSpecBuffed 1회 호출 후 본 함수에 그대로 전달 — 옛 코드는 두 포맷터가 각각 compute 를 다시 돌렸음.
+   */
+  function formatBulkLinesFromComp(comp) {
+    if (!comp) return '';
+    return (
+      formatOneBulkLine('물리내구력', comp.physBase, comp.physBuffed) +
+      '\n' +
+      formatOneBulkLine('특수내구력', comp.specBase, comp.specBuffed)
+    );
+  }
+
+  /** F42 (2026-05-24): 미리 계산된 comp 로 팀빌더 인라인용 `물리/특수` 한 줄. */
+  function formatBulkCompactSlashFromComp(comp) {
+    if (!comp) return '';
+    return String(comp.physBuffed) + '/' + String(comp.specBuffed);
+  }
+
   function formatBulkLinesFromReals(
     realByLetter,
     enabled,
@@ -186,19 +205,15 @@
     speciesTypesEn
   ) {
     if (!enabled) return '';
-    var comp = computeBulkPhysSpecBuffed(
-      realByLetter,
-      modifiersDoc,
-      itemRaw,
-      abilityRaw,
-      speciesTitleContext,
-      speciesTypesEn
-    );
-    if (!comp) return '';
-    return (
-      formatOneBulkLine('물리내구력', comp.physBase, comp.physBuffed) +
-      '\n' +
-      formatOneBulkLine('특수내구력', comp.specBase, comp.specBuffed)
+    return formatBulkLinesFromComp(
+      computeBulkPhysSpecBuffed(
+        realByLetter,
+        modifiersDoc,
+        itemRaw,
+        abilityRaw,
+        speciesTitleContext,
+        speciesTypesEn
+      )
     );
   }
 
@@ -213,16 +228,16 @@
     speciesTypesEn
   ) {
     if (!enabled) return '';
-    var comp = computeBulkPhysSpecBuffed(
-      realByLetter,
-      modifiersDoc,
-      itemRaw,
-      abilityRaw,
-      speciesTitleContext,
-      speciesTypesEn
+    return formatBulkCompactSlashFromComp(
+      computeBulkPhysSpecBuffed(
+        realByLetter,
+        modifiersDoc,
+        itemRaw,
+        abilityRaw,
+        speciesTitleContext,
+        speciesTypesEn
+      )
     );
-    if (!comp) return '';
-    return String(comp.physBuffed) + '/' + String(comp.specBuffed);
   }
 
   function trimOrDash(s) {
@@ -523,5 +538,9 @@
   global.formatSample = formatSample;
   global.formatBulkLinesFromReals = formatBulkLinesFromReals;
   global.formatBulkCompactSlash = formatBulkCompactSlash;
+  // F42 (2026-05-24): SW 가 한 번 계산하고 두 포맷터에 재사용하기 위한 직접 export.
+  global.computeBulkPhysSpecBuffed = computeBulkPhysSpecBuffed;
+  global.formatBulkLinesFromComp = formatBulkLinesFromComp;
+  global.formatBulkCompactSlashFromComp = formatBulkCompactSlashFromComp;
   global.movePowerSuffixFormatter = movePowerSuffix;
 })(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : this);

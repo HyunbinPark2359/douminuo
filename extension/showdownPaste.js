@@ -115,6 +115,20 @@
     return compact;
   }
 
+  /**
+   * F48 (2026-05-24): bySlug 같은 doc 참조에 대해 compact 인덱스 1회만 빌드.
+   * SW 라이프타임에 moveSlugToEn.json 은 1회 로드 → 같은 참조 — 두 번째 파티 복사부터 hit.
+   */
+  var compactMoveIxCache = new WeakMap();
+  function getCompactMoveEnIndex(bySlug) {
+    if (!bySlug) return Object.create(null);
+    var c = compactMoveIxCache.get(bySlug);
+    if (c) return c;
+    c = buildCompactMoveEnIndex(bySlug);
+    compactMoveIxCache.set(bySlug, c);
+    return c;
+  }
+
   function moveToEnglish(moveKoDoc, bySlug, compactIdx, koLabel) {
     var k = String(koLabel || '').trim();
     if (!k || k === '--') return '';
@@ -263,6 +277,32 @@
   }
 
   /**
+   * F45 (2026-05-24): DP 워크스페이스 — N+1 × MAX_T+1 셀 4종을 SW 라이프타임에 1회 할당.
+   * 첫 호출 시 빌드, 이후 호출은 reset 만. 진입은 Showdown 옵션 + EV cap 초과 슬롯에 한정.
+   * @param {number} n 종목 수(=6)
+   * @param {number} maxT MAX_CLASSIC_EV_TOTAL(=508)
+   */
+  var dpWorkspace = null;
+  function ensureDpWorkspace(n, maxT) {
+    if (dpWorkspace && dpWorkspace.n === n && dpWorkspace.maxT === maxT) {
+      return dpWorkspace;
+    }
+    var pen = new Array(n + 1);
+    var gsum = new Array(n + 1);
+    var pickEv = new Array(n + 1);
+    var prevT = new Array(n + 1);
+    var ii;
+    for (ii = 0; ii <= n; ii++) {
+      pen[ii] = new Array(maxT + 1);
+      gsum[ii] = new Array(maxT + 1);
+      pickEv[ii] = new Array(maxT + 1);
+      prevT[ii] = new Array(maxT + 1);
+    }
+    dpWorkspace = { n: n, maxT: maxT, pen: pen, gsum: gsum, pickEv: pickEv, prevT: prevT };
+    return dpWorkspace;
+  }
+
+  /**
    * 누오 목표 증가칸 b[6] → 쇼다운 EV[6] (유효 합 ≤508, 종목별 min EV만 출력).
    * 클램프 직후 b[i]>0인 종목 집합과 쇼다운에서 EV>0인 종목 집합을 동일하게 유지(추가·삭제 없음).
    */
@@ -289,22 +329,26 @@
     var INF = 1e9;
     var MAX_T = MAX_CLASSIC_EV_TOTAL;
     var N = 6;
-    var pen = [];
-    var gsum = [];
-    var pickEv = [];
-    var prevT = [];
+    // F45 (2026-05-24): DP 셀 4종 (≈14k 셀 × 4) 을 모듈 스코프 워크스페이스로.
+    // 옛 코드는 호출마다 새 배열을 6+1 × 509 × 4 = ~12k 셀 할당 → GC 압력.
+    // 이 분기는 Showdown 옵션 + EV 합 cap 초과 슬롯에서만 진입(드물지만 진입하면 비싸다).
+    var ws = ensureDpWorkspace(N, MAX_T);
+    var pen = ws.pen;
+    var gsum = ws.gsum;
+    var pickEv = ws.pickEv;
+    var prevT = ws.prevT;
     var ii;
     var tt;
     for (ii = 0; ii <= N; ii++) {
-      pen[ii] = [];
-      gsum[ii] = [];
-      pickEv[ii] = [];
-      prevT[ii] = [];
+      var penI = pen[ii];
+      var gsumI = gsum[ii];
+      var pickEvI = pickEv[ii];
+      var prevTI = prevT[ii];
       for (tt = 0; tt <= MAX_T; tt++) {
-        pen[ii][tt] = INF;
-        gsum[ii][tt] = -1;
-        pickEv[ii][tt] = 0;
-        prevT[ii][tt] = 0;
+        penI[tt] = INF;
+        gsumI[tt] = -1;
+        pickEvI[tt] = 0;
+        prevTI[tt] = 0;
       }
     }
     pen[0][0] = 0;
@@ -440,7 +484,7 @@
       modifiersDocument: mod,
       moveKoDoc: moveKo,
       bySlugMove: moveEn,
-      compactMove: buildCompactMoveEnIndex(moveEn),
+      compactMove: getCompactMoveEnIndex(moveEn),
       koToSlugNature: koToSlugNature,
       itemKoDoc: itemKoDoc,
       abilityKoDoc: abilityKoDoc,

@@ -25,7 +25,46 @@
   /**
    * $spokemon_list 가 채워질 때까지 최대 2초 폴링 — 부팅 직후 augment 가 빈 도감으로 스킵되는 race 방지.
    */
+  /** F36: 한 번 ready 되면 이후 폴 생략 (bridge 가드 유지, 동일 page 컨텍스트). */
+  var pokeListEverReady = false;
+
+  /** F35: $spokemon_list lazy 인덱스 — augmentSlotWithDex 3회 선형 스캔 대체. */
+  var tbPokeIxByKr = null;
+  var tbPokeIxById = null;
+  var tbPokeIxSourceRef = null;
+
+  function ensureTbPokeIxBuilt(list) {
+    if (!Array.isArray(list)) {
+      tbPokeIxByKr = null;
+      tbPokeIxById = null;
+      tbPokeIxSourceRef = null;
+      return;
+    }
+    if (tbPokeIxSourceRef === list) return;
+    tbPokeIxByKr = Object.create(null);
+    tbPokeIxById = Object.create(null);
+    var i;
+    var p;
+    var kr;
+    var pid;
+    var noDash;
+    for (i = 0; i < list.length; i++) {
+      p = list[i];
+      if (!p) continue;
+      kr = String(p.kr || '').trim();
+      if (kr && !tbPokeIxByKr[kr]) tbPokeIxByKr[kr] = p;
+      pid = String(p.id || '').toLowerCase();
+      if (pid) {
+        if (!tbPokeIxById[pid]) tbPokeIxById[pid] = p;
+        noDash = pid.replace(/-/g, '');
+        if (noDash !== pid && !tbPokeIxById[noDash]) tbPokeIxById[noDash] = p;
+      }
+    }
+    tbPokeIxSourceRef = list;
+  }
+
   function waitForPokeListReady(maxMs, intervalMs) {
+    if (pokeListEverReady) return Promise.resolve(true);
     return new Promise(function (resolve) {
       var deadline = Date.now() + (maxMs || 2000);
       var step = intervalMs || 100;
@@ -33,7 +72,10 @@
         var s = getNuxtState();
         if (s) {
           var pl = s['$spokemon_list'];
-          if (Array.isArray(pl) && pl.length > 0) return resolve(true);
+          if (Array.isArray(pl) && pl.length > 0) {
+            pokeListEverReady = true;
+            return resolve(true);
+          }
         }
         if (Date.now() >= deadline) return resolve(false);
         setTimeout(tick, step);
@@ -101,42 +143,19 @@
       return nS;
     }
 
+    ensureTbPokeIxBuilt(pokeList);
     var entry = null;
-    var i;
     var kr = String(poke.name_kr || '').trim();
-    if (kr) {
-      for (i = 0; i < pokeList.length; i++) {
-        if (pokeList[i] && String(pokeList[i].kr || '').trim() === kr) {
-          entry = pokeList[i];
-          break;
-        }
-      }
-    }
-    if (!entry && hasSlug) {
+    if (kr && tbPokeIxByKr) entry = tbPokeIxByKr[kr] || null;
+    if (!entry && hasSlug && tbPokeIxById) {
       var slugLow = String(poke.name).toLowerCase();
       var slugNoDash = slugLow.replace(/-/g, '');
-      for (i = 0; i < pokeList.length; i++) {
-        var p = pokeList[i];
-        if (!p) continue;
-        var pid = String(p.id || '').toLowerCase();
-        if (pid === slugLow || pid === slugNoDash) {
-          entry = p;
-          break;
-        }
-      }
+      entry = tbPokeIxById[slugLow] || tbPokeIxById[slugNoDash] || null;
     }
-    if (!entry && slugFromNameObj) {
+    if (!entry && slugFromNameObj && tbPokeIxById) {
       var slugObj = slugFromNameObj;
       var slugObjNoDash = slugObj.replace(/-/g, '');
-      for (i = 0; i < pokeList.length; i++) {
-        p = pokeList[i];
-        if (!p) continue;
-        pid = String(p.id || '').toLowerCase();
-        if (pid === slugObj || pid === slugObjNoDash) {
-          entry = p;
-          break;
-        }
-      }
+      entry = tbPokeIxById[slugObj] || tbPokeIxById[slugObjNoDash] || null;
     }
     if (!entry) {
       if (!spriteFromDex) return slot;

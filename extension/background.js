@@ -149,6 +149,46 @@ importScripts('showdownPaste.js');
     EMPTY_POKEMON_TYPE
   );
 
+  /**
+   * F41: 계산기 자동입력 — GET_CALC_PAYLOADS / GET_CALC_PAYLOADS_FROM_SLOT 두 핸들러가
+   * 같은 8개 doc 묶음을 Promise.all 로 모았다. 새 doc 이 추가될 때 두 곳을 같이 손대야
+   * 하는 회귀를 막기 위해 헬퍼 한 곳으로 모은다.
+   *
+   * F40: moveTags.json 은 calcPayload.js 자체 로더에서도 fetch 하던 것을 본 헬퍼로 단일화.
+   * buildOneSideFromFlatSlot 가 docs.moveTagsDoc 를 그대로 읽는다.
+   *
+   * @returns {Promise<{
+   *   natureKoDoc: object, natureStatMulDoc: object, typeKoDoc: object,
+   *   moveKoFallbackDoc: object, modifiersDoc: object, moveKoDoc: object,
+   *   moveSlugToEnDoc: object, moveTagsDoc: object,
+   * }>}
+   */
+  function loadCalcPayloadDocs() {
+    return Promise.all([
+      loadJsonUrl('natureKoMap.json', { koToSlug: {} }),
+      loadJsonUrl('natureStatMul.json', { bySlug: {} }),
+      loadJsonUrl('typeKoMap.json', { byKo: {} }),
+      loadJsonUrl('moveKoFallback.json', { version: 0, byKo: {} }),
+      ensureModifiersLoaded(),
+      ensureMoveKoMapLoaded(),
+      // 본 라운드: 슬러그 정규화 (hyphenless → hyphenated) — calcPayload 가 한 번만 reduce.
+      // 옛 코드는 hyphen 위치를 모르고 sequential 추측해 ~10 sequential 404 (~2~4초).
+      loadJsonUrl('moveSlugToEn.json', { bySlug: {} }),
+      ensureMoveTagsLoaded(),
+    ]).then(function (arr) {
+      return {
+        natureKoDoc: arr[0],
+        natureStatMulDoc: arr[1],
+        typeKoDoc: arr[2],
+        moveKoFallbackDoc: arr[3],
+        modifiersDoc: arr[4],
+        moveKoDoc: arr[5],
+        moveSlugToEnDoc: arr[6],
+        moveTagsDoc: arr[7],
+      };
+    });
+  }
+
   function buildDisplayPartyUrl(origin, pathname, id) {
     var p = pathname || '/';
     return origin + p + '#ps=' + id;
@@ -752,7 +792,6 @@ importScripts('showdownPaste.js');
       computeBlockPowersForSlot(slotAn)
         .then(function (pack) {
           return ensureModifiersLoaded().then(function (mod) {
-            var FBL = globalThis.formatBulkLinesFromReals;
             var MPS = globalThis.movePowerSuffixFormatter;
             var reals = SR.realByLetterFromSlot(slotAn);
             var flat = SR.flattenSlot(slotAn);
@@ -760,15 +799,16 @@ importScripts('showdownPaste.js');
             var abilityRaw = SR.str(flat.ability || flat.ab || flat.Ability);
             var titleCtx =
               SR.str(SR.titleRest(flat)) + '\n' + SR.str(SR.speciesNameLine(flat));
-            var bulkText =
-              typeof FBL === 'function'
-                ? FBL(reals, true, mod, itemRaw, abilityRaw, titleCtx, pack.speciesTypesEn) || ''
-                : '';
-            var FBCS = globalThis.formatBulkCompactSlash;
-            var bulkCompact =
-              typeof FBCS === 'function'
-                ? FBCS(reals, true, mod, itemRaw, abilityRaw, titleCtx, pack.speciesTypesEn) || ''
-                : '';
+            // F42 (2026-05-24): 두 포맷이 같은 comp 를 공유 — 옛 코드는 두 번 계산했음.
+            var CBP = globalThis.computeBulkPhysSpecBuffed;
+            var FBLC = globalThis.formatBulkLinesFromComp;
+            var FBCSC = globalThis.formatBulkCompactSlashFromComp;
+            var comp =
+              typeof CBP === 'function'
+                ? CBP(reals, mod, itemRaw, abilityRaw, titleCtx, pack.speciesTypesEn)
+                : null;
+            var bulkText = typeof FBLC === 'function' ? FBLC(comp) || '' : '';
+            var bulkCompact = typeof FBCSC === 'function' ? FBCSC(comp) || '' : '';
             var suff = [];
             var mp = pack.movePowers || [];
             var mi;
@@ -798,27 +838,9 @@ importScripts('showdownPaste.js');
         sendResponse({ ok: false, error: 'calc_payload_unavailable' });
         return true;
       }
-      Promise.all([
-        loadJsonUrl('natureKoMap.json', { koToSlug: {} }),
-        loadJsonUrl('natureStatMul.json', { bySlug: {} }),
-        loadJsonUrl('typeKoMap.json', { byKo: {} }),
-        loadJsonUrl('moveKoFallback.json', { version: 0, byKo: {} }),
-        ensureModifiersLoaded(),
-        ensureMoveKoMapLoaded(), // F0: 한글 기술명 → Showdown id 번들 lookup
-        // 본 라운드: 슬러그 정규화 (hyphenless → hyphenated) — calcPayload 가 한 번만 reduce.
-        // 옛 코드는 hyphen 위치를 모르고 sequential 추측해 ~10 sequential 404 (~2~4초).
-        loadJsonUrl('moveSlugToEn.json', { bySlug: {} }),
-      ])
-        .then(function (arr) {
-          return CP.buildSidePayloads(msg.atkUrl || '', msg.defUrl || '', {
-            natureKoDoc: arr[0],
-            natureStatMulDoc: arr[1],
-            typeKoDoc: arr[2],
-            moveKoFallbackDoc: arr[3],
-            modifiersDoc: arr[4],
-            moveKoDoc: arr[5],
-            moveSlugToEnDoc: arr[6],
-          }, msg.page);
+      loadCalcPayloadDocs()
+        .then(function (docs) {
+          return CP.buildSidePayloads(msg.atkUrl || '', msg.defUrl || '', docs, msg.page);
         })
         .then(function (payloads) {
           sendResponse({ ok: true, payloads: payloads });
@@ -849,25 +871,9 @@ importScripts('showdownPaste.js');
         sendResponse({ ok: false, error: mapShareError(new Error('empty_slot')) });
         return true;
       }
-      Promise.all([
-        loadJsonUrl('natureKoMap.json', { koToSlug: {} }),
-        loadJsonUrl('natureStatMul.json', { bySlug: {} }),
-        loadJsonUrl('typeKoMap.json', { byKo: {} }),
-        loadJsonUrl('moveKoFallback.json', { version: 0, byKo: {} }),
-        ensureModifiersLoaded(),
-        ensureMoveKoMapLoaded(),
-        loadJsonUrl('moveSlugToEn.json', { bySlug: {} }),
-      ])
-        .then(function (arr) {
-          return CPs.buildSidePayloadFromSlot(slotIn, sideIn, {
-            natureKoDoc: arr[0],
-            natureStatMulDoc: arr[1],
-            typeKoDoc: arr[2],
-            moveKoFallbackDoc: arr[3],
-            modifiersDoc: arr[4],
-            moveKoDoc: arr[5],
-            moveSlugToEnDoc: arr[6],
-          }, msg.page);
+      loadCalcPayloadDocs()
+        .then(function (docs) {
+          return CPs.buildSidePayloadFromSlot(slotIn, sideIn, docs, msg.page);
         })
         .then(function (payloads) {
           sendResponse({ ok: true, payloads: payloads });

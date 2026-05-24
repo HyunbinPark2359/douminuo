@@ -356,6 +356,35 @@
       })(bi + 1);
     }
 
+    // F47 (2026-05-24): img onload/onerror 는 생성 1회 부착 — applySlotVisuals 사이클마다
+    // 새 클로저 할당하지 않도록. 리스너는 현재 src/naturalWidth 만 본다 (옛 코드는
+    // 캡처한 URL 과 비교했으나, classList 시작값을 호출 시작 시 매번 reset 하므로 불필요).
+    function attachSlotImgFeedback(im, b) {
+      im.addEventListener('load', function () {
+        if (im.naturalWidth > 0) b.classList.add('fab-slot--has-mon');
+      });
+      im.addEventListener('error', function () {
+        im.removeAttribute('src');
+        b.classList.remove('fab-slot--has-mon');
+      });
+    }
+    function attachPartyImgFeedback(im) {
+      im.addEventListener('load', function () {
+        if (im.naturalWidth > 0) im.classList.add('fab-party-mon--has-art');
+      });
+      im.addEventListener('error', function () {
+        im.removeAttribute('src');
+        im.classList.remove('fab-party-mon--has-art');
+      });
+    }
+    for (bi = 0; bi < slotBtns.length; bi++) {
+      var bImg = slotBtns[bi].querySelector('.fab-slot-mon');
+      if (bImg) attachSlotImgFeedback(bImg, slotBtns[bi]);
+    }
+    for (bi = 0; bi < partyMonImgs.length; bi++) {
+      if (partyMonImgs[bi]) attachPartyImgFeedback(partyMonImgs[bi]);
+    }
+
     partyBtn.addEventListener('click', function (ev) {
       ev.stopPropagation();
       runCopyPartyShareUrl(partyBtn);
@@ -736,9 +765,9 @@
         if (!img) continue;
         var hasFill = filled && filled[i] === true;
         var url = hasFill && slotArt && slotArt[i] ? String(slotArt[i]).trim() : '';
+        // F47 (2026-05-24): onload/onerror 는 attachSlotImgFeedback 가 생성 1회 부착.
+        // 사이클 시작 시 has-mon 만 reset — load 이벤트가 naturalWidth 보고 다시 add.
         btn.classList.remove('fab-slot--has-mon');
-        img.onload = null;
-        img.onerror = null;
         var kr = hasFill && slotsOptional && slotsOptional[i] ? slotPokeKr(slotsOptional[i]) : '';
         if (kr) {
           btn.setAttribute('aria-label', '#' + (i + 1) + ' 슬롯 ' + kr + ' 요약 샘플 복사');
@@ -751,18 +780,6 @@
           img.removeAttribute('src');
           continue;
         }
-        img.onload = (function (im, b, u) {
-          return function () {
-            if (im.getAttribute('src') !== u) return;
-            if (im.naturalWidth > 0) b.classList.add('fab-slot--has-mon');
-          };
-        })(img, btn, url);
-        img.onerror = (function (im, b) {
-          return function () {
-            im.removeAttribute('src');
-            b.classList.remove('fab-slot--has-mon');
-          };
-        })(img, btn);
         if (img.getAttribute('src') === url) {
           if (img.complete && img.naturalWidth > 0) btn.classList.add('fab-slot--has-mon');
         } else {
@@ -778,27 +795,14 @@
       for (j = 0; j < 6; j++) {
         var pimg = partyMonImgs[j];
         if (!pimg) continue;
+        // F47: onload/onerror 는 attachPartyImgFeedback 가 생성 1회 부착.
         pimg.classList.remove('fab-party-mon--has-art');
-        pimg.onload = null;
-        pimg.onerror = null;
         var hasFill = filled && filled[j] === true;
         var purl = hasFill && slotArt && slotArt[j] ? String(slotArt[j]).trim() : '';
         if (!purl) {
           pimg.removeAttribute('src');
           continue;
         }
-        pimg.onload = (function (im, u) {
-          return function () {
-            if (im.getAttribute('src') !== u) return;
-            if (im.naturalWidth > 0) im.classList.add('fab-party-mon--has-art');
-          };
-        })(pimg, purl);
-        pimg.onerror = (function (im) {
-          return function () {
-            im.removeAttribute('src');
-            im.classList.remove('fab-party-mon--has-art');
-          };
-        })(pimg);
         if (pimg.getAttribute('src') === purl) {
           if (pimg.complete && pimg.naturalWidth > 0) pimg.classList.add('fab-party-mon--has-art');
         } else {

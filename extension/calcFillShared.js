@@ -3,7 +3,7 @@
  *
  * R1 (2026-05-09): 페이지 식별을 본문 텍스트 휴리스틱에서 URL pathname 기반으로 교체.
  * 사이트 리뉴얼(Nuxt 3 + Tailwind) 후 path 분리됨 — '/' = 데미지 계산기, '/party' = 팀빌더,
- * '/speed' = 신규 스피드 계산기 탭. 옛 isLikelyCalculatorView 는 한 사이클 동안 alias 로 유지.
+ * '/speed' = 신규 스피드 계산기 탭.
  *
  * R3 (2026-05-09): SPA pushState 라우트 전환 감지. 500ms pathname 폴링 + popstate/hashchange/
  * visibilitychange 에서 즉시 체크. 변경 감지 시 'nuofmt:locchange' CustomEvent 발생.
@@ -37,11 +37,10 @@
   function isPokedexRoute()     { return getRoute() === 'pokedex'; }
 
   /**
-   * 옛 호출자 호환 alias — "데미지 계산기-ish 화면인가" 의도이므로 /speed 도 true 로 흡수.
-   * 새 코드는 isCalculatorRoute / isTeamBuilderRoute / isCalcSpeedRoute 를 직접 사용.
-   * 본 alias 는 다음 사이클에 제거 예정.
+   * 계산기 FAB 표시 게이트 — '/' (calc) 또는 '/speed' (calc-speed) 합집합.
+   * 두 페이지 모두 같은 계산기 패널을 띄우므로 가드 합집합이 의미상 한 헬퍼.
    */
-  function isLikelyCalculatorView() {
+  function isCalcOrSpeedRoute() {
     var r = getRoute();
     return r === 'calc' || r === 'calc-speed';
   }
@@ -220,8 +219,8 @@
     isTeamBuilderRoute: isTeamBuilderRoute,
     isCalcSpeedRoute: isCalcSpeedRoute,
     isPokedexRoute: isPokedexRoute,
-    // 옛 이름 — 다음 사이클에 제거 예정. 의미는 'calc' OR 'calc-speed' 합집합.
-    isLikelyCalculatorView: isLikelyCalculatorView,
+    // 계산기 FAB 표시 게이트 (calc + calc-speed 합집합).
+    isCalcOrSpeedRoute: isCalcOrSpeedRoute,
     onRouteChange: onRouteChange,
     requestBridgeInject: requestBridgeInject,
     onLocalPrefChange: onLocalPrefChange,

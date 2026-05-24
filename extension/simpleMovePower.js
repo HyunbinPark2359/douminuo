@@ -122,10 +122,10 @@
     return '';
   }
 
-  function getMoveTags(moveTagsBundle, mv, moveKoMap) {
+  function getMoveTags(moveTagsBundle, mv, moveKoMap, moveId) {
     var out = {};
     if (!moveTagsBundle || !moveTagsBundle.moves || typeof moveTagsBundle.moves !== 'object') return out;
-    var id = showdownMoveIdFromMove(mv, moveKoMap);
+    var id = arguments[3] != null ? arguments[3] : showdownMoveIdFromMove(mv, moveKoMap);
     if (!id) return out;
     var row = moveTagsBundle.moves[id];
     if (!row || typeof row !== 'object') return out;
@@ -168,9 +168,10 @@
   }
 
   /** 재앙·절운 등 루인 배율: Photon Geyser는 유효 물리/특수 기준 */
-  function effectiveDamageClassForRuin(mv, atkReal, spaReal, moveKoMap) {
+  function effectiveDamageClassForRuin(mv, atkReal, spaReal, moveKoMap, moveId) {
     if (!mv || typeof mv !== 'object') return String(mv && mv.damage_class ? mv.damage_class : '').toLowerCase();
-    if (showdownMoveIdFromMove(mv, moveKoMap) !== 'photongeyser') {
+    var mid = arguments[4] != null ? arguments[4] : showdownMoveIdFromMove(mv, moveKoMap);
+    if (mid !== 'photongeyser') {
       return String(mv.damage_class || '').toLowerCase();
     }
     var pa = atkReal != null && !isNaN(atkReal) ? atkReal : null;
@@ -217,7 +218,7 @@
     var isSpec = cls === 'special';
     if (!isPhys && !isSpec) return null;
 
-    var moveId = showdownMoveIdFromMove(mv, moveKoMap);
+    var moveId = arguments[9] != null ? arguments[9] : showdownMoveIdFromMove(mv, moveKoMap);
     var stat;
     if (moveId === 'photongeyser') {
       var pa = atkReal != null && !isNaN(atkReal) ? atkReal : null;
@@ -266,7 +267,7 @@
       }
     }
 
-    var tags = getMoveTags(moveTagsBundle, mv, moveKoMap);
+    var tags = getMoveTags(moveTagsBundle, mv, moveKoMap, moveId);
 
     var btags = ar.boostIfMoveTags;
     if (btags && typeof btags === 'object') {
@@ -442,9 +443,12 @@
     var moves = poke.moves;
     var i;
     for (i = 0; i < 4 && i < moves.length; i++) {
+      var mv = moves[i];
+      // F49: 슬롯당 showdown id 1회만 해석.
+      var moveId = showdownMoveIdFromMove(mv, moveKoMap);
       // F8: 단일 호출로 base + buffed 동시 산출.
       var pair = oneMovePowerInternalDual(
-        moves[i],
+        mv,
         atk,
         spa,
         def,
@@ -452,14 +456,15 @@
         itemRule,
         abilityRule,
         moveTagsJson,
-        moveKoMap
+        moveKoMap,
+        moveId
       );
       if (pair == null) {
         out[i] = null;
         continue;
       }
       var ar0 = abilityRule || {};
-      var cls0 = effectiveDamageClassForRuin(moves[i], atk, spa, moveKoMap);
+      var cls0 = effectiveDamageClassForRuin(mv, atk, spa, moveKoMap, moveId);
       var ruinM = 1;
       if (cls0 === 'physical') {
         ruinM = num(ar0.movePowerFoeDefenseRuinMul, 1);

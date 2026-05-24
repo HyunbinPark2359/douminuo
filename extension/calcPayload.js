@@ -8,39 +8,11 @@
   var SR = globalThis.shareToRaw;
   var moveMetaCache = Object.create(null);
 
-  /** Iron Fist 등 — 사이트가 att.move.name.flags 를 본다. 번들 moveTags.json 을 SW 에서 1회 로드. */
-  var moveTagsBundleInflight = null;
-  var moveTagsBundleResolved = null;
-  function ensureMoveTagsLoaded() {
-    if (moveTagsBundleResolved) return Promise.resolve(moveTagsBundleResolved);
-    if (moveTagsBundleInflight) return moveTagsBundleInflight;
-    moveTagsBundleInflight = new Promise(function (resolve) {
-      try {
-        if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.getURL) {
-          moveTagsBundleInflight = null;
-          resolve({ moves: {} });
-          return;
-        }
-        fetch(chrome.runtime.getURL('moveTags.json'))
-          .then(function (r) {
-            return r.json();
-          })
-          .then(function (j) {
-            moveTagsBundleResolved = j && typeof j === 'object' ? j : { moves: {} };
-            moveTagsBundleInflight = null;
-            resolve(moveTagsBundleResolved);
-          })
-          .catch(function () {
-            moveTagsBundleInflight = null;
-            resolve({ moves: {} });
-          });
-      } catch (eLoad) {
-        moveTagsBundleInflight = null;
-        resolve({ moves: {} });
-      }
-    });
-    return moveTagsBundleInflight;
-  }
+  /**
+   * F40 (2026-05-23): moveTags.json 은 background.js loadCalcPayloadDocs() 가 단일 로더로
+   * 묶음에 넣어 준다. buildOneSideFromFlatSlot 는 docs.moveTagsDoc 를 그대로 읽는다.
+   * SW 부팅 후 fetch 1회로 줄임.
+   */
 
   function buildRichMoveRow(slug, slugDashed, ko, typeEn, power, dcStr, moveTagsDoc, moveSlugToEnDoc) {
     var enName = '';
@@ -337,6 +309,9 @@
    * modifiers.json abilities: nameKo 일치 시 setsWeather / setsTerrain (simpleMovePower 와 동일 키).
    * @returns {{ abilityWeatherKey: string|null, abilityTerrainKey: string|null }}
    */
+  /** F39: abilities 맵 nameKo → weather/terrain 키 (first-set-wins). */
+  var abilityEnvIxCache = new WeakMap();
+
   function envKeysFromAbilityKo(abilityKo, modifiersDoc) {
     var out = { abilityWeatherKey: null, abilityTerrainKey: null };
     var k = str(abilityKo);
@@ -344,20 +319,35 @@
       return out;
     }
     var abs = modifiersDoc.abilities;
-    var slug;
-    for (slug in abs) {
-      if (!Object.prototype.hasOwnProperty.call(abs, slug)) continue;
-      var r = abs[slug];
-      if (!r || typeof r !== 'object') continue;
-      if (String(r.nameKo || '').trim() !== k) continue;
-      if (r.setsWeather != null && String(r.setsWeather).trim() !== '') {
-        out.abilityWeatherKey = String(r.setsWeather).toLowerCase().trim();
+    var ix = abilityEnvIxCache.get(abs);
+    if (!ix) {
+      ix = Object.create(null);
+      var slug;
+      var r;
+      var nk;
+      for (slug in abs) {
+        if (!Object.prototype.hasOwnProperty.call(abs, slug)) continue;
+        r = abs[slug];
+        if (!r || typeof r !== 'object') continue;
+        nk = String(r.nameKo || '').trim();
+        if (!nk || ix[nk]) continue;
+        ix[nk] = {
+          abilityWeatherKey:
+            r.setsWeather != null && String(r.setsWeather).trim() !== ''
+              ? String(r.setsWeather).toLowerCase().trim()
+              : null,
+          abilityTerrainKey:
+            r.setsTerrain != null && String(r.setsTerrain).trim() !== ''
+              ? String(r.setsTerrain).toLowerCase().trim()
+              : null,
+        };
       }
-      if (r.setsTerrain != null && String(r.setsTerrain).trim() !== '') {
-        out.abilityTerrainKey = String(r.setsTerrain).toLowerCase().trim();
-      }
-      break;
+      abilityEnvIxCache.set(abs, ix);
     }
+    var hit = ix[k];
+    if (!hit) return out;
+    out.abilityWeatherKey = hit.abilityWeatherKey;
+    out.abilityTerrainKey = hit.abilityTerrainKey;
     return out;
   }
 
@@ -629,17 +619,26 @@
     return null;
   }
 
+  /** F39: typeKoDoc.byKo 역인덱스 enLower → ko (first-set-wins). */
+  var typeKoReverseIxCache = new WeakMap();
+
   function typeKoFromEnSlug(typeEn, typeKoDoc) {
     var slug = String(typeEn || 'normal').toLowerCase();
     var byKo = typeKoDoc && typeKoDoc.byKo;
     if (!byKo) return '';
-    var ko;
-    for (ko in byKo) {
-      if (!Object.prototype.hasOwnProperty.call(byKo, ko)) continue;
-      var enDisp = String(byKo[ko] || '');
-      if (enDisp.toLowerCase() === slug) return ko;
+    var rev = typeKoReverseIxCache.get(byKo);
+    if (!rev) {
+      rev = Object.create(null);
+      var ko;
+      var enDisp;
+      for (ko in byKo) {
+        if (!Object.prototype.hasOwnProperty.call(byKo, ko)) continue;
+        enDisp = String(byKo[ko] || '').toLowerCase();
+        if (enDisp && !rev[enDisp]) rev[enDisp] = ko;
+      }
+      typeKoReverseIxCache.set(byKo, rev);
     }
-    return '';
+    return rev[slug] || '';
   }
 
   function buildAttackerMovePayload(pack, typeKoDoc, moveTagsDoc, moveSlugToEnDoc) {
@@ -706,7 +705,7 @@
    * 슬롯 하나(공유 응답의 single 또는 팀빌더 bridge 의 단일 슬롯)에서 한쪽 페이로드를 만든다.
    * URL 경로(buildOneSide) 와 슬롯 직접 경로(buildOneSideFromSlot) 가 공유한다.
    * @param {object} slot raw slot (SR.flattenSlot 적용 가능한 형태)
-   * @param {object} docs natureKoDoc / natureStatMulDoc / typeKoDoc / moveKoDoc / moveKoFallbackDoc / modifiersDoc
+   * @param {object} docs natureKoDoc / natureStatMulDoc / typeKoDoc / moveKoDoc / moveKoFallbackDoc / modifiersDoc / moveSlugToEnDoc / moveTagsDoc
    * @param {'attacker'|'defender'} role
    * @param {'calc'|'speed'=} page — 미지정·옛 호출자는 'calc'. 스피드 계산기는 move 없이 nature.spe 만 반영.
    * @returns {Promise<object>} { error } 또는 페이로드
@@ -783,26 +782,26 @@
       }
 
       var atkEnv = envKeysFromAbilityKo(abilityKoFromFlat(flat), docs.modifiersDoc);
-      return ensureMoveTagsLoaded().then(function (moveTagsDoc) {
-        return {
-          speciesKo: speciesKo,
-          evs: evs,
-          ivs: ivs,
-          level: level,
-          abilityKo: abilityKoFromFlat(flat),
-          itemKo: itemKoFromFlat(flat),
-          physicalMove: physicalMove,
-          attackerPersonality: attackerPersonality,
-          attackerMove:
-            buildAttackerMovePayload(
-              movePack,
-              docs.typeKoDoc,
-              moveTagsDoc,
-              docs.moveSlugToEnDoc
-            ) || defaultAttackerMovePayload(docs.typeKoDoc, moveTagsDoc, docs.moveSlugToEnDoc),
-          abilityWeatherKey: atkEnv.abilityWeatherKey,
-          abilityTerrainKey: atkEnv.abilityTerrainKey,
-        };
+      // F40 (2026-05-23): moveTagsDoc 는 docs 묶음에 미리 들어 있음 — SW 가 1회 로드.
+      var moveTagsDoc = (docs && docs.moveTagsDoc) || { moves: {} };
+      return Promise.resolve({
+        speciesKo: speciesKo,
+        evs: evs,
+        ivs: ivs,
+        level: level,
+        abilityKo: abilityKoFromFlat(flat),
+        itemKo: itemKoFromFlat(flat),
+        physicalMove: physicalMove,
+        attackerPersonality: attackerPersonality,
+        attackerMove:
+          buildAttackerMovePayload(
+            movePack,
+            docs.typeKoDoc,
+            moveTagsDoc,
+            docs.moveSlugToEnDoc
+          ) || defaultAttackerMovePayload(docs.typeKoDoc, moveTagsDoc, docs.moveSlugToEnDoc),
+        abilityWeatherKey: atkEnv.abilityWeatherKey,
+        abilityTerrainKey: atkEnv.abilityTerrainKey,
       });
     });
   }
@@ -889,7 +888,7 @@
    * 팀빌더 슬롯 객체 한 개를 한쪽 패널 페이로드로 변환. URL fetch 없음 — 어머니 사이트 트래픽 0.
    * @param {object} slot 팀빌더 bridge 가 준 single slot (SR.flattenSlot 적용 가능)
    * @param {'attacker'|'defender'} side 어느 패널에 적용할지
-   * @param {object} docs buildSidePayloads 와 동일한 6개 doc
+   * @param {object} docs buildSidePayloads 와 동일한 8개 doc 묶음
    * @returns {Promise<{attacker?: object, defender?: object}>} 한쪽만 채워진 모양 (반대쪽은 null).
    *   incomingPhysical 결정: attacker 단독이면 정의 안 됨 — 호출자가 onlyAttacker 를 줄 것.
    *   defender 단독이면 디폴트 true (= URL 경로의 onlyDefender 케이스와 동일 동작).

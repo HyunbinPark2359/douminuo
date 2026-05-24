@@ -40,9 +40,9 @@
   var CS = globalThis.nuoCsCommon || {};
   var TBS = globalThis.nuoTeamBuilderShared || {};
 
-  // SPEED_FILL Phase 2: 표시 게이트는 'calc' OR 'calc-speed' 합집합 — nuoCsCommon.isLikelyCalculatorView().
+  // SPEED_FILL Phase 2: 표시 게이트는 'calc' OR 'calc-speed' 합집합 — nuoCsCommon.isCalcOrSpeedRoute().
   // SW/bridge 에 넘기는 page 는 송신 직전 currentPage() 로만 평가(SPA 전환 후 stale 방지).
-  var isLikelyCalculatorView = CS.isLikelyCalculatorView || function () { return false; };
+  var isCalcOrSpeedRoute = CS.isCalcOrSpeedRoute || function () { return false; };
   var isCalcSpeedRoute = CS.isCalcSpeedRoute || function () { return false; };
 
   /** @returns {'calc'|'speed'} */
@@ -813,7 +813,7 @@
     }
 
     function syncCalcHeuristic() {
-      var on = isLikelyCalculatorView();
+      var on = isCalcOrSpeedRoute();
       setWrapVisible(on);
       if (on) {
         // 표시 시점에 1회 갱신
