@@ -1,5 +1,5 @@
 {
-  "version": 12,
+  "version": 13,
   "items": {
     "choice-band": {
       "atkMulPhysical": 1.5,
@@ -439,11 +439,13 @@
     "multiscale": {
       "bulkDefMul": 2,
       "bulkSpdMul": 2,
+      "bulkConditional": true,
       "nameKo": "멀티스케일"
     },
     "shadow-shield": {
       "bulkDefMul": 2,
       "bulkSpdMul": 2,
+      "bulkConditional": true,
       "nameKo": "스펙터가드"
     },
     "tablets-of-ruin": {

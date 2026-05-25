@@ -803,9 +803,12 @@ importScripts('showdownPaste.js');
             var CBP = globalThis.computeBulkPhysSpecBuffed;
             var FBLC = globalThis.formatBulkLinesFromComp;
             var FBCSC = globalThis.formatBulkCompactSlashFromComp;
+            // F51 (2026-05-24): 인라인 어노 컨텍스트 — 풀체력 조건부 특성 (멀티스케일·스펙터가드 등) skip.
             var comp =
               typeof CBP === 'function'
-                ? CBP(reals, mod, itemRaw, abilityRaw, titleCtx, pack.speciesTypesEn)
+                ? CBP(reals, mod, itemRaw, abilityRaw, titleCtx, pack.speciesTypesEn, {
+                    excludeConditionalAbilities: true,
+                  })
                 : null;
             var bulkText = typeof FBLC === 'function' ? FBLC(comp) || '' : '';
             var bulkCompact = typeof FBCSC === 'function' ? FBCSC(comp) || '' : '';

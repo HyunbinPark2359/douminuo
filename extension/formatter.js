@@ -121,6 +121,14 @@
   }
 
   /**
+   * F51 (2026-05-24): opts.excludeConditionalAbilities === true 면 ability rule 의
+   *   `bulkConditional === true` 마킹된 보정 (멀티스케일·스펙터가드 등 풀체력 조건부 류) 을 skip.
+   *   인라인 어노가 한 숫자만 보여주는 컨텍스트에서 “상시 유효” 가정이 깨지는 보정을 빼기 위해.
+   *   샘플텍스트 path (legacy wrapper) 는 opts 안 넘기므로 현재 동작 그대로.
+   *   결정력의 abilityHasConditionalPowerDisplay 패턴과 컨셉 일치 — 데이터에 “조건부” 마킹.
+   *
+   * @param {object} [opts]
+   * @param {boolean} [opts.excludeConditionalAbilities]
    * @returns {{ physBase: number, specBase: number, physBuffed: number, specBuffed: number }|null}
    */
   function computeBulkPhysSpecBuffed(
@@ -129,7 +137,8 @@
     itemRaw,
     abilityRaw,
     speciesTitleContext,
-    speciesTypesEn
+    speciesTypesEn,
+    opts
   ) {
     var h = realByLetter.H;
     var b = realByLetter.B;
@@ -137,6 +146,8 @@
     if (h == null || b == null || d == null) return null;
     var physBase = Math.round((h * b) / BULK_REAL_DIVISOR);
     var specBase = Math.round((h * d) / BULK_REAL_DIVISOR);
+
+    var excludeConditional = !!(opts && opts.excludeConditionalAbilities === true);
 
     var itemRule = findItemBulkRule(modifiersDoc, itemRaw);
     var defM = 1;
@@ -160,8 +171,12 @@
         defM *= pq.def;
         spdM *= pq.spd;
       } else {
-        if (arule.bulkDefMul != null) defM *= numBulkMul(arule.bulkDefMul, 1);
-        if (arule.bulkSpdMul != null) spdM *= numBulkMul(arule.bulkSpdMul, 1);
+        // F51: 풀체력 조건부 (bulkConditional) 는 인라인 컨텍스트(opts.excludeConditionalAbilities)에서 skip.
+        var skipConditional = excludeConditional && arule.bulkConditional === true;
+        if (!skipConditional) {
+          if (arule.bulkDefMul != null) defM *= numBulkMul(arule.bulkDefMul, 1);
+          if (arule.bulkSpdMul != null) spdM *= numBulkMul(arule.bulkSpdMul, 1);
+        }
       }
       var wx = weatherBulkMulSandSnowOnly(aslug, speciesTypesEn);
       defM *= wx.def;

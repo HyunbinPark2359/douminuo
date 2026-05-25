@@ -13,9 +13,29 @@
     {
       label: 'aegislash-shield→blade',
       match: function (poke) {
-        var nm = String((poke && poke.name) || '').toLowerCase();
-        if (nm === 'aegislash' || nm === 'aegislash-shield') return true;
-        var bs = bsArr(poke && poke.baseStats);
+        if (!poke) return false;
+        // F53: poke.name string(옛 URL) / object(신규 샘플). id·smogon_id 는 하이픈 없는
+        // aegislashshield, db_en 은 aegislash-shield — 하이픈 제거 후 비교. 블레이드폼 slug 는 제외.
+        var slugNorm = function (s) {
+          return String(s || '')
+            .toLowerCase()
+            .replace(/-/g, '');
+        };
+        var slugs = [];
+        if (typeof poke.name === 'string') {
+          slugs.push(poke.name);
+        } else if (poke.name && typeof poke.name === 'object') {
+          if (poke.name.id) slugs.push(poke.name.id);
+          if (poke.name.smogon_id) slugs.push(poke.name.smogon_id);
+          if (poke.name.db_en) slugs.push(poke.name.db_en);
+        }
+        var si;
+        for (si = 0; si < slugs.length; si++) {
+          var n = slugNorm(slugs[si]);
+          if (n === 'aegislash' || n === 'aegislashshield') return true;
+        }
+        // base_stats 폴백 — 실드폼 시그너처 (HP60·Atk50·Def140·SpA50·SpD140·Spe60).
+        var bs = bsArr(poke.base_stats || poke.baseStats);
         return (
           !!bs &&
           bs[0] === 60 &&
@@ -87,6 +107,16 @@
     }
   }
 
+  /** calcPayload.natureKoFromFlat 와 동일 — personality 객체의 name 등 */
+  function natureKoFromPersonality(pers) {
+    if (pers == null) return '';
+    if (typeof pers === 'string') return String(pers).trim();
+    if (typeof pers === 'object') {
+      return String(pers.name || pers.kr || pers.koName || pers.label || '').trim();
+    }
+    return '';
+  }
+
   /**
    * @param {object} slotData 원본 (절대 변형 금지)
    * @param {object} natureKoDoc { koToSlug }
@@ -115,7 +145,7 @@
 
     var lvl = parseInt(p.level, 10);
     if (!lvl || lvl < 1) lvl = 50;
-    var natureKo = String(p.personality || '').trim();
+    var natureKo = natureKoFromPersonality(p.personality);
 
     var atkObj = stats.attack || (stats.attack = {});
     var spaObj = stats.special_attack || (stats.special_attack = {});

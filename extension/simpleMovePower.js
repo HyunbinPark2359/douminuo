@@ -147,12 +147,15 @@
     strongwinds: {},
   };
 
-  /** 지형: 해당 타입 위력(지면에 있다고 상정). 전기·풀·페어리 1.3, 에스퍼 1.5 */
+  /**
+   * 지형: 해당 타입 위력(지면에 있다고 상정).
+   * F52 (2026-05-24): 8세대 너프 후 모든 필드 보정 1.3 으로 통일. 옛 코드의 psychic 1.5 는 7세대까지의 값.
+   */
   var TERRAIN_TYPE_POWER_MUL = {
     electric: { electric: 1.3 },
     grassy: { grass: 1.3 },
     misty: { fairy: 1.3 },
-    psychic: { psychic: 1.5 },
+    psychic: { psychic: 1.3 },
   };
 
   /** 표기용: 맹화·모래의힘·날씨/필드 깔기·선파워(특공)만 '버프 후' 전제 */
