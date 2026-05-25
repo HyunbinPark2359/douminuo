@@ -440,6 +440,7 @@
     }
 
     if (!name) name = extractNameFromTitle(title);
+    if (!name && isNameLine(title)) name = title;
 
     evParts.sort(function (a, b) {
       return STAT_ORDER.indexOf(a.letter) - STAT_ORDER.indexOf(b.letter);
@@ -499,11 +500,12 @@
       })
       .join(' / ');
 
-    var out = [
-      title,
-      trimOrDash(name) + ' @' + trimOrDash(item.raw),
-      trimOrDash(nature.raw) + ' / ' + trimOrDash(ability.raw),
-    ];
+    // 샘플명 없이 종명만 첫 줄인 paste → 제목 줄 생략. 파티 `#1` 만 있는 줄은 유지.
+    var showTitle = !!title && !(name && title === name && !/^#\d+\s*$/.test(title));
+    var out = [];
+    if (showTitle) out.push(title);
+    out.push(trimOrDash(name) + ' @' + trimOrDash(item.raw));
+    out.push(trimOrDash(nature.raw) + ' / ' + trimOrDash(ability.raw));
     if (evLine) out.push(evLine);
     if (realStatsLine) out.push(realStatsLine);
     if (terastalLine) out.push(terastalLine);

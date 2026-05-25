@@ -217,16 +217,9 @@
     );
   }
 
-  /** 제목 `#n | …` 오른쪽: 샘플명(sampleName) 우선, 없으면 한글 종명 */
+  /** 샘플명만 (빈 문자열 허용). 종명 폴백 없음 — shareSlotToRaw 가 species 줄로 분리. */
   function titleRest(s) {
-    return (
-      str(s.sample_name || s.sampleName) ||
-      str(s.name_kr || s.nameKr || s.namekr) ||
-      str(s.speciesName || s.speciesKo) ||
-      str(s.species) ||
-      str(s.name) ||
-      '--'
-    );
+    return str(s.sample_name || s.sampleName);
   }
 
   /** 종 이름 줄(한글 우선) */
@@ -319,7 +312,7 @@
   /**
    * @param {object} slot
    * @param {number} blockIndex1Based 파티 슬롯 번호(빈 슬롯 표기용). 비넘버 제목일 때는 1 넘겨도 됨.
-   * @param {{ numberedTitle?: boolean }|undefined} opts 파티만 true → `#1 | …` 제목
+   * @param {{ numberedTitle?: boolean }|undefined} opts 파티만 true → 샘플명 있으면 `#1 | …`, 없으면 `#1` + 다음 줄 종명
    * @returns {string}
    */
   function shareSlotToRaw(slot, blockIndex1Based, opts) {
@@ -330,7 +323,7 @@
     if (idx < 1) idx = 1;
 
     if (isSlotEmpty(slot)) {
-      var headEmpty = numbered ? '#' + idx + ' | --' : '--';
+      var headEmpty = numbered ? '#' + idx : '--';
       var linesE = [headEmpty, '특성 : --', '도구 : --', '성격 : --'];
       var si;
       for (si = 0; si < 6; si++) {
@@ -344,12 +337,19 @@
     }
 
     var s = flattenSlot(slot);
-    var titleStem = titleRest(s);
-    var title = numbered ? '#' + idx + ' | ' + titleStem : titleStem;
+    var sampleTitle = titleRest(s);
     var speciesLine = speciesNameLine(s);
-    var lines = [title];
-    if (speciesLine && speciesLine !== titleStem) {
+    var lines = [];
+    if (numbered) {
+      lines.push(sampleTitle ? '#' + idx + ' | ' + sampleTitle : '#' + idx);
+    } else if (sampleTitle) {
+      lines.push(sampleTitle);
+    }
+    if (speciesLine && (!sampleTitle || speciesLine !== sampleTitle)) {
       lines.push(speciesLine);
+    }
+    if (!lines.length) {
+      lines.push(numbered ? '#' + idx : '--');
     }
 
     lines.push('특성 : ' + (koFromMaybeObj(s.ability || s.ab || s.Ability) || '--'));
