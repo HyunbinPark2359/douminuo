@@ -43,9 +43,19 @@
 
   function speciesEnglishFromSlot(s) {
     var poke = s.pokemon || s.mon || s.poke;
-    if (poke && typeof poke === 'object' && typeof poke.name === 'string') {
-      var pn = poke.name.trim();
-      if (/^[a-z0-9-]+$/i.test(pn)) return formatSpeciesFromSlug(pn);
+    if (poke && typeof poke === 'object') {
+      // 사이트 리뉴얼 이후 신규 샘플: poke.name = { id, smogon_id, db_en, kr, ... } 객체.
+      // db_en 우선(하이픈 보존, 예: 'aegislash-shield'), 없으면 smogon_id / id(둘 다 하이픈 없음).
+      // attackerFormOverride.js · teamBuilderBridge.js 가 동일한 객체 모양을 가정.
+      if (poke.name && typeof poke.name === 'object') {
+        var en = String(poke.name.db_en || poke.name.smogon_id || poke.name.id || '').trim();
+        if (en && /^[a-z0-9-]+$/i.test(en)) return formatSpeciesFromSlug(en);
+      }
+      // 옛 URL 샘플: poke.name = 영문 slug 문자열.
+      if (typeof poke.name === 'string') {
+        var pn = poke.name.trim();
+        if (/^[a-z0-9-]+$/i.test(pn)) return formatSpeciesFromSlug(pn);
+      }
     }
     if (typeof s.name === 'string') {
       var sn = s.name.trim();
@@ -424,11 +434,11 @@
     var species = speciesEnglishFromSlot(s);
     if (!species) species = 'Pokemon';
 
-    var itemStr = resolveItemEn(ctx.modifiersDocument, ctx.itemKoDoc, s.equipment || s.item || s.Item || s.hold);
+    var itemStr = resolveItemEn(ctx.modifiersDocument, ctx.itemKoDoc, SR.str(s.equipment || s.item || s.Item || s.hold));
     var head = itemStr ? species + ' @ ' + itemStr : species;
 
     var lines = [head];
-    var ab = resolveAbilityEn(ctx.modifiersDocument, ctx.abilityKoDoc, s.ability || s.ab || s.Ability);
+    var ab = resolveAbilityEn(ctx.modifiersDocument, ctx.abilityKoDoc, SR.str(s.ability || s.ab || s.Ability));
     if (ab) lines.push('Ability: ' + ab);
 
     var lv = getLevel(s);

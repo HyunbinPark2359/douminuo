@@ -15,6 +15,7 @@
   var readLabel = FC.readLabel;
   var collectHoldLabels = FC.collectHoldLabels;
   var findRuleAndSlugInMap = FC.findRuleAndSlugInMap;
+  var SR = globalThis.shareToRaw;  // C3: hold 정규화용
 
   /** 한글 타입명 → PokeAPI type.name */
   var TYPE_KO_TO_EN = {
@@ -426,9 +427,10 @@
     if (!poke || !Array.isArray(poke.moves)) return out;
 
     // F10: SR.flattenSlot 단일 출처 사용 (옛 flattenPokemonSlot 사본 제거).
-    var flat = globalThis.shareToRaw.flattenSlot(slotData);
-    var itemRule = findItemRule(rules || {}, flat.equipment || flat.item || flat.Item || flat.hold);
-    var abilityRule = findAbilityRule(rules || {}, flat.ability || flat.ab || flat.Ability);
+    // C3: SR.str() 로 equipment/ability 정규화 — 문자열/객체 양쪽 진입 통일.
+    var flat = SR.flattenSlot(slotData);
+    var itemRule = findItemRule(rules || {}, SR.str(flat.equipment || flat.item || flat.Item || flat.hold));
+    var abilityRule = findAbilityRule(rules || {}, SR.str(flat.ability || flat.ab || flat.Ability));
 
     var stats = poke.stats || {};
     var atk =
