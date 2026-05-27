@@ -209,6 +209,7 @@
     moveTagsBundle,
     moveKoMap
   ) {
+    // === Step 1: 입력 검증 — mv·power·damage_class null/0/status 조기 리턴 ===
     if (!mv || typeof mv !== 'object') return null;
     var p = mv.power;
     if (p == null || p === '') return null;
@@ -222,6 +223,7 @@
     var isSpec = cls === 'special';
     if (!isPhys && !isSpec) return null;
 
+    // === Step 2: stat 결정 — photongeyser(공특 최대치)·bodypress(방어)·일반 ===
     var moveId = arguments[9] != null ? arguments[9] : showdownMoveIdFromMove(mv, moveKoMap);
     var stat;
     if (moveId === 'photongeyser') {
@@ -253,6 +255,7 @@
       if (stat == null || isNaN(stat)) return null;
     }
 
+    // === Step 3: 기술 타입 결정 ===
     var moveTypeEn = normalizeTypeToEn(mv.type);
     if (!moveTypeEn) return null;
 
@@ -261,7 +264,7 @@
     var pBase = pnum;
     var pBuffed = pnum;
 
-    // ───────── 공통: ar.powerMul, tags 보정, 우격다짐, ate/normalize, boostType ─────────
+    // === Step 4: 특성 위력 보정 (공통) — powerMul·태그·우격·-ate·타입 (pBase + pBuffed 양쪽) ===
     if (ar.powerMul != null && !ar.ifSheerForceMove) {
       var cap = ar.ifBasePowerAtMost;
       if (cap == null || pnum <= cap) {
@@ -322,7 +325,7 @@
       pBuffed = Math.round(pBuffed * mul5);
     }
 
-    // ───────── 조건부 (Buffed only): 맹화·모래의힘·setsWeather·setsTerrain ─────────
+    // === Step 5: 특성 위력 보정 (조건부 Buffed-only) — 맹화·모래의힘·날씨·필드 ===
     if (ar.pinchBoostType != null) {
       var pbt = String(ar.pinchBoostType).toLowerCase().trim();
       if (moveTypeEn === pbt) {
@@ -354,7 +357,7 @@
       }
     }
 
-    // ───────── 공통: 도구 ─────────
+    // === Step 6: 도구 위력 보정 (공통) — 타입·물리특수·전체 (pBase + pBuffed 양쪽) ===
     var ir = itemRule || {};
 
     var bt = ir.boostType != null ? String(ir.boostType).toLowerCase().trim() : '';
@@ -380,7 +383,7 @@
       pBuffed = Math.round(pBuffed * mul9);
     }
 
-    // ───────── STAB (공통) ─────────
+    // === Step 7: STAB → 스탯 실수치 × 배율 → 최종배율 ===
     var stab = false;
     if (speciesTypesEn && speciesTypesEn.length) {
       var i;
