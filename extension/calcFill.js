@@ -416,14 +416,10 @@
   }
 
   function mountCalcSamplePanel() {
-    if (document.getElementById(PANEL_HOST_ID)) return;
-
-    var host = document.createElement('div');
-    host.id = PANEL_HOST_ID;
-    document.body.appendChild(host);
-
-    var root = host.attachShadow({ mode: 'open' });
-    buildShadowMarkup(root);
+    CS.mountFloatingPanel({
+      hostId: PANEL_HOST_ID,
+      buildShadow: function (root) {
+        buildShadowMarkup(root);
 
     var fabRoot = root.getElementById('fabRoot');
     var fabDock = root.getElementById('fabDock');
@@ -885,6 +881,8 @@
         if (ghostRingHandle && ghostRingHandle.refresh) ghostRingHandle.refresh();
       });
     }
+      }
+    });
   }
 
   function tryMountPanel() {

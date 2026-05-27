@@ -176,6 +176,27 @@
     return c || '알 수 없는 오류';
   }
 
+  /**
+   * C1: floating 패널 공통 마운트 헬퍼.
+   * idempotency 가드 · host 생성 · body 삽입 · attachShadow 를 한 곳으로.
+   * @param {{ hostId: string, buildShadow: function(root: ShadowRoot): (function|undefined) }} opts
+   *   buildShadow — Shadow root 전달; 내부 cleanup 있으면 함수 반환.
+   * @returns {function|null} teardown — host DOM 제거 + 내부 cleanup. 이미 마운트됐으면 null.
+   */
+  function mountFloatingPanel(opts) {
+    if (!document.body) return null;
+    if (document.getElementById(opts.hostId)) return null;
+    var host = document.createElement('div');
+    host.id = opts.hostId;
+    document.body.appendChild(host);
+    var root = host.attachShadow({ mode: 'open' });
+    var innerTeardown = typeof opts.buildShadow === 'function' ? opts.buildShadow(root) : null;
+    return function () {
+      if (typeof innerTeardown === 'function') innerTeardown();
+      if (host.parentNode) host.parentNode.removeChild(host);
+    };
+  }
+
   /* ===== storage.onChanged 헬퍼 (변경 없음) ===== */
 
   /**
@@ -224,5 +245,6 @@
     onRouteChange: onRouteChange,
     requestBridgeInject: requestBridgeInject,
     onLocalPrefChange: onLocalPrefChange,
+    mountFloatingPanel: mountFloatingPanel,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

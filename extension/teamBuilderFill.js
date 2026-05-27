@@ -225,14 +225,10 @@
   }
 
   function mountTeamFloatBar() {
-    if (document.getElementById(HOST_ID)) return;
-
-    var host = document.createElement('div');
-    host.id = HOST_ID;
-    document.body.appendChild(host);
-
-    var root = host.attachShadow({ mode: 'open' });
-    var fabSlotFeedbackHtml = buildShadowStylesAndMarkup(root).fabSlotFeedbackHtml;
+    return CS.mountFloatingPanel({
+      hostId: HOST_ID,
+      buildShadow: function (root) {
+        var fabSlotFeedbackHtml = buildShadowStylesAndMarkup(root).fabSlotFeedbackHtml;
 
     var fabRoot = root.querySelector('.fab-root');
     var partyToastEl = root.getElementById('fabPartyErrToast');
@@ -999,8 +995,9 @@
       try {
         mo.disconnect();
       } catch (e3) {}
-      if (host.parentNode) host.parentNode.removeChild(host);
     };
+      }
+    });
   }
 
   // 인라인 어노테이션(슬롯 카드 결정력·내구력) 시스템은 teamBuilderInlineAnnot.js 로 분리됨 (F6).
