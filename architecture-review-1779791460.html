@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>도우미누오 — 아키텍처 리뷰 (deepening 후보)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral', fontFamily: 'ui-sans-serif, system-ui' });
+  </script>
+  <style>
+    body { font-family: 'Pretendard', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    .glyph-box { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .mermaid { display: flex; justify-content: center; }
+    .panel-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: center; }
+    .panel-grid .arrow { font-size: 1.5rem; color: #94a3b8; }
+    @media (max-width: 768px) {
+      .panel-grid { grid-template-columns: 1fr; }
+      .panel-grid .arrow { transform: rotate(90deg); justify-self: center; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <div class="max-w-6xl mx-auto px-4 py-10">
+
+    <!-- ============== Header ============== -->
+    <header class="mb-10">
+      <p class="text-sm uppercase tracking-widest text-slate-500 mb-2">도우미누오 / nuo-formatter</p>
+      <h1 class="text-4xl font-bold tracking-tight text-slate-900">아키텍처 deepening 후보</h1>
+      <p class="mt-3 text-slate-600 max-w-3xl">
+        R2(F30~F53) 종료 시점의 코드를 대상으로, 인터페이스가 구현만큼 복잡한 <em>얕은(shallow)</em> 자리와
+        중복된 <em>seam(이음새)</em> 들을 찾았다. 각 후보는 <strong>삭제 테스트</strong>로 판단했다 —
+        지우면 복잡도가 사라지면 통과, 여러 호출처로 흩어지면 그 자리는 깊어질 가치 있음.
+      </p>
+      <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        <span class="px-2 py-1 bg-slate-200 rounded">9,720 LOC / 19 files</span>
+        <span class="px-2 py-1 bg-slate-200 rounded">ES5 · IIFE export · globalThis</span>
+        <span class="px-2 py-1 bg-slate-200 rounded">MV3 service worker + content scripts + MAIN bridges</span>
+        <span class="px-2 py-1 bg-slate-200 rounded">2026-05-26 기준</span>
+      </div>
+    </header>
+
+    <!-- ============== Reading guide ============== -->
+    <section class="mb-12 bg-white border border-slate-200 rounded-xl p-6">
+      <h2 class="text-lg font-semibold mb-3">읽는 법</h2>
+      <div class="grid sm:grid-cols-3 gap-4 text-sm">
+        <div>
+          <p class="font-semibold mb-1">Depth(깊이)</p>
+          <p class="text-slate-600">작은 인터페이스로 큰 동작. <strong>좋음</strong>.</p>
+        </div>
+        <div>
+          <p class="font-semibold mb-1">Shallow(얕음)</p>
+          <p class="text-slate-600">인터페이스가 구현만큼 복잡. 호출자가 다 알아야 함.</p>
+        </div>
+        <div>
+          <p class="font-semibold mb-1">Seam(이음새)</p>
+          <p class="text-slate-600">인터페이스가 사는 자리. 1개 어댑터 = 가설, 2개 = 실재.</p>
+        </div>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-2 text-xs">
+        <span class="badge bg-emerald-100 text-emerald-800">Strong</span>
+        <span class="text-slate-500">중복·결손이 명확하고 deepening 후 복잡도 집중 효과 큰 후보</span>
+        <span class="badge bg-amber-100 text-amber-800">Worth exploring</span>
+        <span class="text-slate-500">검토 가치 있음. 단 trade-off 확인 필요</span>
+        <span class="badge bg-slate-200 text-slate-700">Speculative</span>
+        <span class="text-slate-500">실측·논의 없이는 위험·이득 비교 불가</span>
+      </div>
+    </section>
+
+    <!-- ============== Candidate 1 ============== -->
+    <article class="mb-12 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 bg-gradient-to-r from-emerald-50 to-white border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-slate-900">
+          C1. 콘텐츠 패널 lifecycle 통합
+        </h2>
+        <span class="badge bg-emerald-100 text-emerald-800">Strong</span>
+      </div>
+      <div class="px-6 py-6 space-y-6">
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Files</h3>
+          <ul class="text-sm text-slate-700 space-y-1 glyph-box">
+            <li>extension/<strong>calcFill.js</strong> (l.36 PANEL_HOST_ID · l.419 mountCalcSamplePanel · l.815~895 라우트·storage 와이어)</li>
+            <li>extension/<strong>teamBuilderFill.js</strong> (l.16 HOST_ID · l.227 mountTeamFloatBar · l.959~973 MO·라우트 와이어)</li>
+            <li>extension/<strong>speedOutspeedCalc.js</strong> (l.34 HOST_ID · l.745~750 attachShadow · l.1015 라우트 가드)</li>
+            <li>extension/<strong>calcFillShared.js</strong> (이미 nuoCsCommon — 헬퍼만 보유, lifecycle 없음)</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Problem</h3>
+          <p class="text-slate-700 leading-relaxed">
+            세 floating 패널이 같은 9-step ceremony 를 각자 보유한다 —
+            <span class="glyph-box text-xs">HOST_ID 정의 · document.body.appendChild · attachShadow({mode:'open'}) ·
+            buildShadow + style 주입 · chrome.storage.local.get([prefKey]) 기본값 분기 ·
+            chrome.storage.onChanged 구독 · onRouteChange 구독 · MO/setInterval 폴 · teardown 함수</span>.
+            <code class="text-xs bg-slate-100 px-1 rounded">nuoCsCommon</code> 이 <code class="text-xs bg-slate-100 px-1 rounded">getRoute</code> /
+            <code class="text-xs bg-slate-100 px-1 rounded">onRouteChange</code> / <code class="text-xs bg-slate-100 px-1 rounded">onLocalPrefChange</code> /
+            <code class="text-xs bg-slate-100 px-1 rounded">requestBridgeInject</code> 4개 헬퍼만 export 하고, <strong>lifecycle 자체는
+            호출자 책임</strong>이라 매 패널마다 9-step 의 약 60%가 복붙. F31(calcFill 의 사망한 MO 제거)·F32(MO scope 좁히기)는
+            세 패널 중 한 곳만 손보면 다른 곳도 같이 손봐야 하는 시그널이었다.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Before / After</h3>
+          <div class="panel-grid">
+            <!-- BEFORE -->
+            <div class="bg-rose-50 border border-rose-200 rounded-lg p-4">
+              <p class="text-xs font-semibold text-rose-700 uppercase mb-3">현재 — 3× 동일 ceremony</p>
+              <div class="space-y-2">
+                <div class="bg-white border border-rose-200 rounded p-2 text-xs glyph-box leading-snug">
+                  <p class="font-semibold text-rose-900">calcFill.js</p>
+                  <p class="text-slate-600">HOST_ID + mount + attachShadow + storage.get + onChanged + onRoute + …</p>
+                </div>
+                <div class="bg-white border border-rose-200 rounded p-2 text-xs glyph-box leading-snug">
+                  <p class="font-semibold text-rose-900">teamBuilderFill.js</p>
+                  <p class="text-slate-600">HOST_ID + mount + attachShadow + storage.get + onChanged + onRoute + MO + …</p>
+                </div>
+                <div class="bg-white border border-rose-200 rounded p-2 text-xs glyph-box leading-snug">
+                  <p class="font-semibold text-rose-900">speedOutspeedCalc.js</p>
+                  <p class="text-slate-600">HOST_ID + mount + attachShadow + storage.get + onChanged + onRoute + tick + …</p>
+                </div>
+              </div>
+              <p class="mt-3 text-xs text-rose-700">변경 1건 → 3 곳 동기 갱신</p>
+            </div>
+
+            <div class="arrow text-center">→</div>
+
+            <!-- AFTER -->
+            <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <p class="text-xs font-semibold text-emerald-700 uppercase mb-3">제안 — lifecycle 단일 seam</p>
+              <div class="bg-white border border-emerald-300 rounded p-3 text-xs glyph-box leading-snug mb-3">
+                <p class="font-semibold text-emerald-900">nuoCsCommon.mountFloatingPanel({…})</p>
+                <p class="text-slate-600">mount · 가드 · attachShadow · pref load+watch · route gate · teardown</p>
+              </div>
+              <div class="space-y-2">
+                <div class="bg-white border border-emerald-200 rounded p-2 text-xs glyph-box leading-snug">
+                  <p class="font-semibold text-emerald-900">calcFill.js</p>
+                  <p class="text-slate-600">{prefKeys, gate: isCalcOrSpeed, build(root)}</p>
+                </div>
+                <div class="bg-white border border-emerald-200 rounded p-2 text-xs glyph-box leading-snug">
+                  <p class="font-semibold text-emerald-900">teamBuilderFill.js</p>
+                  <p class="text-slate-600">{prefKeys, gate: isTeam, build, observe: slotList}</p>
+                </div>
+                <div class="bg-white border border-emerald-200 rounded p-2 text-xs glyph-box leading-snug">
+                  <p class="font-semibold text-emerald-900">speedOutspeedCalc.js</p>
+                  <p class="text-slate-600">{prefKeys, gate: isCalcOrSpeed && !isTeam, build, tick}</p>
+                </div>
+              </div>
+              <p class="mt-3 text-xs text-emerald-700">변경 1건 → 1 곳 수정</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Benefits</h3>
+          <ul class="list-disc list-inside text-slate-700 space-y-1 text-sm">
+            <li><strong>Locality</strong> — “smartnuo 콘텐츠 패널이 언제 뜨고 숨고 다시 마운트되는지”가 한 모듈로 모임.
+              F31·F32 류 정정은 더 이상 3 군데 동기 갱신 아님.</li>
+            <li><strong>Leverage</strong> — 4번째 패널 (예: 향후 docs 페이지의 인라인 어노) 추가 시 ceremony 0줄.
+              호출자는 <em>render 와 gate 함수</em>만 정의.</li>
+            <li><strong>테스트성</strong> — lifecycle 핵심(가드·storage 디폴트·teardown 순서)이 헬퍼 단위로 vm 테스트 가능
+              (이미 <code class="glyph-box text-xs bg-slate-100 px-1 rounded">scripts/smoke-formatter.js</code> 패턴 존재).</li>
+            <li><strong>회귀 차단</strong> — 옛 호스트 ID 가 남거나, storage 기본값이 팝업과 어긋나는 클래스 버그가 한 곳의 invariant 로.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Trade-offs</h3>
+          <p class="text-slate-700 text-sm leading-relaxed">
+            세 패널의 ceremony 가 100% 동일하진 않다 — calcFill 은 hover-dock + 좌측 puck, teamBuilderFill 은 MO + 슬롯 캐시 동기,
+            speedOutspeedCalc 는 site 입력 wrap 추적 polling. 헬퍼 인터페이스가 옵션 7~8개로 부풀면 오히려 얕아진다.
+            안전한 단계 분리: <strong>(1) mount·attachShadow·HOST_ID·teardown</strong> 우선 통합 →
+            <strong>(2) pref load+watch 정형화</strong> → <strong>(3) route gate 정형화</strong>.
+            MO/polling 까지는 자르지 않음 (각자 다른 트리거 의미).
+          </p>
+        </div>
+      </div>
+    </article>
+
+    <!-- ============== Candidate 2 ============== -->
+    <article class="mb-12 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 bg-gradient-to-r from-amber-50 to-white border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-slate-900">
+          C2. MAIN-world bridge 공통 reader 분리
+        </h2>
+        <span class="badge bg-amber-100 text-amber-800">Worth exploring</span>
+      </div>
+      <div class="px-6 py-6 space-y-6">
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Files</h3>
+          <ul class="text-sm text-slate-700 space-y-1 glyph-box">
+            <li>extension/<strong>calcFillBridge.js</strong> (l.14~19 KEY_* · l.36~58 ensurePokeIxBuilt · l.609~621 message envelope)</li>
+            <li>extension/<strong>teamBuilderBridge.js</strong> (l.12~22 getNuxtState · l.42~67 ensureTbPokeIxBuilt · l.332 message envelope)</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Problem</h3>
+          <p class="text-slate-700 leading-relaxed">
+            두 MAIN-world bridge 가 같은 일을 따로 한다:
+          </p>
+          <div class="mt-3">
+            <div class="mermaid">
+graph LR
+  subgraph calcFillBridge["calcFillBridge.js (V38)"]
+    A1[getNuxtState  inline]
+    A2[ensurePokeIxBuilt  byKr/byEn]
+    A3[lookupByDex  ability/equipment]
+    A4[addEventListener message  NUO_APPLY_CALC_V30]
+  end
+  subgraph teamBuilderBridge["teamBuilderBridge.js (V8)"]
+    B1[getNuxtState  inline]
+    B2[ensureTbPokeIxBuilt  byKr/byId]
+    B3[waitForPokeListReady]
+    B4[addEventListener message  NUO_TEAM_GET_SLOTS]
+  end
+  A1 -.same.-> B1
+  A2 -.same shape, diff value space.-> B2
+  A4 -.same envelope, diff type strings.-> B4
+            </div>
+          </div>
+          <p class="text-slate-700 leading-relaxed mt-3">
+            <code class="glyph-box text-xs bg-slate-100 px-1 rounded">getNuxtState()</code> 는 두 곳 모두 동일
+            (<code class="glyph-box text-xs bg-slate-100 px-1 rounded">window.__NUXT__.state || .payload.state</code>).
+            <code class="glyph-box text-xs bg-slate-100 px-1 rounded">$spokemon_list</code> 인덱스도 두 곳에서
+            <strong>같은 source-ref invalidation 패턴</strong>으로 따로 빌드 (F33 ↔ F35). 인덱싱 키 모음만 다름
+            (byKr+byEn vs. byKr+byId). postMessage envelope (source / type / requestId / ok / error) 도 동일 모양.
+            가드 버전 <code class="glyph-box text-xs bg-slate-100 px-1 rounded">__NUO_CALC_BRIDGE_V38__</code> /
+            <code class="glyph-box text-xs bg-slate-100 px-1 rounded">__NUO_TEAM_BUILDER_BRIDGE_V8__</code> 도
+            의미상 같은 invariant 를 한 번씩 인코드.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Solution (sketch)</h3>
+          <p class="text-slate-700 text-sm leading-relaxed">
+            새 모듈 <code class="glyph-box text-xs bg-slate-100 px-1 rounded">extension/nuoNuxtReader.js</code> (MAIN-world,
+            <code class="glyph-box text-xs bg-slate-100 px-1 rounded">__NUO_NUXT_READER_V1__</code> 가드).
+            SW <code class="glyph-box text-xs bg-slate-100 px-1 rounded">chrome.scripting.executeScript</code> 의 files 배열에서
+            bridge 보다 앞에 주입. export:
+          </p>
+          <pre class="mt-2 glyph-box text-xs bg-slate-900 text-slate-100 rounded p-3 overflow-x-auto">window.nuoNuxtReader = {
+  getState: function () { /* __NUXT__.state || .payload.state */ },
+  pokeListIndex: function (state, keys) { /* lazy, source-ref invalidation */ },
+  dexIndex: function (state, sectionKey) { /* lazy, byKr */ },
+  installEnvelope: function (srcExt, srcReply, handlers) {
+    /* addEventListener('message') + requestId + try/catch + postMessage */
+  },
+};</pre>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Trade-offs (왜 Strong 이 아닌가)</h3>
+          <ul class="list-disc list-inside text-slate-700 space-y-1 text-sm">
+            <li>MAIN-world 모듈은 <strong>content_scripts 가 아니라 executeScript files</strong>. SW 측 inject 헬퍼를 한 군데
+              추가 (지금은 calcFillBridge·teamBuilderBridge 각자 하나만 주입). 주입 순서 보장 필요.</li>
+            <li>가드 버전이 <strong>3개</strong>로 늘어남 (reader / calc / team). 셋 중 하나만 옛 버전이 살아 있으면 호환 매트릭스 복잡.
+              현재의 2개 가드도 사실상 잘 작동 중 — 회귀 없음.</li>
+            <li>인덱스 인터페이스가 parameterize 깔끔하지 않음 — calcFillBridge 는 <code class="glyph-box text-xs bg-slate-100 px-1 rounded">id/smogon_id/db_en/name</code>
+              4 키 fallback, teamBuilderBridge 는 <code class="glyph-box text-xs bg-slate-100 px-1 rounded">id</code> + <code class="glyph-box text-xs bg-slate-100 px-1 rounded">id.replace(/-/g,'')</code>.
+              "키 배열을 파라미터로" 식의 통합이 readable 한지 의문.</li>
+          </ul>
+          <p class="text-slate-700 text-sm leading-relaxed mt-3">
+            현재 듀어레이션이 약 90줄 × 2 = 180줄. 통합 후 reader 100줄 + 양 bridge 의 호출부 60줄 = 160줄 정도 — <strong>diet 효과는 약함</strong>.
+            진짜 가치는 “Nuxt state 그래프가 바뀌면 한 군데 갱신” 자체. G16(state 키 fragility) 모니터링 부담을 줄이려는 의도면 의미 있음.
+          </p>
+        </div>
+      </div>
+    </article>
+
+    <!-- ============== Candidate 3 ============== -->
+    <article class="mb-12 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 bg-gradient-to-r from-amber-50 to-white border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-slate-900">
+          C3. Hold/Equipment/Ability boundary 정규화
+        </h2>
+        <span class="badge bg-amber-100 text-amber-800">Worth exploring</span>
+      </div>
+      <div class="px-6 py-6 space-y-6">
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Files</h3>
+          <ul class="text-sm text-slate-700 space-y-1 glyph-box">
+            <li>extension/<strong>fmtCommon.js</strong> (l.30~69 collectHoldLabels — 10-키 whitelist)</li>
+            <li>extension/<strong>shareToRaw.js</strong> (koFromMaybeObj — URL 공유 경로 진입점)</li>
+            <li>extension/<strong>teamBuilderBridge.js</strong> (augmentSlotWithDex — 리뉴얼 후 슬롯 객체 진입점)</li>
+            <li>extension/<strong>simpleMovePower.js</strong> (findItemRule / findAbilityRule — 결정력 hot path)</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Problem</h3>
+          <p class="text-slate-700 leading-relaxed">
+            slot.equipment / slot.ability 의 모양이 두 갈래로 들어온다 — (a) URL 공유 경로 = 문자열,
+            (b) 리뉴얼 후 Nuxt slot = <code class="glyph-box text-xs bg-slate-100 px-1 rounded">{ kr, en?, slug?, ... }</code> 객체.
+            계산 layer 가 양쪽을 다 알아야 하므로 <code class="glyph-box text-xs bg-slate-100 px-1 rounded">collectHoldLabels</code> 는
+            <strong>10개 alias 키 whitelist</strong> 로 모든 가능한 라벨 모양을 fallback. F50 의 실제 원인은
+            “리뉴얼 후 'kr' 필드가 진실인데 whitelist 에 'kr' 누락” → 화력증강도구 결정력 매치 끊김.
+          </p>
+          <div class="mt-3 bg-slate-50 border border-slate-200 rounded p-3">
+            <p class="text-xs text-slate-500 mb-1 uppercase">현재 collectHoldLabels 의 key whitelist</p>
+            <code class="glyph-box text-xs">['kr', 'nameKr', 'name_kr', 'nameKO', 'labelKr', 'titleKr', 'name', 'label', 'title', 'slug', 'id']</code>
+            <p class="text-xs text-slate-500 mt-2">→ 신규 진입점 추가 시 새 alias 무한 확장될 위험 (인터페이스가 구현만큼 복잡).</p>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Before / After</h3>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-rose-50 border border-rose-200 rounded-lg p-4">
+              <p class="text-xs font-semibold text-rose-700 uppercase mb-3">현재</p>
+              <div class="mermaid">
+flowchart TD
+  Share[URL share 경로<br/>shareToRaw.flattenSlot] -->|문자열| Calc[simpleMovePower.findItemRule]
+  TB[Nuxt slot 경로<br/>teamBuilderBridge.augmentSlotWithDex] -->|kr 객체| Calc
+  Calc --> Helper[collectHoldLabels<br/>10-key whitelist]
+  Helper --> Match[fmtCommon.findRuleAndSlugInMap]
+  style Helper fill:#fee2e2,stroke:#fca5a5
+              </div>
+              <p class="mt-2 text-xs text-rose-700">두 경로의 다른 모양이 helper 로 “지연”</p>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <p class="text-xs font-semibold text-emerald-700 uppercase mb-3">제안</p>
+              <div class="mermaid">
+flowchart TD
+  Share2[URL share 경로<br/>shareToRaw.flattenSlot] -->|normalize| Hold["Hold {kr, en?, slug?}"]
+  TB2[Nuxt slot 경로<br/>teamBuilderBridge.augmentSlotWithDex] -->|normalize| Hold
+  Hold --> Calc2[simpleMovePower.findItemRule]
+  Calc2 --> Match2[findRuleAndSlugInMap<br/>direct kr/slug]
+  style Hold fill:#d1fae5,stroke:#6ee7b7
+              </div>
+              <p class="mt-2 text-xs text-emerald-700">진입점에서 정규화 — calc 는 단일 contract</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Benefits</h3>
+          <ul class="list-disc list-inside text-slate-700 space-y-1 text-sm">
+            <li><strong>F50 류 회귀 차단</strong> — 새 진입점 추가 시 alias 누락 → 결정력/내구력 무음 실패 클래스 제거.</li>
+            <li>collectHoldLabels = ~5 줄로 축소 (object → kr 한 줄). <em>인터페이스 폭이 줄어듦 = depth ↑</em>.</li>
+            <li>simpleMovePower / formatter 테스트(<code class="glyph-box text-xs bg-slate-100 px-1 rounded">scripts/smoke-*.js</code>)에서
+              fixture 만들기 간단해짐 (10개 alias 다 시도 불필요).</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Trade-offs</h3>
+          <p class="text-slate-700 text-sm leading-relaxed">
+            정규화 책임을 두 진입점이 동시에 가져가야 함. shareToRaw 는 옛 문자열 케이스를 그대로 두는 게 후방호환에 안전했음
+            (옛 사용자의 ?ps= URL 케이스). 객체화 시 그 경로 회귀 가능성을 별도 검증. 한편
+            <code class="glyph-box text-xs bg-slate-100 px-1 rounded">findRuleAndSlugInMap</code> 의 sectionIxCache 는 그대로 유지 가능 — 정규화 후에도 인덱스 hit rate 영향 없음.
+          </p>
+        </div>
+      </div>
+    </article>
+
+    <!-- ============== Candidate 4 ============== -->
+    <article class="mb-12 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 bg-gradient-to-r from-slate-100 to-white border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-slate-900">
+          C4. 결정력 7단 파이프라인 명시화
+        </h2>
+        <span class="badge bg-slate-200 text-slate-700">Speculative</span>
+      </div>
+      <div class="px-6 py-6 space-y-6">
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Files</h3>
+          <ul class="text-sm text-slate-700 space-y-1 glyph-box">
+            <li>extension/<strong>simpleMovePower.js</strong> (l.200~422 <code>oneMovePowerInternalDual</code> 단일 220-줄 함수)</li>
+            <li>TEMPLATES.md §4.1 — 7단 순서 + Math.round 시점 자연어 명세</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Problem</h3>
+          <p class="text-slate-700 leading-relaxed">
+            결정력 계산 = <em>베이스 → 태그 → 우격 → 노말스킨/-ate → 타입특성 → [조건부] → 도구 → STAB → 스탯 → 최종</em> 7단.
+            TEMPLATES.md 가 단계명·끼울 위치·Math.round 시점을 자연어로 정의했지만, 코드는 220줄 단일 함수 + 단계 경계가 주석으로만.
+            F50·F52 디버깅 비용의 큰 부분이 “이 보정이 어느 단계에 들어가야 하나” 추적이었음.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Solution (sketch)</h3>
+          <p class="text-slate-700 text-sm leading-relaxed mb-2">
+            단계 경계를 <strong>내부 함수 7개</strong>로 추출 — 호출 순서 함수가 단계 명세를 코드로 인코드.
+            (declarative array of steps 는 Math.round 위치 보존 부담으로 위험 — pass.)
+          </p>
+          <pre class="glyph-box text-xs bg-slate-900 text-slate-100 rounded p-3 overflow-x-auto">function oneMovePowerInternalDual(...) {
+  var p = baseStep(mv);
+  p = moveTagStep(p, ctx);
+  p = griptechStep(p, ctx);
+  p = ateStep(p, ctx);            // normal-skin / -ate
+  p = typedAbilityStep(p, ctx);
+  if (!skipConditionalAbility) p = conditionalAbilityStep(p, ctx);
+  p = itemStep(p, ctx);
+  p = stabStep(p, ctx);
+  var dmg = statTimesPowerStep(p, ctx);
+  return finalStep(dmg, ctx);
+}</pre>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wide mb-2">Trade-offs (왜 Speculative)</h3>
+          <ul class="list-disc list-inside text-slate-700 space-y-1 text-sm">
+            <li>줄수는 거의 그대로. depth 가치 = 가독성·디버깅. <strong>측정 어려움</strong>.</li>
+            <li>각 step 함수의 <code class="glyph-box text-xs bg-slate-100 px-1 rounded">ctx</code> 인터페이스가 부풀 위험
+              (rules / moveTags / moveKoMap / atkReal / spaReal / typeKoEn / Math.round positions …).
+              인터페이스가 단일 함수보다 더 얕아질 수도 있음.</li>
+            <li>R2 종결·스토어 제출 직전 시점. 이 작업 = 큰 회귀 surface. <strong>다음 메커닉 추가 시점에 같이</strong> 자르는 게 합리적.</li>
+            <li>대안: TEMPLATES.md §4.1 가 이미 잘 적혀 있음. 단계 라인 주석을 <code class="glyph-box text-xs bg-slate-100 px-1 rounded">// === Step 4: -ate ===</code> 식 헤더 주석으로 강화하는 <em>doc-only</em> 변경이 ROI 더 좋을 수도.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <!-- ============== Cross-cutting note ============== -->
+    <section class="mb-12 bg-amber-50 border border-amber-200 rounded-xl p-6">
+      <h2 class="text-lg font-semibold text-amber-900 mb-2">짧은 cross-cutting 메모</h2>
+      <ul class="list-disc list-inside text-sm text-amber-900 space-y-1">
+        <li><strong>Ko* / *Fallback JSON 4쌍</strong> (move / item / ability + emerging type) — 이미
+          <code class="glyph-box text-xs bg-white/60 px-1 rounded">loadCalcPayloadDocs()</code> 가 1차 통합 함. 추가 deepening 가치 낮음.</li>
+        <li><strong>F38 sectionIxCache</strong> (WeakMap) — 같은 의미의 인덱스 빌더가 calc bridge / team bridge / fmtCommon 세 군데. C2 와 같은 정합 — 필요해지면 C2 우산 안에서.</li>
+        <li><strong>$NUXT state 키 fragility (G16)</strong> — 키 문자열은 calcFillBridge.js·teamBuilderBridge.js 두 곳에만 묶여 있어, “여러 군데 흩어짐” 우려는 실측상 작음. 추가 추상화 불요.</li>
+        <li><strong>scripts/smoke-*.js</strong> — Node <code class="glyph-box text-xs bg-white/60 px-1 rounded">vm</code> 으로 fmtCommon + 계산 모듈 로드, modifiers.json·moveTags.json 직접 read. 이미 좋은 테스트 seam. 더 deepen 할 필요 없음, 사례를 늘리는 게 더 가치 큼.</li>
+      </ul>
+    </section>
+
+    <!-- ============== Top recommendation ============== -->
+    <section class="mb-12">
+      <div class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl p-8 shadow-lg">
+        <p class="text-xs uppercase tracking-widest opacity-80 mb-2">Top recommendation</p>
+        <h2 class="text-3xl font-bold mb-4">C1 — 콘텐츠 패널 lifecycle 통합</h2>
+        <p class="leading-relaxed opacity-95 max-w-3xl">
+          세 후보 중 <strong>가장 명확한 “두 어댑터 = 실재 seam” 사례</strong>.
+          <code class="glyph-box text-xs bg-emerald-800/60 px-1 rounded">nuoCsCommon</code> 이 이미 헬퍼만 노출하고 lifecycle 책임이 호출자에 흩어진 상태라,
+          deepening 방향이 분명함 — <em>헬퍼 패키지 → 가벼운 lifecycle 헬퍼</em>. 단계적 분리(mount/teardown → pref → route gate) 가 가능해
+          <strong>한 PR 의 회귀 surface 가 작음</strong>. 향후 4번째 패널(예: <code class="glyph-box text-xs bg-emerald-800/60 px-1 rounded">/docs</code> 페이지 인라인 어노)
+          추가 시 즉시 leverage 가 살아남.
+        </p>
+        <p class="leading-relaxed opacity-95 max-w-3xl mt-3">
+          반면 C2 는 가치 있으나 가드 버전 sync·MAIN-world 주입 순서 추가 부담이 있고, C3 는 입증된 버그(F50) surface 가 있지만
+          shareToRaw 측 후방호환 검증이 추가 작업. C4 는 다음 메커닉 PR 때 함께 다루는 편이 ROI 가 큼.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-2 text-xs">
+          <span class="px-3 py-1 bg-emerald-800/60 rounded-full">즉시 착수 가능</span>
+          <span class="px-3 py-1 bg-emerald-800/60 rounded-full">3 패널 → 1 모듈</span>
+          <span class="px-3 py-1 bg-emerald-800/60 rounded-full">F31·F32 류 재발 차단</span>
+        </div>
+      </div>
+    </section>
+
+    <footer class="text-xs text-slate-400 text-center pt-6 border-t border-slate-200">
+      <p>도우미누오 아키텍처 리뷰 · 2026-05-26 · 어느 후보를 더 파볼지 알려주면 grilling loop 로 들어감</p>
+    </footer>
+  </div>
+</body>
+</html>
