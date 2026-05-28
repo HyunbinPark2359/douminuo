@@ -3,7 +3,6 @@
 
   var LK = {
     theme: 'nuo_fmt_theme',
-    tbInlineAnnotate: 'nuo_fmt_teamBuilderInlineAnnotate',
     showCalcFloating: 'nuo_fmt_showCalcFloating',
     calcGhostRingEnabled: 'nuo_fmt_calcGhostRingEnabled',
     showTeamBuilderFloating: 'nuo_fmt_showTeamBuilderFloating',
@@ -107,13 +106,8 @@
     }
     var m = got[LK.tbInlineMovePower];
     var b = got[LK.tbInlineBulk];
-    var leg = got[LK.tbInlineAnnotate];
-    if (m === undefined && b === undefined && leg !== undefined) {
-      m = b = leg !== false;
-    } else {
-      if (m === undefined) m = true;
-      if (b === undefined) b = true;
-    }
+    if (m === undefined) m = true;
+    if (b === undefined) b = true;
     if (tbInlineMoveEl) tbInlineMoveEl.checked = m !== false;
     if (tbInlineBulkEl) tbInlineBulkEl.checked = b !== false;
 
@@ -146,7 +140,6 @@
     LK.showTeamBuilderFloating,
     LK.tbInlineMovePower,
     LK.tbInlineBulk,
-    LK.tbInlineAnnotate,
     LK.simpleSpeedCalcEnabled,
     LK.speedTableShow,
     LK.speedTableTrigger,
@@ -163,7 +156,6 @@
       Object.prototype.hasOwnProperty.call(changes, LK.showTeamBuilderFloating) ||
       Object.prototype.hasOwnProperty.call(changes, LK.tbInlineMovePower) ||
       Object.prototype.hasOwnProperty.call(changes, LK.tbInlineBulk) ||
-      Object.prototype.hasOwnProperty.call(changes, LK.tbInlineAnnotate) ||
       Object.prototype.hasOwnProperty.call(changes, LK.simpleSpeedCalcEnabled) ||
       Object.prototype.hasOwnProperty.call(changes, LK.speedTableShow) ||
       Object.prototype.hasOwnProperty.call(changes, LK.speedTableTrigger);

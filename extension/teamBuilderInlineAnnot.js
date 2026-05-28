@@ -24,7 +24,6 @@
   }
 
   var TB_INLINE_STYLE_ID = 'nuo-fmt-tb-inline-annot-style';
-  var LOCAL_TB_INLINE_LEGACY = 'nuo_fmt_teamBuilderInlineAnnotate';
   var LOCAL_TB_INLINE_MOVE = 'nuo_fmt_tbInlineMovePower';
   var LOCAL_TB_INLINE_BULK = 'nuo_fmt_tbInlineBulk';
   var tbInlineGen = 0;
@@ -47,7 +46,7 @@
 
   function refreshTbInlineOpt(done) {
     chrome.storage.local.get(
-      [LOCAL_TB_INLINE_LEGACY, LOCAL_TB_INLINE_MOVE, LOCAL_TB_INLINE_BULK],
+      [LOCAL_TB_INLINE_MOVE, LOCAL_TB_INLINE_BULK],
       function (got) {
         if (chrome.runtime.lastError) {
           tbInlineMoveEnabled = true;
@@ -55,15 +54,8 @@
         } else {
           var m = got[LOCAL_TB_INLINE_MOVE];
           var b = got[LOCAL_TB_INLINE_BULK];
-          var leg = got[LOCAL_TB_INLINE_LEGACY];
-          if (m === undefined && b === undefined && leg !== undefined) {
-            var on = leg !== false;
-            m = on;
-            b = on;
-          } else {
-            if (m === undefined) m = true;
-            if (b === undefined) b = true;
-          }
+          if (m === undefined) m = true;
+          if (b === undefined) b = true;
           tbInlineMoveEnabled = m !== false;
           tbInlineBulkEnabled = b !== false;
         }
@@ -464,7 +456,7 @@
     });
 
     // F13: shared 헬퍼로 storage 변경 핸들러 보일러플레이트 통합.
-    var TB_INLINE_PREF_KEYS = [LOCAL_TB_INLINE_MOVE, LOCAL_TB_INLINE_BULK, LOCAL_TB_INLINE_LEGACY];
+    var TB_INLINE_PREF_KEYS = [LOCAL_TB_INLINE_MOVE, LOCAL_TB_INLINE_BULK];
     if (CS && CS.onLocalPrefChange) {
       CS.onLocalPrefChange(TB_INLINE_PREF_KEYS, function () {
         refreshTbInlineOpt(function () {
