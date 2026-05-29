@@ -58,64 +58,12 @@
       if (!g || typeof g !== 'object' || !g.bySpeed) return false;
       regulationSpeedMeta = g.meta || {};
       regulationSpeedBySpeed = g.bySpeed;
-      verifyRegulationEmbedFreshness();  // F-data-1: 1회 비동기 검증, idempotent
       return true;
     } catch (e) {
       return false;
     }
   }
 
-  /**
-   * F-data-1: regulationMaSpeedTable.json 편집 후 embedSpeedData.js 재실행을 잊었을 때
-   * silent stale 을 콘솔 경고로 잡는다. embedSpeedData 가 임베드한 fnv1a 해시 vs 런타임에
-   * source JSON 을 다시 fnv1a 한 결과를 비교.
-   *
-   * 비용: 한 번만 fetch + JSON 파싱. 실패는 무시 (옛 빌드면 hash 가 없어 skip).
-   */
-  var regulationFreshnessChecked = false;
-  function fnv1aHash(str) {
-    var h = 0x811c9dc5 >>> 0;
-    for (var i = 0; i < str.length; i++) {
-      h ^= str.charCodeAt(i);
-      h = (Math.imul ? Math.imul(h, 0x01000193) : (h * 0x01000193)) >>> 0;
-    }
-    var s = h.toString(16);
-    while (s.length < 8) s = '0' + s;
-    return s;
-  }
-  function verifyRegulationEmbedFreshness() {
-    if (regulationFreshnessChecked) return;
-    regulationFreshnessChecked = true;
-    var embedded = globalThis.NUO_REGULATION_MA_SPEED_SOURCE_HASH;
-    if (typeof embedded !== 'string') return;
-    if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.getURL) return;
-    // 확장 context invalidated 가드 — chrome.runtime.id 미정 시 getURL 이
-    // 'chrome-extension://invalid/' 를 반환하고 fetch 가 ERR_FAILED 로 콘솔 잡음.
-    if (typeof chrome.runtime.id !== 'string' || !chrome.runtime.id) return;
-    var url;
-    try {
-      url = chrome.runtime.getURL('regulationMaSpeedTable.json');
-    } catch (eU) {
-      return;
-    }
-    if (!url || url.indexOf('chrome-extension://invalid') === 0) return;
-    try {
-      fetch(url)
-        .then(function (r) { return r.ok ? r.text() : null; })
-        .then(function (text) {
-          if (text == null) return;
-          var actual = fnv1aHash(text);
-          if (actual !== embedded) {
-            console.warn(
-              '[도우미누오] regulationMaSpeedData.js stale — ' +
-              'JSON 편집 후 `node extension/embedSpeedData.js` 재실행 필요.\n' +
-              '  embedded: ' + embedded + ' / actual: ' + actual
-            );
-          }
-        })
-        .catch(function () {});
-    } catch (eVer) {}
-  }
 
   function loadRegulationSpeedTable(done) {
     if (!regulationSpeedBySpeed && !hydrateRegulationSpeedTable()) {
