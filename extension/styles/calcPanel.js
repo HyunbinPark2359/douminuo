@@ -13,7 +13,7 @@
   'use strict';
   g.nuoCalcPanelCss = [
     ':host { all: initial; }',
-    '* { box-sizing: border-box; font-family: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }',
+    '* { box-sizing: border-box; font-family: SCDream, system-ui, sans-serif; }',
     /* mode 전환 시 그라데이션 cross-fade — @property/<image> interpolation 이 Shadow DOM */
     /* 에서 안 잡히는 케이스가 있어, 확실한 길로 가짜 요소(::before atk / ::after def) */
     /* 두 층을 깔고 opacity 만 토글. 아래 .fab-btn:not(:disabled)::before/::after 참조. (#2) */
@@ -337,7 +337,7 @@
     '.fab-write-morph:focus-visible { outline: 2px solid rgba(15, 23, 42, 0.4); outline-offset: 3px; }',
     '.fab-write-head {',
     '  display: flex; align-items: center; justify-content: flex-start;',
-    '  font-size: 13px; font-weight: 600; color: var(--nuo-cf-accent);',
+    '  font-size: 13px; font-weight: 500; color: var(--nuo-cf-accent);',
     '  transition: color 0.18s ease;',
     '}',
     '.fab-write-inp {',
@@ -352,7 +352,7 @@
     '  display: inline-flex; align-items: center; justify-content: center; gap: 6px;',
     '  padding: 8px 12px; border-radius: 10px; border: none; cursor: pointer;',
     '  color: var(--nuo-cf-color);',
-    '  font-size: 13px; font-weight: 600;',
+    '  font-size: 13px; font-weight: 400;',
     '  transition: filter 0.15s ease, transform 0.15s ease, color 0.18s ease;',
     '}',
     '.fab-write-apply::before, .fab-write-apply::after {',

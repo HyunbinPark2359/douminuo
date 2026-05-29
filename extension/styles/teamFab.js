@@ -6,7 +6,7 @@
   'use strict';
   g.nuoTeamFabCss = [
     ':host { all: initial; }',
-    '* { box-sizing: border-box; font-family: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }',
+    '* { box-sizing: border-box; font-family: SCDream, system-ui, sans-serif; }',
     '@keyframes nuo-tb-glow-xfade-a {',
     '  0%, 100% { opacity: 1; }',
     '  50% { opacity: 0; }',
@@ -369,7 +369,7 @@
     '  padding: 10px 10px 8px;',
     '}',
     '.fab-settings-panel .opt-row {',
-    '  display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: #0f172a;',
+    '  display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 400; color: #0f172a;',
     '  margin: 0; flex-shrink: 0; cursor: pointer;',
     '}',
     '.fab-settings-panel .opt-row input[type="checkbox"] {',
