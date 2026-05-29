@@ -34,6 +34,7 @@
         "styles/teamFab.js",
         "styles/speedPanel.js",
         "calcFillShared.js",
+        "updateToast.js",
         "teamBuilderShared.js",
         "calcFill.js",
         "calcGhostRing.js",
@@ -43,6 +44,12 @@
         "speedOutspeedCalc.js"
       ],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.html", "popup.css", "popup.js"],
+      "matches": ["https://smartnuo.com/*", "https://www.smartnuo.com/*"]
     }
   ]
 }

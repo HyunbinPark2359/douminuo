@@ -718,6 +718,49 @@ importScripts('showdownPaste.js');
     });
   }
 
+  // ── 업데이트 알림 ──────────────────────────────────────────────────────────
+
+  /**
+   * major 또는 minor 버전이 올라간 경우만 true.
+   * patch만 변경(x.y.z → x.y.z+1)이면 false.
+   * @param {string} prev  예: "1.4.0"
+   * @param {string} curr  예: "1.5.0"
+   */
+  function isMinorOrMajorUpdate(prev, curr) {
+    var p = String(prev || '0.0.0').split('.').map(Number);
+    var c = String(curr || '0.0.0').split('.').map(Number);
+    return c[0] > p[0] || (c[0] === p[0] && c[1] > p[1]);
+  }
+
+  // [BADGE] — 뱃지 abort 시: 아래 두 함수 본체 + 호출부 2곳(triggerUpdateNotice, CLEAR_UPDATE_BADGE 핸들러) 삭제
+  function showUpdateBadge() {
+    try {
+      chrome.action.setBadgeText({ text: 'NEW' });
+      chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
+    } catch (e) {}
+  }
+
+  function clearUpdateBadge() {
+    try {
+      chrome.action.setBadgeText({ text: '' });
+    } catch (e) {}
+  }
+
+  /**
+   * 업데이트 알림 플래그를 storage에 기록하고 뱃지를 표시.
+   * patch 업데이트(minor·major 미변경)이면 아무것도 하지 않는다.
+   */
+  function triggerUpdateNotice(prev, curr) {
+    if (!isMinorOrMajorUpdate(prev, curr)) return;
+    chrome.storage.local.set(
+      { nuo_fmt_pendingUpdateNotice: { version: curr, shownInPage: false } },
+      function () {
+        if (chrome.runtime.lastError) return;
+        showUpdateBadge(); // [BADGE] — abort 시 이 줄 삭제
+      }
+    );
+  }
+
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
     if (!msg) return;
 
@@ -958,5 +1001,31 @@ importScripts('showdownPaste.js');
       });
       return true;
     }
+
+    // 토스트 dismiss 시 CS가 전송. 뱃지를 제거한다.
+    // [BADGE] abort 시: clearUpdateBadge() 호출 1줄만 삭제. 분기 자체는 무해하므로 유지 가능.
+    if (msg.type === 'CLEAR_UPDATE_BADGE') {
+      clearUpdateBadge(); // [BADGE] — abort 시 이 줄 삭제
+      sendResponse({ ok: true });
+      return true;
+    }
+
+    // 팝업 fallback 감지용. 팝업 배너 미구현 상태에서도 핸들러는 준비해 둔다.
+    if (msg.type === 'TRIGGER_UPDATE_NOTICE') {
+      triggerUpdateNotice(
+        String(msg.prevVersion || '0.0.0'),
+        chrome.runtime.getManifest().version
+      );
+      sendResponse({ ok: true });
+      return true;
+    }
+  });
+
+  chrome.runtime.onInstalled.addListener(function (details) {
+    if (details.reason !== 'update') return;
+    triggerUpdateNotice(
+      String(details.previousVersion || '0.0.0'),
+      chrome.runtime.getManifest().version
+    );
   });
 })();

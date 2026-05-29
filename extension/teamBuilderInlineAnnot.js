@@ -24,8 +24,7 @@
   }
 
   var TB_INLINE_STYLE_ID = 'nuo-fmt-tb-inline-annot-style';
-  var LOCAL_TB_INLINE_MOVE = 'nuo_fmt_tbInlineMovePower';
-  var LOCAL_TB_INLINE_BULK = 'nuo_fmt_tbInlineBulk';
+  var LOCAL_TB_INLINE = 'nuo_fmt_tbInlineEnabled';
   var tbInlineGen = 0;
   var tbInlineTimer = null;
   var tbInlineMo = null;
@@ -37,27 +36,20 @@
         };
   var tbInlineAnnotInited = false;
   var tbInlineHandlersWired = false;
-  var tbInlineMoveEnabled = true;
-  var tbInlineBulkEnabled = true;
+  var tbInlineEnabled = true;
 
   function tbInlineAnyEnabled() {
-    return tbInlineMoveEnabled || tbInlineBulkEnabled;
+    return tbInlineEnabled;
   }
 
   function refreshTbInlineOpt(done) {
     chrome.storage.local.get(
-      [LOCAL_TB_INLINE_MOVE, LOCAL_TB_INLINE_BULK],
+      [LOCAL_TB_INLINE],
       function (got) {
         if (chrome.runtime.lastError) {
-          tbInlineMoveEnabled = true;
-          tbInlineBulkEnabled = true;
+          tbInlineEnabled = true;
         } else {
-          var m = got[LOCAL_TB_INLINE_MOVE];
-          var b = got[LOCAL_TB_INLINE_BULK];
-          if (m === undefined) m = true;
-          if (b === undefined) b = true;
-          tbInlineMoveEnabled = m !== false;
-          tbInlineBulkEnabled = b !== false;
+          tbInlineEnabled = got[LOCAL_TB_INLINE] !== false;
         }
         if (typeof done === 'function') done();
       }
@@ -390,10 +382,8 @@
           var names = moveDisplayNamesFromSlot(item.slotData);
           var card = item.card;
           if (!card) return;
-          if (tbInlineMoveEnabled) {
+          if (tbInlineEnabled) {
             applyMovePowerSuffixes(card, names, item.ann.movePowerSuffixes || []);
-          }
-          if (tbInlineBulkEnabled) {
             applyBulkCorner(card, item.ann.bulkCompact || '');
           }
         });
@@ -456,7 +446,7 @@
     });
 
     // F13: shared 헬퍼로 storage 변경 핸들러 보일러플레이트 통합.
-    var TB_INLINE_PREF_KEYS = [LOCAL_TB_INLINE_MOVE, LOCAL_TB_INLINE_BULK];
+    var TB_INLINE_PREF_KEYS = [LOCAL_TB_INLINE];
     if (CS && CS.onLocalPrefChange) {
       CS.onLocalPrefChange(TB_INLINE_PREF_KEYS, function () {
         refreshTbInlineOpt(function () {

@@ -19,6 +19,9 @@
     </div>
 
     <section id="panelSettings" role="region" aria-label="환경설정">
+
+      <h2 class="group-heading">외관</h2>
+
       <section class="options-section options-section--theme" aria-labelledby="theme-heading">
         <h3 id="theme-heading" class="options-heading">팝업 테마</h3>
         <div class="theme-row">
@@ -31,6 +34,8 @@
           </select>
         </div>
       </section>
+
+      <h2 class="group-heading">기능</h2>
 
       <section class="options-section" aria-labelledby="floating-heading">
         <h3 id="floating-heading" class="options-heading">플로팅 버튼</h3>
@@ -45,28 +50,22 @@
             <span>팀빌더</span>
           </label>
         </div>
-        <div class="settings-options-row" role="group" aria-label="데미지 계산기 패널 강조">
-          <label class="settings-option-row" for="calcGhostRingEnabled">
-            <input type="checkbox" id="calcGhostRingEnabled" />
-            <span>강조 표시</span>
-          </label>
-        </div>
       </section>
 
+      <hr class="section-divider">
+
       <section class="options-section" aria-labelledby="tb-inline-heading">
-        <h3 id="tb-inline-heading" class="options-heading">팀빌더 결정력·내구력</h3>
-        <p class="sub options-desc">팀빌더 좌측 샘플 목록에 결정력과 내구력을 표시합니다.</p>
-        <div class="settings-options-row" role="group" aria-label="팀빌더 인라인 표시">
-          <label class="settings-option-row" for="tbInlineMovePower">
-            <input type="checkbox" id="tbInlineMovePower" />
-            <span>결정력</span>
-          </label>
-          <label class="settings-option-row" for="tbInlineBulk">
-            <input type="checkbox" id="tbInlineBulk" />
-            <span>내구력</span>
+        <div class="settings-heading-row">
+          <h3 id="tb-inline-heading" class="options-heading">팀빌더 결정력·내구력</h3>
+          <label class="toggle-switch" title="기능 켜기/끄기">
+            <input type="checkbox" id="tbInlineEnabled" aria-labelledby="tb-inline-heading" />
+            <span class="toggle-switch-track" aria-hidden="true"></span>
           </label>
         </div>
+        <p class="sub options-desc">팀빌더 좌측 샘플 목록에 결정력과 내구력을 표시합니다.</p>
       </section>
+
+      <hr class="section-divider">
 
       <section class="options-section" aria-labelledby="simple-speed-heading">
         <div class="settings-heading-row">
@@ -76,28 +75,22 @@
             <span class="toggle-switch-track" aria-hidden="true"></span>
           </label>
         </div>
-        <p class="sub options-desc">
-          팀빌더 스피드 실수치 옆에 추월 가능한 종족값을 보여 줍니다.
-        </p>
-        <div id="speedTableOptions" class="speed-table-options">
-          <div class="speed-table-row" role="group" aria-label="스피드표">
-            <label class="settings-option-row speed-table-check" for="speedTableShow">
-              <input type="checkbox" id="speedTableShow" />
-              <span>스피드표 표시</span>
-            </label>
-            <div class="speed-table-trigger-radios" id="speedTableTriggerGroup">
-              <label class="settings-option-row speed-trigger-radio" for="speedTableTriggerHover">
-                <input type="radio" name="speedTableTrigger" id="speedTableTriggerHover" value="hover" />
-                <span>호버</span>
-              </label>
-              <label class="settings-option-row speed-trigger-radio" for="speedTableTriggerClick">
-                <input type="radio" name="speedTableTrigger" id="speedTableTriggerClick" value="click" />
-                <span>클릭</span>
-              </label>
-            </div>
-          </div>
-        </div>
+        <p class="sub options-desc">팀빌더 스피드 실수치 옆에 추월 가능한 종족값을 보여 줍니다.</p>
       </section>
+
+      <h2 class="group-heading">알림</h2>
+
+      <section class="options-section" aria-labelledby="update-notice-heading">
+        <div class="settings-heading-row">
+          <h3 id="update-notice-heading" class="options-heading">업데이트 알림</h3>
+          <label class="toggle-switch" title="기능 켜기/끄기">
+            <input type="checkbox" id="updateNoticeEnabled" aria-labelledby="update-notice-heading" />
+            <span class="toggle-switch-track" aria-hidden="true"></span>
+          </label>
+        </div>
+        <p class="sub options-desc">도우미누오가 업데이트되면 스마트누오 페이지에 알림을 표시합니다.</p>
+      </section>
+
     </section>
 
     <footer class="popup-foot">

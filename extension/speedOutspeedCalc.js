@@ -42,14 +42,10 @@
   };
   var SK_SPEED_UI = {
     enabled: 'nuo_fmt_simpleSpeedCalcEnabled',
-    tableShow: 'nuo_fmt_speedTableShow',
-    tableTrigger: 'nuo_fmt_speedTableTrigger',
   };
   var SPEED_PREF_KEYS = [SK_SPEED.ability, SK_SPEED.item, SK_SPEED.oppScarf, SK_SPEED.collapsed];
   var SPEED_ALL_PREF_KEYS = SPEED_PREF_KEYS.concat([
     SK_SPEED_UI.enabled,
-    SK_SPEED_UI.tableShow,
-    SK_SPEED_UI.tableTrigger,
   ]);
 
   /** `regulationMaSpeedData.js` 가 `globalThis.NUO_REGULATION_MA_SPEED` 에 넣음 (페이지에서 fetch 불가 대응). */
@@ -434,16 +430,8 @@
     if (!wrap) return;
 
     var pop = root.getElementById('species-pop');
-    if (!speedTableShow) {
-      if (pop) {
-        pop.hidden = true;
-      }
-      loadRegulationSpeedTable(function () {});
-      return;
-    }
 
     function onLeaveWrap(ev) {
-      if (speedTableTrigger !== 'hover') return;
       var rel = ev.relatedTarget;
       if (rel && wrap.contains(rel)) return;
       scheduleSpeciesPopoverHide(root);
@@ -452,21 +440,8 @@
 
     if (pop) {
       pop.addEventListener('mouseenter', function () {
-        if (speedTableTrigger === 'hover') clearSpeciesPopoverHideTimer();
+        clearSpeciesPopoverHideTimer();
       });
-    }
-
-    wrap.classList.toggle('speed-pop-click', speedTableTrigger === 'click');
-
-    var docClickClose = null;
-    if (speedTableTrigger === 'click') {
-      docClickClose = function (ev) {
-        var t = ev.target;
-        if (wrap.contains(t) || (pop && pop.contains(t))) return;
-        hideSpeciesPopover(root);
-      };
-      document.addEventListener('mousedown', docClickClose, true);
-      root._nuoSpeedPopDocClose = docClickClose;
     }
 
     var presets = root.querySelectorAll('.preset');
@@ -483,21 +458,7 @@
           }
           fillSpeciesPopover(root, v, idx);
         }
-        if (speedTableTrigger === 'hover') {
-          preset.addEventListener('mouseenter', openFromPreset);
-        } else {
-          /** disabled readonly input 은 click 이 부모로 안 올라옴 → 캡처 단계 pointerdown + 입력란 pointer-events:none */
-          preset.addEventListener(
-            'pointerdown',
-            function (ev) {
-              if (ev.button !== 0) return;
-              ev.preventDefault();
-              ev.stopPropagation();
-              openFromPreset();
-            },
-            true
-          );
-        }
+        preset.addEventListener('mouseenter', openFromPreset);
       })(presets[i], i);
     }
 
@@ -916,10 +877,8 @@
   var itemOn = true;
   var oppScarfOn = false;
   var collapsed = false;
-  /** 환경설정: 기능 전체 / 종족표 / 호버·클릭 */
+  /** 환경설정: 기능 전체 */
   var simpleSpeedCalcEnabled = true;
-  var speedTableShow = true;
-  var speedTableTrigger = 'hover';
 
   function applySpeedPrefsDefaults() {
     abilityOn = false;
@@ -927,8 +886,6 @@
     oppScarfOn = false;
     collapsed = false;
     simpleSpeedCalcEnabled = true;
-    speedTableShow = true;
-    speedTableTrigger = 'hover';
   }
 
   function applySpeedPrefsFromStorage(got) {
@@ -938,8 +895,6 @@
     oppScarfOn = got[SK_SPEED.oppScarf] === true;
     collapsed = got[SK_SPEED.collapsed] === true;
     simpleSpeedCalcEnabled = got[SK_SPEED_UI.enabled] !== false;
-    speedTableShow = got[SK_SPEED_UI.tableShow] !== false;
-    speedTableTrigger = got[SK_SPEED_UI.tableTrigger] === 'click' ? 'click' : 'hover';
   }
 
   function persistSpeedPrefs() {
@@ -1046,11 +1001,11 @@
   // F13: shared 헬퍼로 storage 변경 핸들러 통합. 변경 트리거 키만 한정해서 듣고
   // 콜백에선 SPEED_ALL_PREF_KEYS 전체를 다시 한 번 받아 일관성 유지.
   // (CS.onLocalPrefChange 가 자체적으로 storage.local.get(keys) 호출 → got 에는
-  //  SK_SPEED_UI 3 키만 들어옴. 우리는 옛 동작과 동일하게 SPEED_ALL_PREF_KEYS 전체를 다시 가져온다.)
+  //  SK_SPEED_UI 키만 들어옴. 우리는 옛 동작과 동일하게 SPEED_ALL_PREF_KEYS 전체를 다시 가져온다.)
   var CSS = globalThis.nuoCsCommon;
   if (CSS && CSS.onLocalPrefChange) {
     CSS.onLocalPrefChange(
-      [SK_SPEED_UI.enabled, SK_SPEED_UI.tableShow, SK_SPEED_UI.tableTrigger],
+      [SK_SPEED_UI.enabled],
       function () {
         if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
         chrome.storage.local.get(SPEED_ALL_PREF_KEYS, function (got) {

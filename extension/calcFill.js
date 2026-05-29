@@ -35,7 +35,6 @@
 
   var PANEL_HOST_ID = 'nuo-fmt-calc-panel-host';
   var LOCAL_SHOW_FLOAT = 'nuo_fmt_showCalcFloating';
-  var LOCAL_GHOST_RING_ENABLED = 'nuo_fmt_calcGhostRingEnabled';
 
   var CS = globalThis.nuoCsCommon || {};
   var TBS = globalThis.nuoTeamBuilderShared || {};
@@ -412,6 +411,12 @@
       '      </div>' +
       '    </div>' +
       '  </div>' +
+      '  <button type="button" class="fab-prefs-gear fab-btn" id="fabPrefsGear" aria-label="환경설정 열기">' +
+      '    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+      '      <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>' +
+      '      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>' +
+      '    </svg>' +
+      '  </button>' +
       '</div>';
   }
 
@@ -425,6 +430,7 @@
     var fabDock = root.getElementById('fabDock');
     var fabSlots = root.getElementById('fabSlots');
     var modeToggle = root.getElementById('fabModeToggle');
+    var gearBtn = root.getElementById('fabPrefsGear');
     var headToast = root.getElementById('fabHeadToast');
 
     var writeWrap = root.getElementById('fabWriteWrap');
@@ -760,6 +766,7 @@
       if (!fabDock) return;
       cancelDockCloseTimer();
       fabDock.classList.add('fab-dock--open');
+      if (fabRoot) fabRoot.classList.add('fab-root--dock-open');
       // 펼치는 시점에 슬롯 visuals 재갱신 (사용자가 다른 탭에서 팀빌더 변경한 후 돌아온 케이스)
       refreshSlotsFromSnapshot();
       refreshWriteInputForMode();
@@ -773,6 +780,7 @@
         // input 에 focus 가 있으면 dock 유지 (사용자가 키보드로 입력 중일 수 있음).
         if (writeInp && root.activeElement === writeInp) return;
         fabDock.classList.remove('fab-dock--open');
+        if (fabRoot) fabRoot.classList.remove('fab-root--dock-open');
       }, 90);
     }
     function onDockMouseOut(ev) {
@@ -789,6 +797,94 @@
       fabDock.addEventListener('mouseout', onDockMouseOut);
       fabDock.addEventListener('mouseover', onDockMouseOver);
     }
+
+    // ===== 환경설정 모달 (popup.html iframe in-page) =====
+    var prefsEscHandler = null;
+    var frameHeightHandler = null;
+
+    function openPrefsModal() {
+      if (root.getElementById('prefsModalBackdrop')) return;
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) return;
+      var backdrop = document.createElement('div');
+      backdrop.id = 'prefsModalBackdrop';
+      backdrop.className = 'prefs-modal-backdrop';
+      backdrop.setAttribute('role', 'dialog');
+      backdrop.setAttribute('aria-modal', 'true');
+      backdrop.setAttribute('aria-label', '환경설정');
+      var frame = document.createElement('iframe');
+      frame.className = 'prefs-modal-frame';
+      frame.src = chrome.runtime.getURL('popup.html') + '?embed=1';
+      frame.title = '환경설정';
+      var container = document.createElement('div');
+      container.className = 'prefs-modal-container';
+      var closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'prefs-modal-close';
+      closeBtn.setAttribute('aria-label', '닫기');
+      closeBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="1.5" y1="1.5" x2="10.5" y2="10.5"/><line x1="10.5" y1="1.5" x2="1.5" y2="10.5"/></svg>';
+      closeBtn.addEventListener('click', closePrefsModal);
+      container.appendChild(closeBtn);
+      container.appendChild(frame);
+      backdrop.appendChild(container);
+      root.appendChild(backdrop);
+      backdrop.addEventListener('click', function (e) {
+        if (e.target === backdrop) closePrefsModal();
+      });
+      prefsEscHandler = function (e) {
+        if (e.key === 'Escape' || e.keyCode === 27) closePrefsModal();
+      };
+      document.addEventListener('keydown', prefsEscHandler, true);
+      frame.addEventListener('load', function () {
+        try { frame.contentWindow.focus(); } catch (eF) {}
+      });
+      frameHeightHandler = function (ev) {
+        if (!ev.data || ev.data.source !== 'nuo-popup-embed' ||
+            ev.data.type !== 'NUO_POPUP_EMBED_HEIGHT') return;
+        var h = Number(ev.data.height);
+        if (h > 0) frame.style.height = Math.min(h + 2, 580) + 'px';
+        window.removeEventListener('message', frameHeightHandler);
+        frameHeightHandler = null;
+      };
+      window.addEventListener('message', frameHeightHandler);
+    }
+
+    function closePrefsModal() {
+      var b = root.getElementById('prefsModalBackdrop');
+      if (!b) return;
+      b.classList.add('prefs-modal-closing');
+      var removed = false;
+      var doRemove = function () {
+        if (removed) return;
+        removed = true;
+        if (b.parentNode) b.parentNode.removeChild(b);
+      };
+      b.addEventListener('animationend', function onAE() {
+        b.removeEventListener('animationend', onAE);
+        doRemove();
+      });
+      setTimeout(doRemove, 300);
+      if (prefsEscHandler) {
+        document.removeEventListener('keydown', prefsEscHandler, true);
+        prefsEscHandler = null;
+      }
+      if (frameHeightHandler) {
+        window.removeEventListener('message', frameHeightHandler);
+        frameHeightHandler = null;
+      }
+      try { if (gearBtn) gearBtn.focus(); } catch (eF) {}
+    }
+
+    if (gearBtn) {
+      gearBtn.addEventListener('click', function () {
+        if (root.getElementById('prefsModalBackdrop')) closePrefsModal();
+        else openPrefsModal();
+      });
+      gearBtn.addEventListener('mouseenter', openDock);
+      gearBtn.addEventListener('mouseleave', scheduleDockClose);
+    }
+
+    var _hostEl = document.getElementById(PANEL_HOST_ID);
+    if (_hostEl) _hostEl._nuoClosePrefsModal = closePrefsModal;
 
     /* ===== 외부 클릭 / Esc — hover-only panel 이라 morph close 핸들러는 더 이상 없음. ESC 는 input blur. ===== */
 
@@ -818,6 +914,7 @@
       } else {
         // 숨겨질 때 dock 도 접음 — write panel 은 hover-only 라 자동으로 사라짐.
         if (fabDock) fabDock.classList.remove('fab-dock--open');
+        if (fabRoot) fabRoot.classList.remove('fab-root--dock-open');
         if (writeInp && root.activeElement === writeInp) {
           try { writeInp.blur(); } catch (eBl) {}
         }
@@ -869,18 +966,8 @@
         );
       } catch (eGr) {}
     }
-    chrome.storage.local.get([LOCAL_GHOST_RING_ENABLED], function (got) {
-      if (!chrome.runtime.lastError) {
-        ghostRingPref.enabled = got[LOCAL_GHOST_RING_ENABLED] !== false;
-      }
-      if (ghostRingHandle && ghostRingHandle.refresh) ghostRingHandle.refresh();
-    });
-    if (CS.onLocalPrefChange) {
-      CS.onLocalPrefChange([LOCAL_GHOST_RING_ENABLED], function (got) {
-        ghostRingPref.enabled = got[LOCAL_GHOST_RING_ENABLED] !== false;
-        if (ghostRingHandle && ghostRingHandle.refresh) ghostRingHandle.refresh();
-      });
-    }
+    // ghost ring은 계산기 FAB on/off에 편입 — 별도 설정 없이 항상 활성
+    ghostRingPref.enabled = true;
       }
     });
   }
@@ -892,7 +979,12 @@
 
   function removeCalcPanelHost() {
     var h = document.getElementById(PANEL_HOST_ID);
-    if (h) h.remove();
+    if (h) {
+      if (typeof h._nuoClosePrefsModal === 'function') {
+        try { h._nuoClosePrefsModal(); } catch (eClp) {}
+      }
+      h.remove();
+    }
   }
 
   function startCalcFloatingFromSettings() {

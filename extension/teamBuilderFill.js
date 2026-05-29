@@ -189,9 +189,8 @@
     '        <div class="fab-settings-wrap">' +
     '          <div class="fab-settings-morph" id="settingsMorph" tabindex="0" role="group" aria-label="샘플 복사 옵션">' +
     '            <div class="fab-settings-gear">' +
-    '              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
-    '                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>' +
-    '                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>' +
+    '              <svg width="21" height="21" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true">' +
+    '                <path d="M104 112C90.7 112 80 122.7 80 136L80 184C80 197.3 90.7 208 104 208L152 208C165.3 208 176 197.3 176 184L176 136C176 122.7 165.3 112 152 112L104 112zM256 128C238.3 128 224 142.3 224 160C224 177.7 238.3 192 256 192L544 192C561.7 192 576 177.7 576 160C576 142.3 561.7 128 544 128L256 128zM256 288C238.3 288 224 302.3 224 320C224 337.7 238.3 352 256 352L544 352C561.7 352 576 337.7 576 320C576 302.3 561.7 288 544 288L256 288zM256 448C238.3 448 224 462.3 224 480C224 497.7 238.3 512 256 512L544 512C561.7 512 576 497.7 576 480C576 462.3 561.7 448 544 448L256 448zM80 296L80 344C80 357.3 90.7 368 104 368L152 368C165.3 368 176 357.3 176 344L176 296C176 282.7 165.3 272 152 272L104 272C90.7 272 80 282.7 80 296zM104 432C90.7 432 80 442.7 80 456L80 504C80 517.3 90.7 528 104 528L152 528C165.3 528 176 517.3 176 504L176 456C176 442.7 165.3 432 152 432L104 432z"/>' +
     '              </svg>' +
     '            </div>' +
     '            <div class="fab-settings-panel" id="settingsPanel">' +
@@ -220,6 +219,12 @@
     '      </div>' +
     '    </div>' +
     '  </div>' +
+'  <button type="button" class="fab-prefs-gear fab-btn" id="fabPrefsGear" aria-label="환경설정 열기">' +
+'    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+'      <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>' +
+'      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>' +
+'    </svg>' +
+'  </button>' +
     '</div>';
     return { fabSlotFeedbackHtml: fabSlotFeedbackHtml };
   }
@@ -235,6 +240,7 @@
     var fabDock = root.getElementById('fabDock');
     var fabSlotsWrap = root.getElementById('fabSlots');
     var partyBtn = root.getElementById('fabPartyBtn');
+    var gearBtn = root.getElementById('fabPrefsGear');
     var partyMonImgs = (function () {
       if (!partyBtn) return [null, null, null, null, null, null];
       var stack = partyBtn.querySelector('.fab-party-mon-stack');
@@ -401,6 +407,7 @@
       if (!fabDock) return;
       cancelFabDockCloseTimer();
       fabDock.classList.add('fab-dock--open');
+      if (fabRoot) fabRoot.classList.add('fab-root--dock-open');
     }
     function scheduleFabDockClose() {
       if (!fabDock) return;
@@ -408,6 +415,7 @@
       dockCloseTimer = setTimeout(function () {
         dockCloseTimer = null;
         if (fabDock) fabDock.classList.remove('fab-dock--open');
+        if (fabRoot) fabRoot.classList.remove('fab-root--dock-open');
       }, 90);
     }
     function onFabDockMouseOut(ev) {
@@ -423,6 +431,91 @@
       partyBtn.addEventListener('mouseenter', openFabDockFromParty);
       fabDock.addEventListener('mouseout', onFabDockMouseOut);
       fabDock.addEventListener('mouseover', onFabDockMouseOver);
+    }
+
+    // ===== 환경설정 모달 (popup.html iframe in-page) =====
+    var prefsEscHandler = null;
+    var frameHeightHandler = null;
+
+    function openPrefsModal() {
+      if (root.getElementById('prefsModalBackdrop')) return;
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) return;
+      var backdrop = document.createElement('div');
+      backdrop.id = 'prefsModalBackdrop';
+      backdrop.className = 'prefs-modal-backdrop';
+      backdrop.setAttribute('role', 'dialog');
+      backdrop.setAttribute('aria-modal', 'true');
+      backdrop.setAttribute('aria-label', '환경설정');
+      var frame = document.createElement('iframe');
+      frame.className = 'prefs-modal-frame';
+      frame.src = chrome.runtime.getURL('popup.html') + '?embed=1';
+      frame.title = '환경설정';
+      var container = document.createElement('div');
+      container.className = 'prefs-modal-container';
+      var closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'prefs-modal-close';
+      closeBtn.setAttribute('aria-label', '닫기');
+      closeBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="1.5" y1="1.5" x2="10.5" y2="10.5"/><line x1="10.5" y1="1.5" x2="1.5" y2="10.5"/></svg>';
+      closeBtn.addEventListener('click', closePrefsModal);
+      container.appendChild(closeBtn);
+      container.appendChild(frame);
+      backdrop.appendChild(container);
+      root.appendChild(backdrop);
+      backdrop.addEventListener('click', function (e) {
+        if (e.target === backdrop) closePrefsModal();
+      });
+      prefsEscHandler = function (e) {
+        if (e.key === 'Escape' || e.keyCode === 27) closePrefsModal();
+      };
+      document.addEventListener('keydown', prefsEscHandler, true);
+      frame.addEventListener('load', function () {
+        try { frame.contentWindow.focus(); } catch (eF) {}
+      });
+      frameHeightHandler = function (ev) {
+        if (!ev.data || ev.data.source !== 'nuo-popup-embed' ||
+            ev.data.type !== 'NUO_POPUP_EMBED_HEIGHT') return;
+        var h = Number(ev.data.height);
+        if (h > 0) frame.style.height = Math.min(h + 2, 580) + 'px';
+        window.removeEventListener('message', frameHeightHandler);
+        frameHeightHandler = null;
+      };
+      window.addEventListener('message', frameHeightHandler);
+    }
+
+    function closePrefsModal() {
+      var b = root.getElementById('prefsModalBackdrop');
+      if (!b) return;
+      b.classList.add('prefs-modal-closing');
+      var removed = false;
+      var doRemove = function () {
+        if (removed) return;
+        removed = true;
+        if (b.parentNode) b.parentNode.removeChild(b);
+      };
+      b.addEventListener('animationend', function onAE() {
+        b.removeEventListener('animationend', onAE);
+        doRemove();
+      });
+      setTimeout(doRemove, 300);
+      if (prefsEscHandler) {
+        document.removeEventListener('keydown', prefsEscHandler, true);
+        prefsEscHandler = null;
+      }
+      if (frameHeightHandler) {
+        window.removeEventListener('message', frameHeightHandler);
+        frameHeightHandler = null;
+      }
+      try { if (gearBtn) gearBtn.focus(); } catch (eF) {}
+    }
+
+    if (gearBtn) {
+      gearBtn.addEventListener('click', function () {
+        if (root.getElementById('prefsModalBackdrop')) closePrefsModal();
+        else openPrefsModal();
+      });
+      gearBtn.addEventListener('mouseenter', openFabDockFromParty);
+      gearBtn.addEventListener('mouseleave', scheduleFabDockClose);
     }
 
     var FORMAT_LOCAL_OPT_KEYS = [
@@ -975,6 +1068,13 @@
       clearCopySuccessVisual(successFlashBtn);
       successFlashBtn = null;
       cancelFabDockCloseTimer();
+      closePrefsModal();
+      try {
+        if (gearBtn) {
+          gearBtn.removeEventListener('mouseenter', openFabDockFromParty);
+          gearBtn.removeEventListener('mouseleave', scheduleFabDockClose);
+        }
+      } catch (eGear) {}
       try {
         partyBtn.removeEventListener('mouseenter', openFabDockFromParty);
       } catch (eDock) {}
