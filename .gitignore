@@ -13,6 +13,7 @@ node_modules/
 /RENEWAL_FIX_PLAN.md
 
 # Private working notes — kept local, not published on GitHub
+.claudeignore
 /BACKLOG.md
 /할일.md
 /research.md
