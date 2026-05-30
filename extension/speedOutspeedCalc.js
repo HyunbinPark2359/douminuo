@@ -32,7 +32,6 @@
   'use strict';
 
   var HOST_ID = 'nuo-fmt-speed-outspeed-host';
-  var HOST_ID_TABLE = 'nuo-fmt-speed-table-host';
 
   /** 팀빌더 샘플 변환 옵션처럼 브라우저에 유지 (`chrome.storage.local`). */
   var SK_SPEED = {
@@ -397,6 +396,7 @@
     for (var i = 0; i < presets.length; i++) {
       (function (preset, idx) {
         function openFromPreset() {
+          if (inlineExpanded) return;
           clearSpeciesPopoverHideTimer();
           var inp = preset.querySelector('.v-input-input');
           var raw = inp ? inp.value : '';
@@ -645,230 +645,241 @@
     return out;
   }
 
-  /** 설정패널(우측 편집 패널) 루트 rect. 못 찾으면 null. (XPath 확정: div[3]) */
-  function getSettingPanelRect() {
-    try {
-      var r = document.evaluate(
-        '/html/body/div[1]/div/main/div/div[3]',
-        document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
-      );
-      var n = r && r.singleNodeValue;
-      if (!n || !n.getBoundingClientRect) return null;
-      return n.getBoundingClientRect();
-    } catch (e) {
-      return null;
+  /** 펼침 목표 높이 = shell offsetHeight (body ≤240 + border-bottom 1px). */
+  function inlineTargetHeight(root) {
+    var shell = root.getElementById('inline-table-shell');
+    if (!shell) return 0;
+    return shell.offsetHeight;
+  }
+
+  function toggleInlineTable(root) {
+    if (inlineExpanded) collapseInline(root);
+    else expandInline(root);
+  }
+
+  function expandInline(root) {
+    inlineExpanded = true;
+    var btn = root.getElementById('expand-tbl');
+    if (btn) btn.textContent = '스피드표 접기';
+    hideSpeciesPopover(root);
+    renderInlineTable(root);
+    var wrap = root.getElementById('inline-table-wrap');
+    if (!wrap) return;
+    wrap.style.maxHeight = inlineTargetHeight(root) + 'px';
+    var done = function () {
+      wrap.removeEventListener('transitionend', onEnd);
+      updateInlineScrollbar(root);
+      scrollInlineToUninvested(root);
+    };
+    var onEnd = function (e) {
+      if (e.propertyName === 'max-height') done();
+    };
+    wrap.addEventListener('transitionend', onEnd);
+    setTimeout(function () {
+      done();
+    }, 380);
+  }
+
+  function collapseInline(root) {
+    inlineExpanded = false;
+    var btn = root.getElementById('expand-tbl');
+    if (btn) btn.textContent = '스피드표 펼치기';
+    if (sbHideTimer) {
+      clearTimeout(sbHideTimer);
+      sbHideTimer = null;
     }
-  }
-
-  /** 대형 패널을 설정패널 우측 테두리 +97px, top 정렬로 배치. (rect 라이브 측정 — 하드코딩 금지) */
-  function positionTablePanel() {
-    if (!tableRoot || !tableRoot.host) return;
-    var rect = getSettingPanelRect();
-    if (!rect) return;
-    var host = tableRoot.host;
-    host.style.left = (rect.right + 97) + 'px';
-    host.style.top = rect.top + 'px';
-  }
-
-  function tableTrackHandler() {
-    if (tableOpen && tableRoot) positionTablePanel();
-  }
-  function ensureTableTracking() {
-    if (tableTrackBound) return;
-    tableTrackBound = true;
-    window.addEventListener('scroll', tableTrackHandler, true);
-    window.addEventListener('resize', tableTrackHandler);
-  }
-  function removeTableTracking() {
-    if (!tableTrackBound) return;
-    tableTrackBound = false;
-    window.removeEventListener('scroll', tableTrackHandler, true);
-    window.removeEventListener('resize', tableTrackHandler);
-  }
-
-  function mountTablePanel() {
-    if (tableRoot) return;
-    var host = document.createElement('div');
-    host.id = HOST_ID_TABLE;
-    host.style.cssText = 'position:fixed;z-index:30;display:block;pointer-events:auto;';
-    document.body.appendChild(host);
-    tableRoot = host.attachShadow({ mode: 'open' });
-    tableRoot.innerHTML =
-      '<style>' + (globalThis.nuoSpeedPanelCss || '') + '</style>' +
-      '<div class="table-panel" id="table-panel">' +
-      '  <div class="table-title" id="table-title"></div>' +
-      '  <div class="table-body" id="table-body"></div>' +
-      '</div>';
-    var titleEl = tableRoot.getElementById('table-title');
-    if (titleEl) {
-      var full = (regulationSpeedMeta && regulationSpeedMeta.title) ||
-        'Pokémon Champions 「레귤레이션 M-A」 출전 가능 포켓몬 스피드표';
-      var brk = full.indexOf('」');
-      var line1 = brk >= 0 ? full.slice(0, brk + 1) : full;
-      var line2 = brk >= 0 ? full.slice(brk + 1).replace(/^\s+/, '') : '';
-      titleEl.textContent = '';
-      titleEl.appendChild(document.createTextNode(line1));
-      if (line2) {
-        titleEl.appendChild(document.createElement('br'));
-        titleEl.appendChild(document.createTextNode(line2));
-      }
-    }
-    positionTablePanel();
-    ensureTableTracking();
-    var bodyForScroll = tableRoot.getElementById('table-body');
-    if (bodyForScroll) {
-      var scrollHideTimer = null;
-      bodyForScroll.addEventListener('scroll', function () {
-        bodyForScroll.classList.add('scrolling');
-        if (scrollHideTimer) clearTimeout(scrollHideTimer);
-        scrollHideTimer = setTimeout(function () {
-          bodyForScroll.classList.remove('scrolling');
-        }, 1400);
-      });
-    }
-    // 초기 렌더 — 현재 포켓몬 기준 F
-    var S = readSpeedFromWrap(lastWrap);
-    var abName = readInputValueByXPath(XPATH_SLOT_ABILITY_INPUT);
-    var itName = readInputValueByXPath(XPATH_SLOT_ITEM_INPUT);
-    var F = computeFinal(S, abName, abilityOn, itName, itemOn);
-    renderFullSpeedTable(tableRoot, F, oppScarfOn);
-  }
-
-  function removeTablePanel() {
-    removeTableTracking();
-    if (tableRoot && tableRoot.host && tableRoot.host.parentElement) {
-      tableRoot.host.parentElement.removeChild(tableRoot.host);
-    }
-    tableRoot = null;
-  }
-
-  function closeTable() {
-    tableOpen = false;
-    removeTablePanel();
-  }
-
-  function updateExpandBtnLabel() {
-    if (!currentRoot) return;
-    var b = currentRoot.getElementById('expand-tbl');
-    if (b) b.textContent = tableOpen ? '스피드표 접기' : '스피드표 펼치기';
-  }
-
-  function toggleTablePanel() {
-    if (tableOpen) {
-      closeTable();
-    } else {
-      tableOpen = true;
-      mountTablePanel();
-    }
-    updateExpandBtnLabel();
+    var wrap = root.getElementById('inline-table-wrap');
+    if (wrap) wrap.style.maxHeight = '0px';
   }
 
   /**
-   * 펼친 전체 표 렌더 — 3프리셋 오버레이.
-   * 행 색(무보정 기준): 핑크(추월) / 검정(동속) / 회색(불가).
-   * divider 는 모두 해당 종족값 행 **위**에 삽입.
+   * 인라인 전체표 렌더 — 3프리셋 오버레이 (현재 포켓몬 F 기준).
+   * 행 색(무보정 기준): 핑크(추월)/검정(동속)/회색(불가). divider 전부 종족값 위.
    */
-  function renderFullSpeedTable(tRoot, F, oppScarf) {
-    if (!tRoot) return;
-    var bodyEl = tRoot.getElementById('table-body');
-    if (!bodyEl) return;
-    loadRegulationSpeedTable(function (err, map) {
-      if (err || !map) {
-        bodyEl.textContent = '목록을 불러오지 못했습니다.';
-        return;
-      }
-      bodyEl.innerHTML = '';
-      var tiers = getTierDescFromMap(map); // 내림차순
-      var hasF = Number.isFinite(F) && F > 0;
+  function renderInlineTable(root) {
+    var body = root.getElementById('inline-table-body');
+    if (!body) return;
+    if (!regulationSpeedBySpeed && !hydrateRegulationSpeedTable()) {
+      body.textContent = '목록을 불러오지 못했습니다.';
+      return;
+    }
+    var map = regulationSpeedBySpeed;
+    var wrapEl = root.host && root.host.parentElement;
+    var S = wrapEl ? readSpeedFromWrap(wrapEl) : null;
+    var abName = readInputValueByXPath(XPATH_SLOT_ABILITY_INPUT);
+    var itName = readInputValueByXPath(XPATH_SLOT_ITEM_INPUT);
+    var F = computeFinal(S, abName, abilityOn, itName, itemOn);
+    var hasF = Number.isFinite(F) && F > 0;
 
-      if (!hasF) {
-        var note = document.createElement('div');
-        note.className = 'table-note';
-        note.textContent = '포켓몬을 선택하면 추월/동속 기준이 표시됩니다.';
-        bodyEl.appendChild(note);
-      }
+    body.innerHTML = '';
+    var titleEl = document.createElement('div');
+    titleEl.className = 'inline-table-title';
+    titleEl.textContent =
+      (regulationSpeedMeta && regulationSpeedMeta.title) ||
+      'Pokémon Champions 「레귤레이션 M-A」 출전 가능 포켓몬 스피드표';
+    body.appendChild(titleEl);
+    body.style.setProperty('--inline-title-h', (titleEl.offsetHeight || 22) + 'px');
+    if (!hasF) {
+      var note = document.createElement('div');
+      note.className = 'table-note';
+      note.style.cssText = 'font-size:10px;color:#94a3b8;margin-bottom:8px;';
+      note.textContent = '포켓몬을 선택하면 추월/동속 기준이 표시됩니다.';
+      body.appendChild(note);
+    }
 
-      var PRESETS = [
-        { key: '무보정', ev: 0, nat: 1.0 },
-        { key: '준속', ev: 32, nat: 1.0 },
-        { key: '최속', ev: 32, nat: 1.1 }
-      ];
-
-      function effEqF(b) {
-        if (!hasF) return null;
-        for (var i = 0; i < PRESETS.length; i++) {
-          if (opponentEffSpeed(b, PRESETS[i].ev, PRESETS[i].nat, oppScarf) === F) return PRESETS[i].key;
+    var tiers = getTierDescFromMap(map);
+    var PRESETS = [
+      { key: '무보정', ev: 0, nat: 1.0 },
+      { key: '준속', ev: 32, nat: 1.0 },
+      { key: '최속', ev: 32, nat: 1.1 },
+    ];
+    var bases = hasF ? computeOutspeedBases(F, oppScarfOn) : null;
+    var CUT = hasF
+      ? { '무보정': bases.uninvested, '준속': bases.neutral, '최속': bases.fastest }
+      : null;
+    function effEqF(b) {
+      if (!hasF) return null;
+      for (var i = 0; i < PRESETS.length; i++) {
+        if (opponentEffSpeed(b, PRESETS[i].ev, PRESETS[i].nat, oppScarfOn) === F) {
+          return PRESETS[i].key;
         }
-        return null;
       }
+      return null;
+    }
+    var enteredOutspeed = { '무보정': false, '준속': false, '최속': false };
+    var grayLineDone = false;
 
-      var enteredOutspeed = { '무보정': false, '준속': false, '최속': false };
-      var grayLineDone = false;
+    for (var t = 0; t < tiers.length; t++) {
+      var b = tiers[t];
+      var tieKey = effEqF(b);
+      var isTie = tieKey != null;
+      var uninv = hasF ? opponentEffSpeed(b, 0, 1.0, oppScarfOn) : null;
+      var isGray = !hasF ? true : !isTie && uninv > F;
+      var isPink = hasF && !isTie && uninv < F;
 
-      for (var t = 0; t < tiers.length; t++) {
-        var b = tiers[t];
-        var tieKey = effEqF(b);
-        var isTie = tieKey != null;
-        var uninv = hasF ? opponentEffSpeed(b, 0, 1.0, oppScarf) : null;
-        var isGray = !hasF ? true : (!isTie && uninv > F);
-        var isPink = hasF && !isTie && uninv < F;
-
-        // --- 행 위 divider (모두 헤더로 위에) ---
-        if (hasF && isGray && !grayLineDone) {
-          appendSpeciesPopDivider(bodyEl, '추월 불가');   // 첫 회색 행 위 1회
-          grayLineDone = true;
-        }
-        if (hasF) {
-          for (var p = 0; p < PRESETS.length; p++) {
-            var pk = PRESETS[p].key;
-            var effp = opponentEffSpeed(b, PRESETS[p].ev, PRESETS[p].nat, oppScarf);
-            if (effp === F) {
-              appendSpeciesPopDivider(bodyEl, pk + ' 동속');           // 동속 행 위
-            } else if (!enteredOutspeed[pk] && effp < F) {
-              appendSpeciesPopDivider(bodyEl, pk + ' 추월', 'outspeed'); // 추월 첫 행 위
-              enteredOutspeed[pk] = true;
-            }
+      if (hasF && isGray && !grayLineDone) {
+        appendSpeciesPopDivider(body, '추월 불가');
+        grayLineDone = true;
+      }
+      if (hasF) {
+        for (var p = 0; p < PRESETS.length; p++) {
+          var pk = PRESETS[p].key;
+          var effp = opponentEffSpeed(b, PRESETS[p].ev, PRESETS[p].nat, oppScarfOn);
+          if (effp === F) {
+            appendSpeciesPopDivider(body, pk + ' ' + b + '족 동속');
+          } else if (!enteredOutspeed[pk] && effp < F) {
+            var cut = CUT[pk];
+            appendSpeciesPopDivider(
+              body,
+              pk + ' ' + (cut == null ? '' : cut + '족 ') + '추월',
+              'outspeed'
+            );
+            enteredOutspeed[pk] = true;
           }
         }
-
-        // --- 행 ---
-        var rowCls = !hasF ? 'muted' : (isTie ? 'tie' : (isPink ? 'hi' : 'muted'));
-        var row = document.createElement('div');
-        row.className = 'species-pop-row ' + rowCls;
-        var tierSpan = document.createElement('span');
-        tierSpan.className = 'species-pop-tier';
-        tierSpan.textContent = String(b);
-        var namesSpan = document.createElement('span');
-        namesSpan.className = 'species-pop-names';
-        namesSpan.textContent = namesForTier(map, b);
-        row.appendChild(tierSpan);
-        row.appendChild(document.createTextNode(' '));
-        row.appendChild(namesSpan);
-        bodyEl.appendChild(row);
       }
 
-      // 렌더 후 '무보정 추월' 선이 세로 중앙에 오도록 스크롤
-      scrollTableToUninvestedOutspeed(tRoot);
-    });
+      var rowCls = !hasF ? 'muted' : isTie ? 'tie' : isPink ? 'hi' : 'muted';
+      var row = document.createElement('div');
+      row.className = 'species-pop-row ' + rowCls;
+      var tierSpan = document.createElement('span');
+      tierSpan.className = 'species-pop-tier';
+      tierSpan.textContent = String(b);
+      var namesSpan = document.createElement('span');
+      namesSpan.className = 'species-pop-names';
+      namesSpan.textContent = namesForTier(map, b);
+      row.appendChild(tierSpan);
+      row.appendChild(document.createTextNode(' '));
+      row.appendChild(namesSpan);
+      body.appendChild(row);
+    }
   }
 
-  /** 대형 표를 '무보정 추월' 구분선이 본문 세로 중앙에 오도록 스크롤. 없으면 무시. */
-  function scrollTableToUninvestedOutspeed(tRoot) {
-    if (!tRoot) return;
-    var bodyEl = tRoot.getElementById('table-body');
-    if (!bodyEl) return;
-    var labels = bodyEl.querySelectorAll('.species-pop-divider-label');
+  function centerInlineDivider(root, matchFn) {
+    var body = root.getElementById('inline-table-body');
+    if (!body) return;
+    var labels = body.querySelectorAll('.species-pop-divider-label');
     for (var i = 0; i < labels.length; i++) {
-      if (labels[i].textContent === '무보정 추월') {
+      if (matchFn(labels[i].textContent || '')) {
         var div = labels[i].parentElement;
         if (!div) return;
-        var br = bodyEl.getBoundingClientRect();
-        var dr = div.getBoundingClientRect();
-        var delta = (dr.top - br.top) - (bodyEl.clientHeight / 2) + (dr.height / 2);
-        bodyEl.scrollTop = Math.max(0, bodyEl.scrollTop + delta);
+        var target = div.offsetTop - body.clientHeight / 2 + div.offsetHeight / 2;
+        body.scrollTop = Math.max(0, target);
         return;
       }
     }
+  }
+
+  /** '무보정 N족 추월' 구분선이 본문 세로 중앙에 오도록 스크롤. */
+  function scrollInlineToUninvested(root) {
+    centerInlineDivider(root, function (t) {
+      return t.indexOf('무보정 ') === 0 && t.slice(-2) === '추월';
+    });
+  }
+
+  /** 커스텀 오버레이 스크롤바. */
+  function updateInlineScrollbar(root) {
+    var body = root.getElementById('inline-table-body');
+    var sb = root.getElementById('inline-sb');
+    var thumb = root.getElementById('inline-sb-thumb');
+    if (!body || !sb || !thumb) return;
+    var sh = body.scrollHeight;
+    var ch = body.clientHeight;
+    if (sh <= ch + 1) {
+      thumb.style.height = '0px';
+      return;
+    }
+    var trackH = sb.clientHeight;
+    var th = Math.max(24, Math.round((ch / sh) * trackH));
+    var maxTop = trackH - th;
+    var top = maxTop > 0 ? Math.round((body.scrollTop / (sh - ch)) * maxTop) : 0;
+    thumb.style.height = th + 'px';
+    thumb.style.top = top + 'px';
+  }
+
+  function showInlineScrollbar(root) {
+    var sb = root.getElementById('inline-sb');
+    if (!sb) return;
+    sb.classList.add('show');
+    if (sbHideTimer) clearTimeout(sbHideTimer);
+    sbHideTimer = setTimeout(function () {
+      sbHideTimer = null;
+      if (sbDragging) return;
+      var s = root.getElementById('inline-sb');
+      if (s) s.classList.remove('show');
+    }, 1400);
+  }
+
+  function bindInlineScrollbarDrag(root) {
+    var body = root.getElementById('inline-table-body');
+    var thumb = root.getElementById('inline-sb-thumb');
+    var sb = root.getElementById('inline-sb');
+    if (!body || !thumb || !sb) return;
+    thumb.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      sbDragging = true;
+      sb.classList.add('show');
+      var startY = e.clientY;
+      var startScroll = body.scrollTop;
+      var sh = body.scrollHeight;
+      var ch = body.clientHeight;
+      var trackH = sb.clientHeight;
+      var th = thumb.offsetHeight;
+      var maxTop = trackH - th;
+
+      function mm(ev) {
+        var dy = ev.clientY - startY;
+        body.scrollTop = startScroll + (maxTop > 0 ? (dy / maxTop) * (sh - ch) : 0);
+      }
+      function mu() {
+        sbDragging = false;
+        document.removeEventListener('mousemove', mm, true);
+        document.removeEventListener('mouseup', mu, true);
+        showInlineScrollbar(root);
+      }
+      document.addEventListener('mousemove', mm, true);
+      document.addEventListener('mouseup', mu, true);
+    });
   }
 
   /**
@@ -918,9 +929,15 @@
       '    </div>' +
       '    </div>' +
       '    <div class="caption">족 추월</div>' +
-      '    <div class="expand-sep"></div>' +
-      '    <button class="expand-btn" id="expand-tbl" type="button">스피드표 펼치기</button>' +
       '    <button class="toggle opp" id="tgl-opp" type="button">상대 스카프</button>' +
+      '    <div class="expand-sep"></div>' +
+      '    <div class="inline-table-wrap" id="inline-table-wrap">' +
+      '      <div class="inline-table-shell" id="inline-table-shell">' +
+      '        <div class="inline-table-body" id="inline-table-body"></div>' +
+      '        <div class="inline-sb" id="inline-sb"><div class="inline-sb-thumb" id="inline-sb-thumb"></div></div>' +
+      '      </div>' +
+      '    </div>' +
+      '    <button class="expand-btn" id="expand-tbl" type="button">스피드표 펼치기</button>' +
       '  </div>' +
       '  </div>' +
       '  <button class="chev" id="chv" type="button" aria-label="펼치기/접기"></button>' +
@@ -973,15 +990,37 @@
         persistSpeedPrefs();
       });
     }
-    var btnExp = root.getElementById('expand-tbl');
-    if (btnExp) {
-      btnExp.textContent = tableOpen ? '스피드표 접기' : '스피드표 펼치기';
-      btnExp.addEventListener('click', function () {
-        toggleTablePanel();
-      });
-    }
     syncAllState(root);
     setupSpeciesPopover(root);
+
+    var btnExp = root.getElementById('expand-tbl');
+    if (btnExp) {
+      btnExp.addEventListener('click', function () {
+        toggleInlineTable(root);
+      });
+    }
+    var ibody = root.getElementById('inline-table-body');
+    if (ibody) {
+      ibody.addEventListener('scroll', function () {
+        updateInlineScrollbar(root);
+        showInlineScrollbar(root);
+      });
+    }
+    bindInlineScrollbarDrag(root);
+    if (inlineExpanded) {
+      if (btnExp) btnExp.textContent = '스피드표 접기';
+      hideSpeciesPopover(root);
+      renderInlineTable(root);
+      var iw = root.getElementById('inline-table-wrap');
+      if (iw) {
+        iw.style.transition = 'none';
+        iw.style.maxHeight = inlineTargetHeight(root) + 'px';
+        requestAnimationFrame(function () {
+          iw.style.transition = '';
+        });
+      }
+      updateInlineScrollbar(root);
+    }
 
     return root;
   }
@@ -1061,10 +1100,9 @@
   var itemOn = true;
   var oppScarfOn = false;
   var collapsed = false;
-  /** 대형 전체표 패널 — 런타임 토글만 (영속 안 함: 매 진입 닫힘 시작). */
-  var tableOpen = false;
-  var tableRoot = null;
-  var tableTrackBound = false;
+  var inlineExpanded = false;
+  var sbHideTimer = null;
+  var sbDragging = false;
   /** 환경설정: 기능 전체 */
   var simpleSpeedCalcEnabled = true;
 
@@ -1119,6 +1157,11 @@
   }
 
   function removeHost() {
+    if (sbHideTimer) {
+      clearTimeout(sbHideTimer);
+      sbHideTimer = null;
+    }
+    sbDragging = false;
     if (currentRoot && currentRoot._nuoSpeedPopDocClose) {
       try {
         document.removeEventListener('mousedown', currentRoot._nuoSpeedPopDocClose, true);
@@ -1150,7 +1193,7 @@
   function tick() {
     if (!simpleSpeedCalcEnabled) {
       if (currentRoot) removeHost();
-      closeTable();
+      inlineExpanded = false;
       stopPollTimer();
       return;
     }
@@ -1161,7 +1204,7 @@
     }
     if (!wrap) {
       if (currentRoot) removeHost();
-      closeTable();
+      inlineExpanded = false;
       return;
     }
     if (wrap !== lastWrap || !currentRoot || !currentRoot.host.isConnected) {
@@ -1178,9 +1221,12 @@
     lastKey = key;
     var F = computeFinal(S, abName, abilityOn, itName, itemOn);
     updatePanel(currentRoot, F, computeOutspeedBases(F, oppScarfOn));
-    if (tableOpen && tableRoot) {
-      renderFullSpeedTable(tableRoot, F, oppScarfOn);
-      positionTablePanel();
+    if (inlineExpanded && currentRoot) {
+      renderInlineTable(currentRoot);
+      var iw2 = currentRoot.getElementById('inline-table-wrap');
+      if (iw2) iw2.style.maxHeight = inlineTargetHeight(currentRoot) + 'px';
+      updateInlineScrollbar(currentRoot);
+      scrollInlineToUninvested(currentRoot);
     }
   }
 
