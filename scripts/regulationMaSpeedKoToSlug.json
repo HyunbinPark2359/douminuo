@@ -1,0 +1,108 @@
+{
+  "note": "JSON displayName → pokeapi slug / refSpeed(표 기준·PokeAPI와 다를 때) / 나무위키.",
+  "overrides": {
+    "따라큐": {
+      "pokeapi": "mimikyu-disguised",
+      "namu": { "page": "따라큐" }
+    },
+    "픽시": {
+      "pokeapi": "clefairy",
+      "refSpeed": 60,
+      "note": "표기 픽시 — 티어 60 (PokeAPI clefairy=35는 삐삐)",
+      "namu": { "page": "픽시(포켓몬스터)" }
+    },
+    "메가픽시": {
+      "pokeapi": "clefable-mega",
+      "namu": { "page": "픽시(포켓몬스터)", "form": "메가픽시" }
+    },
+    "메가후딘": {
+      "pokeapi": "alakazam-mega",
+      "namu": { "page": "후딘", "form": "메가후딘" }
+    },
+    "메가리자몽X": {
+      "pokeapi": "charizard-mega-x",
+      "namu": { "page": "리자몽", "form": "메가리자몽 X" }
+    },
+    "메가리자몽Y": {
+      "pokeapi": "charizard-mega-y",
+      "namu": { "page": "리자몽", "form": "메가리자몽 Y" }
+    },
+    "메가캥카": {
+      "pokeapi": "pinsir-mega",
+      "refSpeed": 100,
+      "note": "PokeAPI pinsir-mega=105, 표=100",
+      "namu": { "page": "캥카", "form": "메가캥카" }
+    },
+    "메가메가니움": {
+      "pokeapi": "meganium-mega",
+      "namu": { "page": "메가니움", "form": "메가메가니움" }
+    },
+    "로토무": {
+      "pokeapi": "rotom",
+      "namu": { "page": "로토무" }
+    },
+    "로토무(폼체인지)": {
+      "pokeapi": "rotom-wash",
+      "refSpeed": 86,
+      "note": "가전 폼 공통 86 (PokeAPI rotom=91은 노말)",
+      "namu": { "page": "로토무" }
+    },
+    "켄타로스(팔데아)": {
+      "pokeapi": "tauros-paldea-combat-breed",
+      "namu": { "page": "켄타로스", "form": "팔데아" }
+    },
+    "크레베이스(히스이)": {
+      "pokeapi": "avalugg-hisui",
+      "namu": { "page": "크레베이스", "form": "히스이" }
+    },
+    "펌킨인(소과종)": {
+      "pokeapi": "gourgeist-small",
+      "refSpeed": 99,
+      "note": "호바귀(펌킨인) 소과종",
+      "namu": { "page": "펌킨인", "form": "소과종" }
+    },
+    "펌킨인(중과종)": {
+      "pokeapi": "gourgeist-average",
+      "refSpeed": 84,
+      "namu": { "page": "펌킨인", "form": "중과종" }
+    },
+    "펌킨인(대과종)": {
+      "pokeapi": "gourgeist-large",
+      "refSpeed": 69,
+      "namu": { "page": "펌킨인", "form": "대과종" }
+    },
+    "펌킨인(특대과종)": {
+      "pokeapi": "gourgeist-super",
+      "refSpeed": 54,
+      "namu": { "page": "펌킨인", "form": "특대과종" }
+    },
+    "플라엣테(영원의꽃)": {
+      "pokeapi": "floette-eternal",
+      "namu": { "page": "플라엣테", "form": "영원의꽃" }
+    },
+    "루가루암(한밤중)": {
+      "pokeapi": "lycanroc-midnight",
+      "namu": { "page": "루가루암", "form": "한밤중" }
+    },
+    "루가루암(황혼)": {
+      "pokeapi": "lycanroc-dusk",
+      "namu": { "page": "루가루암", "form": "황혼" }
+    },
+    "루가루암(한낮)": {
+      "pokeapi": "lycanroc-midday",
+      "namu": { "page": "루가루암", "form": "한낮" }
+    },
+    "냐오닉스": { "pokeapi": "meowstic-male" },
+    "메가냐오닉스": { "pokeapi": "meowstic-mega" },
+    "애몽가": { "pokeapi": "emolga", "namu": { "page": "에몽가" } },
+    "돌핀맨": { "pokeapi": "palafin-zero" },
+    "모르페코": { "pokeapi": "morpeko-full-belly" },
+    "메가니움": { "pokeapi": "meganium" },
+    "대쓰여너": { "pokeapi": "basculegion-male" },
+    "킬가르도": { "pokeapi": "aegislash-shield" },
+    "파밀리쥐": { "pokeapi": "maushold-family-of-four" },
+    "보르그": {
+      "pokeapi": "watchog"
+    }
+  }
+}

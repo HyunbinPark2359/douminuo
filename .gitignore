@@ -1,5 +1,6 @@
 dist/
 node_modules/
+scripts/.cache/
 
 # Local-only extension icon sources / copies at repo root
 # (published icon assets are shipped inside extension/icon*.png)
