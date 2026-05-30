@@ -1,6 +1,8 @@
 dist/
 node_modules/
 scripts/.cache/
+scripts/regulation-ma-speed-audit-report.json
+scripts/regulationMaSpeedRefNamu.json
 
 # Local-only extension icon sources / copies at repo root
 # (published icon assets are shipped inside extension/icon*.png)
