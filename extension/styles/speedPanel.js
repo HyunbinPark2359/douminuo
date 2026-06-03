@@ -307,7 +307,7 @@
     '.inline-table-shell { position: relative; border-bottom: 1px solid #d9d9d9; }',
     '.inline-table-body {',
     '  position: relative;',
-    '  max-height: 240px; overflow-y: auto; font-size: 10px;',
+    '  max-height: 300px; overflow-y: auto; font-size: 10px;',
     '  color: #0f172a; letter-spacing: -0.25px; scrollbar-width: none;',
     '}',
     '.inline-table-body::-webkit-scrollbar { width: 0; height: 0; }',
