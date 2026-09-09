@@ -7,8 +7,8 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
-const TABLE_JSON = path.join(ROOT, 'extension', 'regulationMaSpeedTable.json');
-const OVERRIDES_JSON = path.join(__dirname, '..', 'regulationMaSpeedKoToSlug.json');
+const TABLE_JSON = path.join(ROOT, 'extension', 'regulationSpeedTable.json');
+const OVERRIDES_JSON = path.join(__dirname, '..', 'regulationSpeedKoToSlug.json');
 
 function loadTable() {
   return JSON.parse(fs.readFileSync(TABLE_JSON, 'utf8'));

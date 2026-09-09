@@ -1,11 +1,12 @@
+// LEGACY: champions_pokemon.json 기반 파이프라인(scripts/fetch-champions-speed-table.js)으로 대체됨. 참고용으로만 보관.
 /**
- * 티어 이동 — regulationMaSpeedTable.json
- *   node scripts/apply-speed-tier-moves.js
+ * 티어 이동 — regulationSpeedTable.json
+ *   node scripts/legacy/apply-speed-tier-moves.js
  */
 'use strict';
 
 const fs = require('fs');
-const { loadTable, TABLE_JSON } = require('./lib/regulationMaSpeedAudit');
+const { loadTable, TABLE_JSON } = require('../lib/regulationSpeedAudit');
 
 const MOVES = [
   { name: '픽시', to: 60 },

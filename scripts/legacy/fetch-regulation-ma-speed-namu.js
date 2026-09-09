@@ -1,7 +1,8 @@
+// LEGACY: champions_pokemon.json 기반 파이프라인(scripts/fetch-champions-speed-table.js)으로 대체됨. 참고용으로만 보관.
 /**
  * 나무위키 종족치 스피드 스냅샷 (rate limit).
- *   node scripts/fetch-regulation-ma-speed-namu.js
- *   node scripts/fetch-regulation-ma-speed-namu.js --limit 10
+ *   node scripts/legacy/fetch-regulation-ma-speed-namu.js
+ *   node scripts/legacy/fetch-regulation-ma-speed-namu.js --limit 10
  */
 'use strict';
 
@@ -15,7 +16,7 @@ const {
   namuWikiUrl,
   parseNamuSpeed,
   sleep,
-} = require('./lib/regulationMaSpeedAudit');
+} = require('../lib/regulationSpeedAudit');
 
 const OUT = path.join(__dirname, 'regulationMaSpeedRefNamu.json');
 const PAGE_CACHE = path.join(__dirname, '.cache', 'namu-html');

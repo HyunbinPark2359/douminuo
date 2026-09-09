@@ -1,8 +1,8 @@
 dist/
 node_modules/
 scripts/.cache/
-scripts/regulation-ma-speed-audit-report.json
-scripts/regulationMaSpeedRefNamu.json
+scripts/regulation-speed-audit-report.json
+scripts/legacy/regulationMaSpeedRefNamu.json
 
 # Local-only extension icon sources / copies at repo root
 # (published icon assets are shipped inside extension/icon*.png)
@@ -26,6 +26,8 @@ scripts/regulationMaSpeedRefNamu.json
 /CLAUDE.md
 /CALC_PARTY_FILL_PLAN.md
 /SPEED_FILL_PLAN.md
+/SPEED_TABLE_EXPAND_PLAN.md
+/SPEED_TABLE_REGULATION_UPDATE_PLAN.md
 /FONT_PLAN.md
 /POPUP_RENEWAL_PLAN.md
 /SETTINGS_FAB_PLAN.md

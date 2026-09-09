@@ -27,6 +27,16 @@
       "pokeapi": "charizard-mega-y",
       "namu": { "page": "리자몽", "form": "메가리자몽 Y" }
     },
+    "메가라이츄X": {
+      "pokeapi": "raichu-mega-x",
+      "refSpeed": 110,
+      "note": "챔피언스 전용 메가 폼 — 마인라인 PokeAPI에 없어 refSpeed로 신뢰(2026-09 M-C 갱신)"
+    },
+    "메가라이츄Y": {
+      "pokeapi": "raichu-mega-y",
+      "refSpeed": 130,
+      "note": "챔피언스 전용 메가 폼 — 마인라인 PokeAPI에 없어 refSpeed로 신뢰(2026-09 M-C 갱신)"
+    },
     "메가캥카": {
       "pokeapi": "pinsir-mega",
       "refSpeed": 100,
@@ -93,8 +103,27 @@
       "namu": { "page": "루가루암", "form": "한낮" }
     },
     "냐오닉스": { "pokeapi": "meowstic-male" },
-    "메가냐오닉스": { "pokeapi": "meowstic-mega" },
-    "애몽가": { "pokeapi": "emolga", "namu": { "page": "에몽가" } },
+    "메가냐오닉스": {
+      "pokeapi": "meowstic-mega",
+      "refSpeed": 124,
+      "note": "챔피언스 전용 메가 폼 — 마인라인 PokeAPI에 없어 refSpeed로 신뢰(2026-09 M-C 갱신)"
+    },
+    "메가루카리오Z": {
+      "pokeapi": "lucario-mega-z",
+      "refSpeed": 151,
+      "note": "챔피언스 전용 메가Z 폼 — 마인라인 PokeAPI에 없어 refSpeed로 신뢰(2026-09 M-C 갱신)"
+    },
+    "메가앱솔Z": {
+      "pokeapi": "absol-mega-z",
+      "refSpeed": 151,
+      "note": "챔피언스 전용 메가Z 폼 — 마인라인 PokeAPI에 없어 refSpeed로 신뢰(2026-09 M-C 갱신)"
+    },
+    "메가한카리아스Z": {
+      "pokeapi": "garchomp-mega-z",
+      "refSpeed": 151,
+      "note": "챔피언스 전용 메가Z 폼 — 마인라인 PokeAPI에 없어 refSpeed로 신뢰(2026-09 M-C 갱신)"
+    },
+    "에몽가": { "pokeapi": "emolga", "namu": { "page": "에몽가" } },
     "돌핀맨": { "pokeapi": "palafin-zero" },
     "모르페코": { "pokeapi": "morpeko-full-belly" },
     "메가니움": { "pokeapi": "meganium" },

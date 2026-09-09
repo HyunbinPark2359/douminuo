@@ -23,10 +23,10 @@
  * 폴링 200ms: teamBuilderFill 과 동일 전략. Vuetify 가 포켓몬 전환 시 래퍼를
  * 교체하면 tick 이 감지해서 호스트를 재장착.
  *
- * 프리셋 호버 시 `regulationMaSpeedData.js`가 주입한 레귤 M-A 스피드 종족표 기준
+ * 프리셋 호버 시 `regulationSpeedData.js`가 주입한 레귤레이션 스피드 종족표 기준
  * 표 칸(앵커 위 3·아래 1) 포켓몬 이름을 팝오버로 표시하고, 표 상단 말풍선 뿔은 호버 중인 프리셋 칼럼
  * (최속 / 준속 / 무보정) 중앙을 가리키게 배치함. (원본 JSON 수정 후
- * `node extension/embedSpeedData.js` 로 `regulationMaSpeedData.js` 재생성.)
+ * `node extension/embedSpeedData.js` 로 `regulationSpeedData.js` 재생성.)
  */
 (function () {
   'use strict';
@@ -48,13 +48,13 @@
     SK_SPEED_UI.enabled,
   ]);
 
-  /** `regulationMaSpeedData.js` 가 `globalThis.NUO_REGULATION_MA_SPEED` 에 넣음 (페이지에서 fetch 불가 대응). */
+  /** `regulationSpeedData.js` 가 `globalThis.NUO_REGULATION_SPEED` 에 넣음 (페이지에서 fetch 불가 대응). */
   var regulationSpeedBySpeed = null;
   var regulationSpeedMeta = null;
 
   function hydrateRegulationSpeedTable() {
     try {
-      var g = globalThis.NUO_REGULATION_MA_SPEED;
+      var g = globalThis.NUO_REGULATION_SPEED;
       if (!g || typeof g !== 'object' || !g.bySpeed) return false;
       regulationSpeedMeta = g.meta || {};
       regulationSpeedBySpeed = g.bySpeed;
@@ -365,7 +365,7 @@
       }
       var titleText =
         (regulationSpeedMeta && regulationSpeedMeta.title) ||
-        'Pokémon Champions 「레귤레이션 M-A」 출전 가능 포켓몬 스피드표';
+        'Pokémon Champions 「레귤레이션 M-C」 출전 가능 포켓몬 스피드표';
       pop.setAttribute('title', titleText);
       pop.setAttribute('aria-label', titleText);
       if (titleEl) titleEl.textContent = titleText;
@@ -716,7 +716,7 @@
     titleEl.className = 'inline-table-title';
     titleEl.textContent =
       (regulationSpeedMeta && regulationSpeedMeta.title) ||
-      'Pokémon Champions 「레귤레이션 M-A」 출전 가능 포켓몬 스피드표';
+      'Pokémon Champions 「레귤레이션 M-C」 출전 가능 포켓몬 스피드표';
     body.appendChild(titleEl);
     body.style.setProperty('--inline-title-h', (titleEl.offsetHeight || 22) + 'px');
     if (!hasF) {

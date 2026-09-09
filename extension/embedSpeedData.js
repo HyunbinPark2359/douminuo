@@ -1,4 +1,4 @@
-/* `regulationMaSpeedTable.json` 편집 후: node extension/embedSpeedData.js
+/* `regulationSpeedTable.json` 편집 후: node extension/embedSpeedData.js
  *
  * F-data-1: source JSON 의 fnv1a 해시를 함께 임베드. speedOutspeedCalc 가 런타임에
  * 같은 해시를 다시 계산해서 비교 — mismatch 면 console.warn 으로 "이 스크립트 재실행 필요"
@@ -17,13 +17,13 @@ function fnv1a(str) {
 }
 
 const dir = __dirname;
-const raw = fs.readFileSync(path.join(dir, 'regulationMaSpeedTable.json'), 'utf8');
+const raw = fs.readFileSync(path.join(dir, 'regulationSpeedTable.json'), 'utf8');
 const sourceHash = fnv1a(raw);
 const j = JSON.stringify(JSON.parse(raw));
 const out =
   "(function(){'use strict';" +
-  "globalThis.NUO_REGULATION_MA_SPEED=" + j + ";" +
-  "globalThis.NUO_REGULATION_MA_SPEED_SOURCE_HASH='" + sourceHash + "';" +
+  "globalThis.NUO_REGULATION_SPEED=" + j + ";" +
+  "globalThis.NUO_REGULATION_SPEED_SOURCE_HASH='" + sourceHash + "';" +
   "})();\n";
-fs.writeFileSync(path.join(dir, 'regulationMaSpeedData.js'), out, 'utf8');
+fs.writeFileSync(path.join(dir, 'regulationSpeedData.js'), out, 'utf8');
 console.log('embedded ' + Object.keys(JSON.parse(raw).bySpeed || {}).length + ' speed tiers; source hash = ' + sourceHash);

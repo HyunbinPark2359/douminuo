@@ -1,8 +1,8 @@
 /**
- * 레귤 M-A 스피드표 vs PokeAPI(+나무 스냅샷) 감사.
+ * 레귤레이션 스피드표 vs PokeAPI(+나무 스냅샷) 감사.
  *   node scripts/build-pokeapi-speed-cache.js   (최초 1회)
- *   node scripts/fetch-regulation-ma-speed-namu.js  (선택)
- *   node scripts/audit-regulation-ma-speed-table.js
+ *   node scripts/legacy/fetch-regulation-ma-speed-namu.js  (선택)
+ *   node scripts/audit-regulation-speed-table.js
  */
 'use strict';
 
@@ -14,11 +14,11 @@ const {
   loadOverrides,
   resolvePokeapiTarget,
   resolveRefSpeed,
-} = require('./lib/regulationMaSpeedAudit');
+} = require('./lib/regulationSpeedAudit');
 
 const CACHE = path.join(__dirname, '.cache', 'pokeapi-speed-cache.json');
-const NAMU_REF = path.join(__dirname, 'regulationMaSpeedRefNamu.json');
-const OUT = path.join(__dirname, 'regulation-ma-speed-audit-report.json');
+const NAMU_REF = path.join(__dirname, 'legacy', 'regulationMaSpeedRefNamu.json');
+const OUT = path.join(__dirname, 'regulation-speed-audit-report.json');
 
 function main() {
   if (!fs.existsSync(CACHE)) {

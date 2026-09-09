@@ -1,5 +1,5 @@
 /**
- * audit 리포트 mismatch 를 regulationMaSpeedTable.json 에 반영.
+ * audit 리포트 mismatch 를 regulationSpeedTable.json 에 반영.
  *   node scripts/apply-speed-audit-fixes.js
  *   node scripts/apply-speed-audit-fixes.js --dry-run
  */
@@ -7,9 +7,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { loadTable, TABLE_JSON } = require('./lib/regulationMaSpeedAudit');
+const { loadTable, TABLE_JSON } = require('./lib/regulationSpeedAudit');
 
-const REPORT = path.join(__dirname, 'regulation-ma-speed-audit-report.json');
+const REPORT = path.join(__dirname, 'regulation-speed-audit-report.json');
 
 function main() {
   const dry = process.argv.indexOf('--dry-run') >= 0;
