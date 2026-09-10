@@ -453,6 +453,23 @@
 
     var realStatsLine = '';
     if (includeRealStats) {
+      // BACKLOG #2: 기술배치상 전혀 안 쓰는 공격/특수공격 실능치는 'x'로 표시.
+      // movePowers[idx].cls 는 simpleMovePower.computeMovePowers 가 이미 계산해 둔
+      // 유효 물리/특수 판정(변화기·미해결 기술은 cell 자체가 null) — 그대로 재사용.
+      var mpForReal = options.movePowers;
+      var usesPhysical = false;
+      var usesSpecial = false;
+      var anyMoveResolved = false;
+      if (Array.isArray(mpForReal)) {
+        for (var mvi = 0; mvi < mpForReal.length; mvi++) {
+          var mpCell = mpForReal[mvi];
+          if (!mpCell || typeof mpCell !== 'object') continue;
+          anyMoveResolved = true;
+          if (mpCell.cls === 'physical') usesPhysical = true;
+          else if (mpCell.cls === 'special') usesSpecial = true;
+        }
+      }
+
       var seq = [];
       var ok = true;
       for (var ri = 0; ri < STAT_ORDER.length; ri++) {
@@ -461,7 +478,13 @@
           ok = false;
           break;
         }
-        seq.push(String(realByLetter[L]));
+        if (anyMoveResolved && L === 'A' && !usesPhysical) {
+          seq.push('x');
+        } else if (anyMoveResolved && L === 'C' && !usesSpecial) {
+          seq.push('x');
+        } else {
+          seq.push(String(realByLetter[L]));
+        }
       }
       if (ok && seq.length === 6) {
         realStatsLine = seq.join('-');

@@ -1,6 +1,6 @@
 /**
  * 결정력: 위력(테크니션→태그→우격→노말스킨/-ate→타입특성→[조건부:맹화·모래의힘·날씨·필드·선파워]→도구)→STAB→실수치×배율→최종배율
- * computeMovePowers: { base, buffed } — base 는 조건부 특성 효과 제외(표기용).
+ * computeMovePowers: { base, buffed, cls } — base 는 조건부 특성 효과 제외(표기용). cls 는 physical|special.
  * 한글 기술명 → moveKoMap.json 조회 (PokeAPI 공식 한글명 + 소수 별칭).
  * 맹화·모래의힘·선파워: HP·실제 날씨는 보지 않고 배율만 적용.
  * 날씨·필드: 이 포켓몬 특성의 setsWeather / setsTerrain 만 반영.
@@ -139,6 +139,9 @@
     return out;
   }
 
+  /** 확정 급소 기술(트릭플라워 등) 배율 — base/buffed 양쪽에 처음부터 반영(조건부 아님). */
+  var CRIT_POWER_MUL = 1.5;
+
   /** 쾌청·비: 불꽃·물 위력 보정(공격기준). strongwinds 등은 빈 객체 */
   var WEATHER_TYPE_POWER_MUL = {
     sun: { fire: 1.5, water: 0.5 },
@@ -167,7 +170,8 @@
       a.sandForce === true ||
       a.setsWeather != null ||
       a.setsTerrain != null ||
-      a.spaBoostInSun != null
+      a.spaBoostInSun != null ||
+      a.alwaysStab === true
     );
   }
 
@@ -383,6 +387,12 @@
       pBuffed = Math.round(pBuffed * mul9);
     }
 
+    // === Step 6.5: 무조건 급소 기술 — 처음부터(base/buffed 둘 다) 반영, 조건부 아님 ===
+    if (tags.alwaysCrit) {
+      pBase = Math.round(pBase * CRIT_POWER_MUL);
+      pBuffed = Math.round(pBuffed * CRIT_POWER_MUL);
+    }
+
     // === Step 7: STAB → 스탯 실수치 × 배율 → 최종배율 ===
     var stab = false;
     if (speciesTypesEn && speciesTypesEn.length) {
@@ -396,7 +406,9 @@
     }
     var stabMul = num(ar.stabMul, 1.5);
     var adjBase = stab ? Math.round(pBase * stabMul) : pBase;
-    var adjBuffed = stab ? Math.round(pBuffed * stabMul) : pBuffed;
+    // 변환자재/리베로: 자연 타입이 안 맞아도 buffed 에서는 자속 반영(자연 STAB 이면 이미 true 라 중복 안 됨).
+    var stabBuffed = stab || ar.alwaysStab === true;
+    var adjBuffed = stabBuffed ? Math.round(pBuffed * stabMul) : pBuffed;
 
     // ───────── 스탯 곱 (조건부 spaBoostInSun 만 Buffed 에) ─────────
     var atkM = num(ir.atkMulPhysical, 1) * num(ar.atkMulPhysical, 1);
@@ -413,7 +425,7 @@
     var finalBase = Math.round(adjBase * stat * statMulBase * fin);
     var finalBuffed = Math.round(adjBuffed * stat * statMulBuffed * fin);
 
-    return { base: finalBase, buffed: finalBuffed };
+    return { base: finalBase, buffed: finalBuffed, cls: cls };
   }
 
   /**
@@ -422,7 +434,7 @@
    * @param {object|null} rules modifiers 전체 또는 null
    * @param {object|null} moveTagsJson moveTags.json 전체 또는 null
    * @param {object|null} moveKoMap moveKoMap.json (byKo: 한글→Showdown id)
-   * @returns {({ base: number, buffed: number }|null)[]}
+   * @returns {({ base: number, buffed: number, cls: string }|null)[]}
    */
   function computeMovePowers(slotData, speciesTypesEn, rules, moveTagsJson, moveKoMap) {
     var out = [null, null, null, null];
@@ -485,7 +497,7 @@
         buffed = Math.round(buffed * ruinM);
         baseVal = Math.round(baseVal * ruinM);
       }
-      out[i] = { base: baseVal, buffed: buffed };
+      out[i] = { base: baseVal, buffed: buffed, cls: pair.cls };
     }
     return out;
   }

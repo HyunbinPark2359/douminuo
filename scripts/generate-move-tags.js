@@ -178,6 +178,11 @@ function hasSecondaryBlock(body) {
   return /\bsecondary:\s*\{/.test(body);
 }
 
+/** 확정 급소 기술 (트릭플라워·스톰스로우·프로스트브레스 등). */
+function hasWillCrit(body) {
+  return /\bwillCrit:\s*true\b/.test(body);
+}
+
 function buildTagsForMoveBody(body) {
   const tags = parseFlagsObject(body);
   const cat = parseCategory(body);
@@ -185,6 +190,7 @@ function buildTagsForMoveBody(body) {
   if ((cat === 'Physical' || cat === 'Special') && hasSecondaryBlock(body)) {
     tags.sheerForceEligible = true;
   }
+  if (hasWillCrit(body)) tags.alwaysCrit = true;
   return tags;
 }
 
@@ -208,7 +214,7 @@ async function main() {
     if (Object.keys(tags).length) moves[k] = tags;
   }
   const doc = {
-    version: 2,
+    version: 3,
     source: 'pokemon-showdown data/moves.ts',
     sourceUrl: DEFAULT_URL,
     generatedAt: new Date().toISOString(),

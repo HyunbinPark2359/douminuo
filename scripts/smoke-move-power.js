@@ -6,6 +6,7 @@ const vm = require('vm');
 
 const root = path.join(__dirname, '..');
 const fmtCommonPath = path.join(root, 'extension', 'fmtCommon.js');
+const shareToRawPath = path.join(root, 'extension', 'shareToRaw.js');
 const simplePath = path.join(root, 'extension', 'simpleMovePower.js');
 const modifiers = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'modifiers.json'), 'utf8'));
 const moveTags = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'moveTags.json'), 'utf8'));
@@ -15,6 +16,7 @@ const ctx = { globalThis: {}, self: {}, console };
 ctx.globalThis = ctx.self = ctx;
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(fmtCommonPath, 'utf8'), ctx);
+vm.runInContext(fs.readFileSync(shareToRawPath, 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(simplePath, 'utf8'), ctx);
 const SMP = ctx.simpleMovePower;
 
@@ -47,6 +49,7 @@ const row = cmp(slot, ['fire']);
 const wantTough = Math.round(Math.round(75 * 1.3) * 1.5) * 100;
 assert(row[0].buffed === wantTough, 'tough claws buffed: got ' + row[0].buffed + ' want ' + wantTough);
 assert(row[0].base === row[0].buffed, 'tough claws base equals buffed');
+assert(row[0].cls === 'physical', 'fire punch cls is physical');
 
 const sheer = cmp(Object.assign({}, slot, { ability: { name: 'Sheer Force' } }), ['fire']);
 const wantSheer = Math.round(Math.round(75 * 1.3) * 1.5) * 100;
@@ -126,6 +129,7 @@ const wantDroughtBase = Math.round(90 * 1.5) * 100;
 assert(dr[0].buffed === wantDroughtBuffed, 'drought buffed');
 assert(dr[0].base === wantDroughtBase, 'drought base without sun mul: got ' + dr[0].base + ' want ' + wantDroughtBase);
 assert(dr[0].base < dr[0].buffed, 'drought base < buffed');
+assert(dr[0].cls === 'special', 'flamethrower cls is special');
 
 const tb = {
   name: 'Thunderbolt',
@@ -223,5 +227,25 @@ const bd = cmp(beadsSlot, ['fire']);
 const beadsWant = Math.round(Math.round(90 * 1.5) * 100 * (4 / 3));
 assert(bd[0].buffed === beadsWant, 'beads of ruin ×4/3 spec');
 assert(bd[0].base === bd[0].buffed, 'beads ruin no base split');
+
+// 무조건 급소 — 예: 트릭플라워(flowertrick). moveTags 에 alwaysCrit 있어야 함.
+const flowerTrick = { name: 'Flower Trick', type: 'Grass', power: 70, damage_class: 'physical' };
+const critRow = cmp({ pokemon: { moves: [flowerTrick], stats: { attack: { real: 100 }, special_attack: { real: 100 }, defense: { real: 100 } } } }, ['normal']);
+const wantCrit = Math.round(70 * 1.5) * 100;
+assert(critRow[0].base === wantCrit, '트릭플라워 무조건 급소: base got ' + critRow[0].base + ' want ' + wantCrit);
+assert(critRow[0].base === critRow[0].buffed, '무조건 급소: base === buffed(조건부 아님)');
+
+// 변환자재/리베로 — 타입 안 맞는 기술도 buffed 에서는 자속.
+const waterGun = { name: 'Water Gun', type: 'Water', power: 40, damage_class: 'special' };
+const proteanSlot = { pokemon: { moves: [waterGun], stats: { attack: { real: 100 }, special_attack: { real: 100 }, defense: { real: 100 } } }, ability: { name: 'Protean' } };
+const proteanRow = cmp(proteanSlot, ['normal']); // 자연 타입 = 노말(물 아님) → 자연 STAB 없음
+const wantProteanBase = 40 * 100;
+const wantProteanBuffed = Math.round(40 * 1.5) * 100;
+assert(proteanRow[0].base === wantProteanBase, '변환자재 base(자속 없음): got ' + proteanRow[0].base);
+assert(proteanRow[0].buffed === wantProteanBuffed, '변환자재 buffed(자속 반영): got ' + proteanRow[0].buffed);
+
+// 변환자재인데 이미 자연 STAB 인 경우 — 중복 곱 안 되는지.
+const proteanNaturalStab = cmp(proteanSlot, ['water']);
+assert(proteanNaturalStab[0].base === proteanNaturalStab[0].buffed, '변환자재 + 자연 STAB: base === buffed(중복 곱 없음)');
 
 console.log('smoke-move-power: ok');

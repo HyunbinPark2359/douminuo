@@ -169,4 +169,56 @@ assert(
   'snow + ice: phys bulk ×1.5: ' + snowOut
 );
 
+// BACKLOG #2: 실능치 줄 — 기술배치상 안 쓰는 A/C 는 x.
+var realRaw = [
+  '#1|Test',
+  'HP : 125 0',
+  '공격 : 100 0',
+  '방어 : 50 0',
+  '특수공격 : 90 0',
+  '특수방어 : 60 0',
+  '스피드 : 80 0',
+  '기술1 : Tackle',
+  '기술2 : --',
+  '기술3 : --',
+  '기술4 : --',
+].join('\n');
+var physOnly = formatSample(realRaw, {
+  includeRealStats: true,
+  includeUrls: false,
+  blockMovePowers: [[{ base: 1, buffed: 1, cls: 'physical' }, null, null, null]],
+});
+assert(physOnly.includes('125-100-50-x-60-80'), 'phys-only: C is x: ' + physOnly);
+
+var mixed = formatSample(realRaw, {
+  includeRealStats: true,
+  includeUrls: false,
+  blockMovePowers: [
+    [
+      { base: 1, buffed: 1, cls: 'physical' },
+      { base: 2, buffed: 2, cls: 'special' },
+      null,
+      null,
+    ],
+  ],
+});
+assert(mixed.includes('125-100-50-90-60-80'), 'mixed: A and C numeric: ' + mixed);
+
+var specOnly = formatSample(realRaw, {
+  includeRealStats: true,
+  includeUrls: false,
+  blockMovePowers: [[{ base: 1, buffed: 1, cls: 'special' }, null, null, null]],
+});
+assert(specOnly.includes('125-x-50-90-60-80'), 'spec-only: A is x: ' + specOnly);
+
+var noMp = formatSample(realRaw, { includeRealStats: true, includeUrls: false });
+assert(noMp.includes('125-100-50-90-60-80'), 'no movePowers: all numeric: ' + noMp);
+
+var unresolved = formatSample(realRaw, {
+  includeRealStats: true,
+  includeUrls: false,
+  blockMovePowers: [[null, null, null, null]],
+});
+assert(unresolved.includes('125-100-50-90-60-80'), 'all-null cells: all numeric: ' + unresolved);
+
 console.log('smoke-formatter: ok');
