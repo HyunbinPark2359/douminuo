@@ -6,8 +6,7 @@
   var FC = global.nuoFmtCommon;
   var readLabel = FC.readLabel;
   var normalizeMatchKey = FC.normalizeMatchKey;
-  var collectHoldLabels = FC.collectHoldLabels;
-  var findRuleAndSlugInMap = FC.findRuleAndSlugInMap;
+  var findFirstRuleAndSlugForHold = FC.findFirstRuleAndSlugForHold;
 
   function asInt(v) {
     if (v === null || v === undefined || v === '') return null;
@@ -65,15 +64,10 @@
   }
 
   function resolveItemEn(modifiersDoc, itemKoDoc, itemRaw) {
-    var found = null;
-    if (modifiersDoc && modifiersDoc.items) {
-      var labels = collectHoldLabels(itemRaw);
-      var li;
-      for (li = 0; li < labels.length; li++) {
-        found = findRuleAndSlugInMap(modifiersDoc.items, labels[li]);
-        if (found && found.slug) break;
-      }
-    }
+    var found =
+      modifiersDoc && modifiersDoc.items
+        ? findFirstRuleAndSlugForHold(modifiersDoc.items, itemRaw)
+        : null;
     if (found && found.slug) return slugToDisplayName(found.slug);
     var lab = readLabel(
       typeof itemRaw === 'object' && itemRaw && !Array.isArray(itemRaw)
@@ -92,7 +86,7 @@
     var lab = readLabel(abilityRaw);
     if (!lab || lab === '--') return '';
     if (modifiersDoc && modifiersDoc.abilities) {
-      var found = findRuleAndSlugInMap(modifiersDoc.abilities, lab);
+      var found = findFirstRuleAndSlugForHold(modifiersDoc.abilities, abilityRaw);
       if (found && found.slug) return slugToDisplayName(found.slug);
     }
     var slugA = abilityKoDoc && abilityKoDoc.byKo && abilityKoDoc.byKo[lab];

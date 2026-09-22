@@ -96,11 +96,27 @@
     return ix[want] || ix[wantSlug] || null;
   }
 
+  /**
+   * hold(도구/특성 원본 값)를 라벨로 정규화해 map 에서 첫 매치 { slug, rule } 반환.
+   * formatter.js / showdownPaste.js / simpleMovePower.js 공용.
+   */
+  function findFirstRuleAndSlugForHold(map, holdRaw) {
+    if (!map) return null;
+    var labels = collectHoldLabels(holdRaw);
+    var li;
+    for (li = 0; li < labels.length; li++) {
+      var found = findRuleAndSlugInMap(map, labels[li]);
+      if (found) return found;
+    }
+    return null;
+  }
+
   g.nuoFmtCommon = {
     readLabel: readLabel,
     normalizeMatchKey: normalizeMatchKey,
     slugifyForMatch: slugifyForMatch,
     collectHoldLabels: collectHoldLabels,
     findRuleAndSlugInMap: findRuleAndSlugInMap,
+    findFirstRuleAndSlugForHold: findFirstRuleAndSlugForHold,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

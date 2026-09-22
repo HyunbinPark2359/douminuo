@@ -129,16 +129,9 @@
     var pokeList = state && state['$spokemon_list'];
     if (!Array.isArray(pokeList) || pokeList.length === 0) {
       if (!spriteFromDex) return slot;
-      var nP = {};
-      var nk;
-      for (nk in poke) {
-        if (Object.prototype.hasOwnProperty.call(poke, nk)) nP[nk] = poke[nk];
-      }
+      var nP = Object.assign({}, poke);
       nP.sprite = spriteFromDex;
-      var nS = {};
-      for (nk in slot) {
-        if (Object.prototype.hasOwnProperty.call(slot, nk)) nS[nk] = slot[nk];
-      }
+      var nS = Object.assign({}, slot);
       nS.pokemon = nP;
       return nS;
     }
@@ -159,16 +152,9 @@
     }
     if (!entry) {
       if (!spriteFromDex) return slot;
-      var npNoEntry = {};
-      var nkNoEntry;
-      for (nkNoEntry in poke) {
-        if (Object.prototype.hasOwnProperty.call(poke, nkNoEntry)) npNoEntry[nkNoEntry] = poke[nkNoEntry];
-      }
+      var npNoEntry = Object.assign({}, poke);
       npNoEntry.sprite = spriteFromDex;
-      var nsNoEntry = {};
-      for (nkNoEntry in slot) {
-        if (Object.prototype.hasOwnProperty.call(slot, nkNoEntry)) nsNoEntry[nkNoEntry] = slot[nkNoEntry];
-      }
+      var nsNoEntry = Object.assign({}, slot);
       nsNoEntry.pokemon = npNoEntry;
       return nsNoEntry;
     }
@@ -177,21 +163,14 @@
     var t0 = types[0] ? String(types[0]).toLowerCase() : '';
     var t1 = types[1] ? String(types[1]).toLowerCase() : '';
 
-    var newPoke = {};
-    var k;
-    for (k in poke) {
-      if (Object.prototype.hasOwnProperty.call(poke, k)) newPoke[k] = poke[k];
-    }
+    var newPoke = Object.assign({}, poke);
     // name 이 이미 객체로 들어있으면 사이트가 의존하는 모양일 수 있어 덮어쓰지 않음.
     if (!newPoke.name && entry.id) newPoke.name = entry.id;
     if (!newPoke.first_type && t0) newPoke.first_type = t0;
     if (!newPoke.second_type && t1) newPoke.second_type = t1;
     if (!newPoke.sprite && spriteFromDex) newPoke.sprite = spriteFromDex;
 
-    var newSlot = {};
-    for (k in slot) {
-      if (Object.prototype.hasOwnProperty.call(slot, k)) newSlot[k] = slot[k];
-    }
+    var newSlot = Object.assign({}, slot);
     newSlot.pokemon = newPoke;
     return newSlot;
   }

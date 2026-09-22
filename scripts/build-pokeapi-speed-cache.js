@@ -6,7 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { fetchJson, listAll, mapInChunks } = require('./lib/pokeapi');
+const { fetchJson, listAll, mapInChunks, koName } = require('./lib/pokeapi');
 
 const CACHE_DIR = path.join(__dirname, '.cache');
 const OUT = path.join(CACHE_DIR, 'pokeapi-speed-cache.json');
@@ -37,11 +37,9 @@ async function main() {
         const spUrl = p.species && p.species.url;
         if (!spUrl) return { slug, spe };
         const sp = await fetchJson(spUrl);
-        const ko = (sp.names || []).find(function (n) {
-          return n.language && n.language.name === 'ko';
-        });
-        if (ko && ko.name) {
-          speciesKo[ko.name] = { en: sp.name, id: sp.id };
+        const ko = koName(sp);
+        if (ko) {
+          speciesKo[ko] = { en: sp.name, id: sp.id };
         }
         return { slug, spe };
       } catch (e) {

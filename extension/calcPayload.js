@@ -85,13 +85,26 @@
    *      살아남도록.
    */
 
+  /**
+   * F39: 소스 문서(object) identity 로 빌드 결과를 캐싱하는 공통 헬퍼.
+   * WeakMap 키라 소스 문서 참조가 바뀌면 자연히 무효화되고, SW 가 죽으면 GC 됨.
+   * buildFn 은 memoize 된 함수와 동일한 인자를 받되, 캐시 키는 첫 인자(object)로 고정.
+   */
+  function memoizeByDocRef(buildFn) {
+    var cache = new WeakMap();
+    return function (doc) {
+      if (!doc || typeof doc !== 'object') return buildFn.apply(null, arguments);
+      var hit = cache.get(doc);
+      if (hit === undefined) {
+        hit = buildFn.apply(null, arguments);
+        cache.set(doc, hit);
+      }
+      return hit;
+    };
+  }
+
   /** A. 슬러그 정규화 맵 — moveSlugToEn.json 의 키 list 로부터 한 번만 빌드 (캐시). */
-  var slugCanonicalCache = null;
-  var slugCanonicalSourceRef = null;
-  function getSlugCanonicalMap(moveSlugToEnDoc) {
-    if (slugCanonicalCache && slugCanonicalSourceRef === moveSlugToEnDoc) {
-      return slugCanonicalCache;
-    }
+  var getSlugCanonicalMap = memoizeByDocRef(function (moveSlugToEnDoc) {
     var bySlug = (moveSlugToEnDoc && moveSlugToEnDoc.bySlug) || {};
     var map = Object.create(null);
     var k;
@@ -100,20 +113,16 @@
       var hyphenless = String(k).replace(/-/g, '');
       if (hyphenless && map[hyphenless] == null) map[hyphenless] = k;
     }
-    slugCanonicalCache = map;
-    slugCanonicalSourceRef = moveSlugToEnDoc;
     return map;
-  }
+  });
 
   /**
    * 슬러그 → 한칭 reverse 맵 — 구버전 공유 URL 에서 mv.name 이 영문 슬러그(예: 'ice-hammer')
    * 만 들어오고 어떤 alias 에도 한칭이 없을 때, 사이트 표시용 ko 를 복구하기 위함.
    * moveKoMap.byKo (한칭→Showdown id) + moveKoFallback.byKo 를 한 번 reduce.
+   * 캐시 키는 moveKoDoc(첫 인자)만 본다 — moveKoFallbackDoc 은 둘 다 번들 내 고정 문서라 별도 무효화 불필요.
    */
-  var koByIdCache = null;
-  var koByIdSourceRef = null;
-  function getKoByShowdownId(moveKoDoc, moveKoFallbackDoc) {
-    if (koByIdCache && koByIdSourceRef === moveKoDoc) return koByIdCache;
+  var getKoByShowdownId = memoizeByDocRef(function (moveKoDoc, moveKoFallbackDoc) {
     var map = Object.create(null);
     function ingest(doc) {
       var byKo = doc && doc.byKo;
@@ -127,10 +136,8 @@
     }
     ingest(moveKoDoc);
     ingest(moveKoFallbackDoc);
-    koByIdCache = map;
-    koByIdSourceRef = moveKoDoc;
     return map;
-  }
+  });
 
   /** B. 영속 캐시 — chrome.storage.local mirror. SW 라이프타임 동안 1회 load. */
   var MOVE_META_STORAGE_KEY = 'nuo_fmt_moveMetaCache';
@@ -310,7 +317,30 @@
    * @returns {{ abilityWeatherKey: string|null, abilityTerrainKey: string|null }}
    */
   /** F39: abilities 맵 nameKo → weather/terrain 키 (first-set-wins). */
-  var abilityEnvIxCache = new WeakMap();
+  var getAbilityEnvIx = memoizeByDocRef(function (abs) {
+    var ix = Object.create(null);
+    var slug;
+    var r;
+    var nk;
+    for (slug in abs) {
+      if (!Object.prototype.hasOwnProperty.call(abs, slug)) continue;
+      r = abs[slug];
+      if (!r || typeof r !== 'object') continue;
+      nk = String(r.nameKo || '').trim();
+      if (!nk || ix[nk]) continue;
+      ix[nk] = {
+        abilityWeatherKey:
+          r.setsWeather != null && String(r.setsWeather).trim() !== ''
+            ? String(r.setsWeather).toLowerCase().trim()
+            : null,
+        abilityTerrainKey:
+          r.setsTerrain != null && String(r.setsTerrain).trim() !== ''
+            ? String(r.setsTerrain).toLowerCase().trim()
+            : null,
+      };
+    }
+    return ix;
+  });
 
   function envKeysFromAbilityKo(abilityKo, modifiersDoc) {
     var out = { abilityWeatherKey: null, abilityTerrainKey: null };
@@ -319,31 +349,7 @@
       return out;
     }
     var abs = modifiersDoc.abilities;
-    var ix = abilityEnvIxCache.get(abs);
-    if (!ix) {
-      ix = Object.create(null);
-      var slug;
-      var r;
-      var nk;
-      for (slug in abs) {
-        if (!Object.prototype.hasOwnProperty.call(abs, slug)) continue;
-        r = abs[slug];
-        if (!r || typeof r !== 'object') continue;
-        nk = String(r.nameKo || '').trim();
-        if (!nk || ix[nk]) continue;
-        ix[nk] = {
-          abilityWeatherKey:
-            r.setsWeather != null && String(r.setsWeather).trim() !== ''
-              ? String(r.setsWeather).toLowerCase().trim()
-              : null,
-          abilityTerrainKey:
-            r.setsTerrain != null && String(r.setsTerrain).trim() !== ''
-              ? String(r.setsTerrain).toLowerCase().trim()
-              : null,
-        };
-      }
-      abilityEnvIxCache.set(abs, ix);
-    }
+    var ix = getAbilityEnvIx(abs);
     var hit = ix[k];
     if (!hit) return out;
     out.abilityWeatherKey = hit.abilityWeatherKey;
@@ -620,24 +626,23 @@
   }
 
   /** F39: typeKoDoc.byKo 역인덱스 enLower → ko (first-set-wins). */
-  var typeKoReverseIxCache = new WeakMap();
+  var getTypeKoReverseIx = memoizeByDocRef(function (byKo) {
+    var rev = Object.create(null);
+    var ko;
+    var enDisp;
+    for (ko in byKo) {
+      if (!Object.prototype.hasOwnProperty.call(byKo, ko)) continue;
+      enDisp = String(byKo[ko] || '').toLowerCase();
+      if (enDisp && !rev[enDisp]) rev[enDisp] = ko;
+    }
+    return rev;
+  });
 
   function typeKoFromEnSlug(typeEn, typeKoDoc) {
     var slug = String(typeEn || 'normal').toLowerCase();
     var byKo = typeKoDoc && typeKoDoc.byKo;
     if (!byKo) return '';
-    var rev = typeKoReverseIxCache.get(byKo);
-    if (!rev) {
-      rev = Object.create(null);
-      var ko;
-      var enDisp;
-      for (ko in byKo) {
-        if (!Object.prototype.hasOwnProperty.call(byKo, ko)) continue;
-        enDisp = String(byKo[ko] || '').toLowerCase();
-        if (enDisp && !rev[enDisp]) rev[enDisp] = ko;
-      }
-      typeKoReverseIxCache.set(byKo, rev);
-    }
+    var rev = getTypeKoReverseIx(byKo);
     return rev[slug] || '';
   }
 

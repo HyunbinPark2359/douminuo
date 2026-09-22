@@ -13,8 +13,7 @@
 
   var FC = global.nuoFmtCommon;
   var readLabel = FC.readLabel;
-  var collectHoldLabels = FC.collectHoldLabels;
-  var findRuleAndSlugInMap = FC.findRuleAndSlugInMap;
+  var findFirstRuleAndSlugForHold = FC.findFirstRuleAndSlugForHold;
   var SR = globalThis.shareToRaw;  // C3: hold 정규화용
 
   /** 한글 타입명 → PokeAPI type.name */
@@ -54,20 +53,10 @@
     return TYPE_KO_TO_EN[s] || TYPE_KO_TO_EN[s.replace(/\s/g, '')] || '';
   }
 
-  function findRuleInMap(map, label) {
-    var r = findRuleAndSlugInMap(map, label);
-    return r ? r.rule : null;
-  }
-
   function findRuleFromLabels(rules, sectionKey, raw) {
     var map = rules && rules[sectionKey] && typeof rules[sectionKey] === 'object' ? rules[sectionKey] : null;
-    var labels = collectHoldLabels(raw);
-    var li;
-    for (li = 0; li < labels.length; li++) {
-      var r = findRuleInMap(map, labels[li]);
-      if (r) return r;
-    }
-    return null;
+    var found = findFirstRuleAndSlugForHold(map, raw);
+    return found ? found.rule : null;
   }
 
   function findItemRule(rules, hold) {

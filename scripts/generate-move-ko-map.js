@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { fetchJson, mapInChunks } = require('./lib/pokeapi');
+const { fetchJson, mapInChunks, koName } = require('./lib/pokeapi');
 
 const MOVE_TAGS = path.join(__dirname, '..', 'extension', 'moveTags.json');
 const MOVE_KO_FALLBACK = path.join(__dirname, '..', 'extension', 'moveKoFallback.json');
@@ -45,8 +45,7 @@ async function buildCompactToPokeSlug() {
 
 async function koNameForPokeSlug(slug) {
   const j = await fetchJson('https://pokeapi.co/api/v2/move/' + encodeURIComponent(slug) + '/');
-  const row = (j.names || []).find((n) => n.language && n.language.name === 'ko');
-  return row && row.name ? String(row.name).trim() : null;
+  return koName(j);
 }
 
 async function main() {

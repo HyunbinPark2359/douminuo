@@ -1,20 +1,30 @@
 'use strict';
 
 /**
- * modifiers.json 의 abilities 키(= PokeAPI ability slug)마다
- * GET /api/v2/ability/{slug}/ → names 중 language.name === 'ko'
- * → nameKo 설정 후 aliases 제거 (sync-item-names-ko.js 와 동일 정책).
+ * modifiers.json 의 items 또는 abilities 키(= PokeAPI slug)마다
+ * GET /api/v2/{kind}/{slug}/ → names 중 language.name === 'ko' 를 읽어
+ * nameKo 를 설정하고 aliases 를 제거한다 (한글은 PokeAPI 출처만 사용하는 정책).
  *
- * PokeAPI에 ko 가 없으면 scripts/ability-ko-fallback.json 에서 공식 한글명을 찾는다.
+ * PokeAPI에 ko 가 없으면 scripts/{kind}-ko-fallback.json 에서 공식 한글명을 찾는다.
  * 거기도 없으면 기존 nameKo·aliases 유지하고 MISSING_KO 로그.
  *
- * node scripts/sync-ability-names-ko.js
+ * node scripts/sync-names-ko.js --kind item
+ * node scripts/sync-names-ko.js --kind ability
  */
 const fs = require('fs');
 const path = require('path');
+const { koName } = require('./lib/pokeapi');
+
+const kindArgIx = process.argv.indexOf('--kind');
+const KIND = kindArgIx >= 0 ? process.argv[kindArgIx + 1] : null;
+if (KIND !== 'item' && KIND !== 'ability') {
+  console.error('Usage: node scripts/sync-names-ko.js --kind item|ability');
+  process.exit(1);
+}
+const SECTION = KIND === 'item' ? 'items' : 'abilities';
 
 const modPath = path.join(__dirname, '..', 'extension', 'modifiers.json');
-const fallbackPath = path.join(__dirname, 'ability-ko-fallback.json');
+const fallbackPath = path.join(__dirname, KIND + '-ko-fallback.json');
 const DELAY_MS = 80;
 
 function loadJsonObject(filePath) {
@@ -27,30 +37,24 @@ function loadJsonObject(filePath) {
   }
 }
 
-function koNameFromPayload(j) {
-  if (!j || !Array.isArray(j.names)) return null;
-  const row = j.names.find((n) => n.language && n.language.name === 'ko');
-  return row && row.name ? String(row.name).trim() : null;
-}
-
-async function fetchAbilityKo(slug) {
-  const url = 'https://pokeapi.co/api/v2/ability/' + encodeURIComponent(slug) + '/';
+async function fetchKo(slug) {
+  const url = 'https://pokeapi.co/api/v2/' + KIND + '/' + encodeURIComponent(slug) + '/';
   const res = await fetch(url);
   if (!res.ok) return { slug, ko: null, err: res.status };
   const j = await res.json();
-  return { slug, ko: koNameFromPayload(j), err: null };
+  return { slug, ko: koName(j), err: null };
 }
 
 async function main() {
   const mod = JSON.parse(fs.readFileSync(modPath, 'utf8'));
-  const keys = Object.keys(mod.abilities || {});
+  const keys = Object.keys(mod[SECTION] || {});
   const missing = [];
   const fallback = loadJsonObject(fallbackPath);
 
   for (const slug of keys) {
-    const row = await fetchAbilityKo(slug);
-    const ab = mod.abilities[slug];
-    if (!ab || typeof ab !== 'object') continue;
+    const row = await fetchKo(slug);
+    const entry = mod[SECTION][slug];
+    if (!entry || typeof entry !== 'object') continue;
 
     let ko = row.ko;
     const fb = fallback[slug];
@@ -60,11 +64,11 @@ async function main() {
     }
 
     if (ko) {
-      ab.nameKo = ko;
-      delete ab.aliases;
+      entry.nameKo = ko;
+      delete entry.aliases;
     } else {
       missing.push(slug + (row.err ? ':' + row.err : ''));
-      if (!ab.nameKo) {
+      if (!entry.nameKo) {
         console.error('MISSING_KO (no nameKo, keep aliases if any):', slug, row.err || '');
       }
     }
@@ -78,7 +82,7 @@ async function main() {
     console.error('MISSING_KO count:', missing.length);
     console.error(missing.join('\n'));
   }
-  console.log('sync-ability-names-ko: wrote', modPath, 'abilities:', keys.length);
+  console.log('sync-names-ko(' + KIND + '): wrote', modPath, SECTION + ':', keys.length);
 }
 
 main().catch((e) => {

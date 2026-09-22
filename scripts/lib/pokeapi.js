@@ -85,9 +85,20 @@ async function fetchInChunks(urls, opts) {
   );
 }
 
+/**
+ * PokéAPI 리소스 payload(`{ names: [{ language, name }, ...] }`) 에서 한글명 추출.
+ * ko 항목이 없으면 null.
+ */
+function koName(payload) {
+  const names = (payload && payload.names) || [];
+  const row = names.find((n) => n.language && n.language.name === 'ko');
+  return row && row.name ? String(row.name).trim() : null;
+}
+
 module.exports = {
   fetchJson,
   listAll,
   fetchInChunks,
   mapInChunks,
+  koName,
 };

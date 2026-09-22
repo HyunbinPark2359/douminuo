@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { mapInChunks } = require('./lib/pokeapi');
+const { mapInChunks, koName } = require('./lib/pokeapi');
 
 const OUT = path.join(__dirname, '..', 'extension', 'abilityKoMap.json');
 const MAX_ID = 450;
@@ -48,9 +48,9 @@ async function main() {
   let ok = 0;
   for (const j of rows) {
     if (!j || !j.name) continue;
-    const ko = (j.names || []).find((n) => n.language && n.language.name === 'ko');
-    if (ko && ko.name) {
-      byKo[String(ko.name).trim()] = j.name;
+    const ko = koName(j);
+    if (ko) {
+      byKo[ko] = j.name;
       ok++;
     }
   }

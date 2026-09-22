@@ -10,6 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { koName } = require('./lib/pokeapi');
 
 const ROOT = path.join(__dirname, '..');
 const MOVE_TAGS = path.join(ROOT, 'extension', 'moveTags.json');
@@ -55,12 +56,11 @@ async function auditMoves(compactToSlug) {
         const slug = compactToSlug[id];
         if (!slug) return { id, slug: null, ko: null, generation: null };
         const j = await fetchJson('https://pokeapi.co/api/v2/move/' + encodeURIComponent(slug) + '/');
-        const koRow = (j.names || []).find((n) => n.language && n.language.name === 'ko');
         const gen = j.generation && j.generation.name ? j.generation.name : null;
         return {
           id,
           slug,
-          ko: koRow && koRow.name ? koRow.name.trim() : null,
+          ko: koName(j),
           generation: gen,
         };
       })
@@ -103,11 +103,9 @@ async function auditItems() {
     const rows = await Promise.all(
       chunk.map(async (url) => {
         const j = await fetchJson(url);
-        const slug = j.name;
-        const koRow = (j.names || []).find((n) => n.language && n.language.name === 'ko');
         return {
-          slug,
-          ko: koRow && koRow.name ? koRow.name.trim() : null,
+          slug: j.name,
+          ko: koName(j),
         };
       })
     );
@@ -131,8 +129,7 @@ async function auditAbilities() {
     } catch (_e) {
       continue;
     }
-    const koRow = (j.names || []).find((n) => n.language && n.language.name === 'ko');
-    if (!koRow || !koRow.name) {
+    if (!koName(j)) {
       noKo.push({ id, pokeapiSlug: j.name });
     }
     if (id % 50 === 0) console.error('abilities', id);

@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { listAll, fetchInChunks } = require('./lib/pokeapi');
+const { listAll, fetchInChunks, koName } = require('./lib/pokeapi');
 
 const OUT = path.join(__dirname, '..', 'extension', 'itemKoMap.json');
 
@@ -28,8 +28,8 @@ async function main() {
   const byKo = {};
   for (const it of details) {
     if (!it || !it.name) continue;
-    const ko = (it.names || []).find((n) => n.language && n.language.name === 'ko');
-    if (ko && ko.name) byKo[String(ko.name).trim()] = it.name;
+    const ko = koName(it);
+    if (ko) byKo[ko] = it.name;
   }
 
   const doc = {

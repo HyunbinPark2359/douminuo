@@ -5,8 +5,7 @@
   var FC = global.nuoFmtCommon;
   var readLabel = FC.readLabel;
   var normalizeMatchKey = FC.normalizeMatchKey;
-  var collectHoldLabels = FC.collectHoldLabels;
-  var findRuleAndSlugInMap = FC.findRuleAndSlugInMap;
+  var findFirstRuleAndSlugForHold = FC.findFirstRuleAndSlugForHold;
 
   var STAT_MAP = [
     { keys: ['HP', 'hp'], letter: 'H' },
@@ -24,25 +23,14 @@
 
   function findItemBulkRule(modifiersDoc, itemRaw) {
     if (!modifiersDoc || !modifiersDoc.items) return null;
-    var labels = collectHoldLabels(itemRaw);
-    var li;
-    for (li = 0; li < labels.length; li++) {
-      var found = findRuleAndSlugInMap(modifiersDoc.items, labels[li]);
-      var r = found && found.rule;
-      if (r && (r.bulkDefMul != null || r.bulkSpdMul != null)) return r;
-    }
-    return null;
+    var found = findFirstRuleAndSlugForHold(modifiersDoc.items, itemRaw);
+    var r = found && found.rule;
+    return r && (r.bulkDefMul != null || r.bulkSpdMul != null) ? r : null;
   }
 
   function findAbilityRuleWithSlug(modifiersDoc, abilityRaw) {
     if (!modifiersDoc || !modifiersDoc.abilities) return null;
-    var labels = collectHoldLabels(abilityRaw);
-    var li;
-    for (li = 0; li < labels.length; li++) {
-      var found = findRuleAndSlugInMap(modifiersDoc.abilities, labels[li]);
-      if (found && found.rule) return found;
-    }
-    return null;
+    return findFirstRuleAndSlugForHold(modifiersDoc.abilities, abilityRaw);
   }
 
   function numBulkMul(v, fallback) {

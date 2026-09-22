@@ -764,38 +764,19 @@ importScripts('showdownPaste.js');
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
     if (!msg) return;
 
-    if (msg.type === 'INJECT_CALC_BRIDGE') {
+    if (msg.type === 'INJECT_CALC_BRIDGE' || msg.type === 'INJECT_TEAM_BUILDER_BRIDGE') {
       var injTabId = _sender && _sender.tab && _sender.tab.id;
       if (injTabId == null) {
         sendResponse({ ok: false, error: 'no_sender_tab' });
         return true;
       }
+      var injFile =
+        msg.type === 'INJECT_CALC_BRIDGE' ? 'calcFillBridge.js' : 'teamBuilderBridge.js';
       chrome.scripting
         .executeScript({
           target: { tabId: injTabId },
           world: 'MAIN',
-          files: ['calcFillBridge.js'],
-        })
-        .then(function () {
-          sendResponse({ ok: true });
-        })
-        .catch(function (e) {
-          sendResponse({ ok: false, error: String((e && e.message) || e) });
-        });
-      return true;
-    }
-
-    if (msg.type === 'INJECT_TEAM_BUILDER_BRIDGE') {
-      var tbTabId = _sender && _sender.tab && _sender.tab.id;
-      if (tbTabId == null) {
-        sendResponse({ ok: false, error: 'no_sender_tab' });
-        return true;
-      }
-      chrome.scripting
-        .executeScript({
-          target: { tabId: tbTabId },
-          world: 'MAIN',
-          files: ['teamBuilderBridge.js'],
+          files: [injFile],
         })
         .then(function () {
           sendResponse({ ok: true });
