@@ -219,12 +219,6 @@
     '      </div>' +
     '    </div>' +
     '  </div>' +
-'  <button type="button" class="fab-prefs-gear fab-btn" id="fabPrefsGear" aria-label="환경설정 열기">' +
-'    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
-'      <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>' +
-'      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>' +
-'    </svg>' +
-'  </button>' +
     '</div>';
     return { fabSlotFeedbackHtml: fabSlotFeedbackHtml };
   }
@@ -240,7 +234,6 @@
     var fabDock = root.getElementById('fabDock');
     var fabSlotsWrap = root.getElementById('fabSlots');
     var partyBtn = root.getElementById('fabPartyBtn');
-    var gearBtn = root.getElementById('fabPrefsGear');
     var partyMonImgs = (function () {
       if (!partyBtn) return [null, null, null, null, null, null];
       var stack = partyBtn.querySelector('.fab-party-mon-stack');
@@ -431,91 +424,6 @@
       partyBtn.addEventListener('mouseenter', openFabDockFromParty);
       fabDock.addEventListener('mouseout', onFabDockMouseOut);
       fabDock.addEventListener('mouseover', onFabDockMouseOver);
-    }
-
-    // ===== 환경설정 모달 (popup.html iframe in-page) =====
-    var prefsEscHandler = null;
-    var frameHeightHandler = null;
-
-    function openPrefsModal() {
-      if (root.getElementById('prefsModalBackdrop')) return;
-      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) return;
-      var backdrop = document.createElement('div');
-      backdrop.id = 'prefsModalBackdrop';
-      backdrop.className = 'prefs-modal-backdrop';
-      backdrop.setAttribute('role', 'dialog');
-      backdrop.setAttribute('aria-modal', 'true');
-      backdrop.setAttribute('aria-label', '환경설정');
-      var frame = document.createElement('iframe');
-      frame.className = 'prefs-modal-frame';
-      frame.src = chrome.runtime.getURL('popup.html') + '?embed=1';
-      frame.title = '환경설정';
-      var container = document.createElement('div');
-      container.className = 'prefs-modal-container';
-      var closeBtn = document.createElement('button');
-      closeBtn.type = 'button';
-      closeBtn.className = 'prefs-modal-close';
-      closeBtn.setAttribute('aria-label', '닫기');
-      closeBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="1.5" y1="1.5" x2="10.5" y2="10.5"/><line x1="10.5" y1="1.5" x2="1.5" y2="10.5"/></svg>';
-      closeBtn.addEventListener('click', closePrefsModal);
-      container.appendChild(closeBtn);
-      container.appendChild(frame);
-      backdrop.appendChild(container);
-      root.appendChild(backdrop);
-      backdrop.addEventListener('click', function (e) {
-        if (e.target === backdrop) closePrefsModal();
-      });
-      prefsEscHandler = function (e) {
-        if (e.key === 'Escape' || e.keyCode === 27) closePrefsModal();
-      };
-      document.addEventListener('keydown', prefsEscHandler, true);
-      frame.addEventListener('load', function () {
-        try { frame.contentWindow.focus(); } catch (eF) {}
-      });
-      frameHeightHandler = function (ev) {
-        if (!ev.data || ev.data.source !== 'nuo-popup-embed' ||
-            ev.data.type !== 'NUO_POPUP_EMBED_HEIGHT') return;
-        var h = Number(ev.data.height);
-        if (h > 0) frame.style.height = Math.min(h + 2, 580) + 'px';
-        window.removeEventListener('message', frameHeightHandler);
-        frameHeightHandler = null;
-      };
-      window.addEventListener('message', frameHeightHandler);
-    }
-
-    function closePrefsModal() {
-      var b = root.getElementById('prefsModalBackdrop');
-      if (!b) return;
-      b.classList.add('prefs-modal-closing');
-      var removed = false;
-      var doRemove = function () {
-        if (removed) return;
-        removed = true;
-        if (b.parentNode) b.parentNode.removeChild(b);
-      };
-      b.addEventListener('animationend', function onAE() {
-        b.removeEventListener('animationend', onAE);
-        doRemove();
-      });
-      setTimeout(doRemove, 300);
-      if (prefsEscHandler) {
-        document.removeEventListener('keydown', prefsEscHandler, true);
-        prefsEscHandler = null;
-      }
-      if (frameHeightHandler) {
-        window.removeEventListener('message', frameHeightHandler);
-        frameHeightHandler = null;
-      }
-      try { if (gearBtn) gearBtn.focus(); } catch (eF) {}
-    }
-
-    if (gearBtn) {
-      gearBtn.addEventListener('click', function () {
-        if (root.getElementById('prefsModalBackdrop')) closePrefsModal();
-        else openPrefsModal();
-      });
-      gearBtn.addEventListener('mouseenter', openFabDockFromParty);
-      gearBtn.addEventListener('mouseleave', scheduleFabDockClose);
     }
 
     var FORMAT_LOCAL_OPT_KEYS = [
@@ -1068,13 +976,6 @@
       clearCopySuccessVisual(successFlashBtn);
       successFlashBtn = null;
       cancelFabDockCloseTimer();
-      closePrefsModal();
-      try {
-        if (gearBtn) {
-          gearBtn.removeEventListener('mouseenter', openFabDockFromParty);
-          gearBtn.removeEventListener('mouseleave', scheduleFabDockClose);
-        }
-      } catch (eGear) {}
       try {
         partyBtn.removeEventListener('mouseenter', openFabDockFromParty);
       } catch (eDock) {}

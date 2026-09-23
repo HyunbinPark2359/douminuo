@@ -121,6 +121,10 @@ body.embed {
   min-width: 0;
 }
 
+body.embed .popup-head {
+  padding-right: 40px;
+}
+
 .wrap {
   padding: 14px 16px 16px;
 }

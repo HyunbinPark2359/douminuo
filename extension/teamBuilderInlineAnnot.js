@@ -76,7 +76,7 @@
   }
 
   function tbExtHostSelector() {
-    return '#nuo-fmt-team-float-host, #nuo-fmt-calc-panel-host';
+    return '#nuo-fmt-team-float-host, #nuo-fmt-calc-panel-host, [data-nuo-inject]';
   }
 
   function isInTbExtHost(el) {

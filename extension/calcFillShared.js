@@ -233,6 +233,95 @@
     };
   }
 
+  /* ===== REDESIGN §4.1: 사이트 DOM 앵커 삽입 ===== */
+
+  /** 사이트 PC 레이아웃(tailwind `pc:` = min-width 1024px) 여부. 삽입 진입점은 PC 전용. */
+  function isPcLayout() {
+    try { return window.matchMedia('(min-width: 1024px)').matches; } catch (e) { return true; }
+  }
+
+  /**
+   * trim 한 텍스트가 re 와 일치하는 텍스트 노드의 부모 요소들 (문서 순서).
+   * @param {RegExp} re
+   * @param {Element=} scope 기본 document.body
+   * @returns {Element[]}
+   */
+  function findTextLeaves(re, scope) {
+    var out = [];
+    var base = scope || document.body;
+    if (!base) return out;
+    var w = document.createTreeWalker(base, NodeFilter.SHOW_TEXT);
+    var n;
+    while ((n = w.nextNode())) {
+      if (n.parentElement && re.test(String(n.nodeValue || '').trim())) out.push(n.parentElement);
+    }
+    return out;
+  }
+
+  var injectSpecs = [];
+  var injectTimer = null;
+
+  function extAlive() {
+    try { return !!(chrome && chrome.runtime && chrome.runtime.id); } catch (e) { return false; }
+  }
+
+  function unmountInjected(s) {
+    if (typeof s.teardown === 'function') { try { s.teardown(); } catch (eT) {} }
+    s.teardown = null;
+    if (s.host && s.host.parentNode) s.host.parentNode.removeChild(s.host);
+    s.host = null;
+  }
+
+  function syncInjected(s) {
+    var on = false;
+    try { on = isPcLayout() && !!s.enabled(); } catch (eEn) { on = false; }
+    if (!on) { unmountInjected(s); return; }
+    // 붙어 있으면 find 생략 — 폴링 비용은 앵커를 못 찾은 동안에만 든다.
+    if (s.host && s.host.isConnected) return;
+    var a = null;
+    try { a = s.find(); } catch (eF) { a = null; }
+    unmountInjected(s);
+    if (!a || !a.parent) return;
+    var host = document.createElement('div');
+    host.setAttribute('data-nuo-inject', s.key);
+    if (s.hostStyle) host.style.cssText = s.hostStyle;
+    a.parent.insertBefore(host, a.before || null);
+    s.host = host;
+    s.teardown = s.build(host.attachShadow({ mode: 'open' }), host) || null;
+  }
+
+  function injectTick() {
+    var i;
+    if (!extAlive()) {
+      // 확장 새로고침 후 옛 스크립트: 자기 삽입물 철거 + 폴링 정지 (새 스크립트와 이중 표시 방지).
+      for (i = 0; i < injectSpecs.length; i++) unmountInjected(injectSpecs[i]);
+      clearInterval(injectTimer);
+      injectTimer = null;
+      return;
+    }
+    for (i = 0; i < injectSpecs.length; i++) syncInjected(injectSpecs[i]);
+  }
+
+  /**
+   * 사이트 DOM 앵커에 Shadow host 를 붙여 두고, 사이트 re-render 로 떨어지면 재삽입.
+   * enabled()·isPcLayout() false 거나 find() null 이면 조용히 미표시.
+   * @param {{ key: string, enabled: function(): boolean,
+   *   find: function(): ({ parent: Element, before: (Node|null) }|null),
+   *   build: function(ShadowRoot, Element): (function|undefined), hostStyle: (string|undefined) }} spec
+   * @returns {{ refresh: function(), getHost: function(): (Element|null) }}
+   */
+  function keepInjected(spec) {
+    var s = { key: spec.key, enabled: spec.enabled, find: spec.find, build: spec.build,
+      hostStyle: spec.hostStyle || '', host: null, teardown: null };
+    injectSpecs.push(s);
+    syncInjected(s);
+    if (!injectTimer) injectTimer = setInterval(injectTick, 400);
+    return {
+      refresh: function () { syncInjected(s); },
+      getHost: function () { return s.host; }
+    };
+  }
+
   g.mapCalcFillError = mapCalcFillError;
   g.nuoCsCommon = {
     getRoute: getRoute,
@@ -246,5 +335,8 @@
     requestBridgeInject: requestBridgeInject,
     onLocalPrefChange: onLocalPrefChange,
     mountFloatingPanel: mountFloatingPanel,
+    keepInjected: keepInjected,
+    findTextLeaves: findTextLeaves,
+    isPcLayout: isPcLayout,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

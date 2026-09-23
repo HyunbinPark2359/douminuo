@@ -263,12 +263,26 @@
    * @param {MutationRecord[]} records
    * @returns {boolean}
    */
+  /** 우리 삽입 host(`data-nuo-inject`)만 붙거나 떨어진 레코드 — 슬롯 갱신 트리거에서 제외. */
+  function isOnlyNuoInjectRecord(rec) {
+    if (!rec || rec.type !== 'childList') return false;
+    var nodes = [].slice.call(rec.addedNodes || []).concat([].slice.call(rec.removedNodes || []));
+    if (!nodes.length) return false;
+    var i;
+    for (i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      if (!n || n.nodeType !== 1 || !n.hasAttribute('data-nuo-inject')) return false;
+    }
+    return true;
+  }
+
   function tbMoRecordsTouchSlotList(records) {
     var root = getTbSlotListRoot();
     if (!root) return true;
     if (!records || !records.length) return false;
     var i;
     for (i = 0; i < records.length; i++) {
+      if (isOnlyNuoInjectRecord(records[i])) continue;
       var t = records[i] && records[i].target;
       if (!t) continue;
       if (t === root || root.contains(t)) return true;

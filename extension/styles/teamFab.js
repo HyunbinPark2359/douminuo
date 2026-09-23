@@ -402,8 +402,6 @@
     '}',
     '.settings-hr { border: none; border-top: 1px solid #e2e8f0; margin: 0; flex-shrink: 0; cursor: default; }',
   ]
-    // g.nuoPrefsModalCss: manifest.json 에서 이 파일보다 먼저 로드되는 styles/prefsModalCss.js 가 채움.
-    .concat(g.nuoPrefsModalCss)
     .concat([
       '.fab-prefs-gear { color: #2a6f8f; }',
       '.prefs-modal-frame {',

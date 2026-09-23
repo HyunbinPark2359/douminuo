@@ -401,8 +401,6 @@
     '}',
     '.fab-btn:disabled .fab-glow-ring-a, .fab-btn:disabled .fab-glow-ring-b { display: none !important; }',
   ]
-    // g.nuoPrefsModalCss: manifest.json 에서 이 파일보다 먼저 로드되는 styles/prefsModalCss.js 가 채움.
-    .concat(g.nuoPrefsModalCss)
     .concat([
       '.fab-prefs-gear { color: var(--nuo-cf-color); }',
       '.prefs-modal-frame { background: #fff; box-shadow: 0 24px 60px rgba(0, 0, 0, .28); }',
