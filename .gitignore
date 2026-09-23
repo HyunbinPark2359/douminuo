@@ -37,6 +37,9 @@ scripts/legacy/regulationMaSpeedRefNamu.json
 # Legacy demo media (v0.1–v0.2) — kept locally for history, not published
 /assets/demo/
 
+# Local-only Claude Code hooks (qmd session-start reminder) — not shared
+/.claude/settings.local.json
+
 .env
 .env.*
 *.log
