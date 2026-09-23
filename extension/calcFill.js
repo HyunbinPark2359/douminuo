@@ -475,10 +475,11 @@
 
   function init() {
     if (typeof CS.keepInjected !== 'function') return;
-    CS.keepInjected(rowSpec('attacker', 0));
-    CS.keepInjected(rowSpec('defender', 1));
+    // 설정을 읽은 뒤 등록 — 꺼둔 사용자에게 첫 tick 전까지 줄이 번쩍이지 않도록.
     chrome.storage.local.get([LOCAL_SHOW_FLOAT], function (got) {
       rowsOn = chrome.runtime.lastError ? true : got[LOCAL_SHOW_FLOAT] !== false;
+      CS.keepInjected(rowSpec('attacker', 0));
+      CS.keepInjected(rowSpec('defender', 1));
     });
     if (CS.onLocalPrefChange) {
       CS.onLocalPrefChange([LOCAL_SHOW_FLOAT], function (got) { rowsOn = got[LOCAL_SHOW_FLOAT] !== false; });

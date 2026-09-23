@@ -387,6 +387,8 @@
         refreshSlots();
       }).catch(function () {});
     }
+    // 꺼져 있는 동안 MO 가 갱신을 건너뛰었으므로 다시 켤 때 슬롯 상태부터 새로 읽음.
+    if (iconsOn && bridgeReady) refreshSlots();
     refreshInjectors();
   }
 
