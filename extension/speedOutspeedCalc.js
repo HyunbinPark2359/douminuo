@@ -903,7 +903,7 @@
      * F7: CSS 는 styles/speedPanel.js 가 globalThis.nuoSpeedPanelCss 로 export.
      */
     root.innerHTML =
-      '<style>' + (globalThis.nuoSpeedPanelCss || '') + '</style>' +
+      '<style>' + (globalThis.nuoTokensCss || '') + '\n' + (globalThis.nuoSpeedPanelCss || '') + '</style>' +
       '<div class="wrap' +
       (collapsed ? ' collapsed' : '') +
       '" id="wrap">' +
