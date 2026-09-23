@@ -22,7 +22,6 @@
   }
 
   var LK = {
-    theme: 'nuo_fmt_theme',
     showCalcFloating: 'nuo_fmt_showCalcFloating',
     showTeamBuilderFloating: 'nuo_fmt_showTeamBuilderFloating',
     tbInlineEnabled: 'nuo_fmt_tbInlineEnabled',
@@ -30,16 +29,16 @@
     updateNoticeEnabled: 'nuo_fmt_updateNoticeEnabled',
   };
 
-  function normalizeTheme(v) {
-    if (v === 'light' || v === 'dark' || v === 'system') return v;
-    return 'system';
-  }
+  /** 샘플 복사 옵션 — teamBuilderFill.readFormatOptions 와 같은 키·기본값 (URL 만 기본 on). */
+  var FMT = [
+    { id: 'optUrls', key: 'nuo_fmt_includeUrls', def: true },
+    { id: 'optReal', key: 'nuo_fmt_includeRealStats', def: false },
+    { id: 'optPow', key: 'nuo_fmt_includeMovePowers', def: false },
+    { id: 'optBulk', key: 'nuo_fmt_includeBulkStats', def: false },
+    { id: 'optSd', key: 'nuo_fmt_showdownPaste', def: false }
+  ];
+  var FMT_KEYS = FMT.map(function (f) { return f.key; });
 
-  function applyPopupTheme(mode) {
-    document.documentElement.setAttribute('data-theme', normalizeTheme(mode));
-  }
-
-  var themeSelectEl = document.getElementById('themeSelect');
   var showCalcFloatingEl = document.getElementById('showCalcFloating');
   var showTeamBuilderFloatingEl = document.getElementById('showTeamBuilderFloating');
   var tbInlineEnabledEl = document.getElementById('tbInlineEnabled');
@@ -65,8 +64,6 @@
 
   function applyExtensionPrefsFromLocal(got) {
     if (chrome.runtime.lastError) {
-      applyPopupTheme('system');
-      if (themeSelectEl) themeSelectEl.value = 'system';
       if (showCalcFloatingEl) showCalcFloatingEl.checked = true;
       if (showTeamBuilderFloatingEl) showTeamBuilderFloatingEl.checked = true;
       if (tbInlineEnabledEl) tbInlineEnabledEl.checked = true;
@@ -74,9 +71,6 @@
       if (updateNoticeEnabledEl) updateNoticeEnabledEl.checked = true;
       return;
     }
-    var v = normalizeTheme(got[LK.theme]);
-    applyPopupTheme(v);
-    if (themeSelectEl) themeSelectEl.value = v;
     if (showCalcFloatingEl) {
       showCalcFloatingEl.checked = got[LK.showCalcFloating] !== false;
     }
@@ -96,8 +90,31 @@
     }
   }
 
+  /** Showdown 켜지면 나머지 4개 잠금 (옛 FAB applyShowdownLockUi 와 동일 규칙). */
+  function applyShowdownLock() {
+    var sd = document.getElementById('optSd');
+    var on = !!(sd && sd.checked);
+    FMT.forEach(function (f) {
+      if (f.id === 'optSd') return;
+      var el = document.getElementById(f.id);
+      if (!el) return;
+      el.disabled = on;
+      el.parentElement.classList.toggle('is-muted', on);
+    });
+  }
+
+  function applyFormatOptions(got) {
+    var err = !!chrome.runtime.lastError;
+    FMT.forEach(function (f) {
+      var el = document.getElementById(f.id);
+      if (!el) return;
+      var v = err ? undefined : got[f.key];
+      el.checked = f.def ? v !== false : !!v;
+    });
+    applyShowdownLock();
+  }
+
   var EXTENSION_PREF_KEYS = [
-    LK.theme,
     LK.showCalcFloating,
     LK.showTeamBuilderFloating,
     LK.tbInlineEnabled,
@@ -106,11 +123,14 @@
   ];
 
   chrome.storage.local.get(EXTENSION_PREF_KEYS, applyExtensionPrefsFromLocal);
+  chrome.storage.local.get(FMT_KEYS, applyFormatOptions);
 
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
+    if (FMT_KEYS.some(function (k) { return Object.prototype.hasOwnProperty.call(changes, k); })) {
+      chrome.storage.local.get(FMT_KEYS, applyFormatOptions);
+    }
     var hit =
-      Object.prototype.hasOwnProperty.call(changes, LK.theme) ||
       Object.prototype.hasOwnProperty.call(changes, LK.showCalcFloating) ||
       Object.prototype.hasOwnProperty.call(changes, LK.showTeamBuilderFloating) ||
       Object.prototype.hasOwnProperty.call(changes, LK.tbInlineEnabled) ||
@@ -120,13 +140,16 @@
     chrome.storage.local.get(EXTENSION_PREF_KEYS, applyExtensionPrefsFromLocal);
   });
 
-  if (themeSelectEl) {
-    themeSelectEl.addEventListener('change', function () {
-      var nv = normalizeTheme(themeSelectEl.value);
-      chrome.storage.local.set({ [LK.theme]: nv });
-      applyPopupTheme(nv);
+  FMT.forEach(function (f) {
+    var el = document.getElementById(f.id);
+    if (!el) return;
+    el.addEventListener('change', function () {
+      var o = {};
+      o[f.key] = !!el.checked;
+      chrome.storage.local.set(o);
+      applyShowdownLock();
     });
-  }
+  });
 
   if (tbInlineEnabledEl) {
     tbInlineEnabledEl.addEventListener('change', function () {
