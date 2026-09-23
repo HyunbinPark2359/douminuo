@@ -4,7 +4,6 @@
  *  - 프로필 헤더 아래 섹션으로 삽입 (calcFillShared.keepInjected). 누른 패널 = 적용 측
  *    (좌 = 공격, 우 = 수비) — 옛 FAB 의 공격/수비 모드 토글은 폐지.
  *  - 칩 1~6 클릭 → SW GET_CALC_PAYLOADS_FROM_SLOT 로 페이로드 변환 → applyPayloads.
- *  - URL pill → 같은 줄 인라인 필드 펼침 → orchestrateCalcFillSide(URL 경로) 재사용.
  *  - 슬롯 데이터: 콘텐츠 스크립트 isolated world 의 hot snapshot → chrome.storage.local
  *    영속 캐시 순서로 read. **bridge 호출 안 함**(T-1) — 계산기 라우트로 이동하면 팀빌더
  *    Vue store 가 unmount 되었을 가능성이 높아 빈 결과로 hot/캐시 를 덮어쓸 위험 회피.
@@ -14,14 +13,6 @@
  */
 (function () {
   'use strict';
-
-  /** session 에만 보관하는 UX state — 패널별 URL 입력 자동복원. */
-  var SK = {
-    calcWriteUrlAtk: 'nuo_fmt_calcAtkUrl',  // 옛 키 그대로 — URL 입력 자동복원
-    calcWriteUrlDef: 'nuo_fmt_calcDefUrl',
-  };
-
-  var LOCAL_SHOW_FLOAT = 'nuo_fmt_showCalcFloating';
 
   var CS = globalThis.nuoCsCommon || {};
   var TBS = globalThis.nuoTeamBuilderShared || {};
@@ -111,30 +102,6 @@
       });
   }
 
-  function getCalcPayloadsFromBackground(atkUrl, defUrl) {
-    return new Promise(function (resolve, reject) {
-      chrome.runtime.sendMessage(
-        {
-          type: 'GET_CALC_PAYLOADS',
-          atkUrl: atkUrl || '',
-          defUrl: defUrl || '',
-          page: currentPage(),
-        },
-        function (bg) {
-          if (chrome.runtime.lastError) {
-            reject(new Error(mapErr(chrome.runtime.lastError.message)));
-            return;
-          }
-          if (!bg || !bg.ok) {
-            reject(new Error(mapErr(bg && bg.error) || '페이로드를 만들지 못했습니다.'));
-            return;
-          }
-          resolve(bg.payloads || {});
-        }
-      );
-    });
-  }
-
   /** 슬롯 객체 한 개 → 한쪽 페이로드 (SW 메시지). bridge 와 무관. */
   function getCalcPayloadsFromSlot(slot, side) {
     return new Promise(function (resolve, reject) {
@@ -157,67 +124,6 @@
           resolve(bg.payloads || {});
         }
       );
-    });
-  }
-
-  /**
-   * @param {{ atkUrl?: string, defUrl?: string, onlyAttacker?: boolean, onlyDefender?: boolean }} opts
-   */
-  function orchestrateCalcFillSide(opts) {
-    opts = opts || {};
-    var onlyAttacker = !!opts.onlyAttacker;
-    var onlyDefender = !!opts.onlyDefender;
-    var atkUrl = opts.atkUrl != null ? String(opts.atkUrl) : '';
-    var defUrl = opts.defUrl != null ? String(opts.defUrl) : '';
-    var a = atkUrl.trim();
-    var d = defUrl.trim();
-
-    if (onlyAttacker && !a) {
-      return Promise.reject(new Error(mapErr('empty_url')));
-    }
-    if (onlyDefender && !d) {
-      return Promise.reject(new Error(mapErr('empty_url')));
-    }
-    if (!onlyAttacker && !onlyDefender && !a && !d) {
-      return Promise.reject(new Error('공격 또는 수비 URL 중 하나 이상 입력해 주세요.'));
-    }
-
-    return getCalcPayloadsFromBackground(atkUrl, defUrl).then(function (pl) {
-      var va = pl.attacker && !pl.attacker.error;
-      var vd = pl.defender && !pl.defender.error;
-
-      if (onlyAttacker) {
-        if (!va) {
-          if (a && pl.attacker && pl.attacker.error) {
-            throw new Error(mapErr(pl.attacker.error));
-          }
-          throw new Error(mapErr('no_valid_payload'));
-        }
-      } else if (onlyDefender) {
-        if (!vd) {
-          if (d && pl.defender && pl.defender.error) {
-            throw new Error(mapErr(pl.defender.error));
-          }
-          throw new Error(mapErr('no_valid_payload'));
-        }
-      } else {
-        if (!va && !vd) {
-          var parts = [];
-          if (a && pl.attacker && pl.attacker.error) {
-            parts.push('공격측: ' + mapErr(pl.attacker.error));
-          }
-          if (d && pl.defender && pl.defender.error) {
-            parts.push('수비측: ' + mapErr(pl.defender.error));
-          }
-          throw new Error(parts.length ? parts.join(' ') : mapErr('no_valid_payload'));
-        }
-      }
-
-      return applyPayloads(pl, {
-        requestId: String(Date.now()) + '-' + Math.random().toString(16).slice(2),
-        onlyAttacker: onlyAttacker,
-        onlyDefender: onlyDefender,
-      });
     });
   }
 
@@ -270,7 +176,6 @@
   /* ===== "내 파티" 줄 (REDESIGN §4.1 A) ===== */
 
   var ROW_CSS = (globalThis.nuoTokensCss || '') + '\n' + (globalThis.nuoCalcPartyRowCss || '');
-  var rowsOn = true;                 // nuo_fmt_showCalcFloating
   var snap = { slots: null, art: [], filled: [], msg: '' };
   var renderers = [];                // 붙어 있는 줄들의 render
 
@@ -330,7 +235,6 @@
   }
 
   function buildPartyRow(root, side) {
-    var urlKey = side === 'attacker' ? SK.calcWriteUrlAtk : SK.calcWriteUrlDef;
     var chipsHtml = '';
     var i;
     for (i = 1; i <= 6; i++) {
@@ -339,22 +243,13 @@
     }
     root.innerHTML = '<style>' + ROW_CSS + '</style>' +
       '<div class="sec"><div class="row"><p class="ttl">내 파티</p>' +
-      '<div class="chips">' + chipsHtml + '<span class="empty" hidden></span></div>' +
-      '<button type="button" class="pill" aria-expanded="false">URL</button></div>' +
-      '<div class="url" hidden><div class="field"><label>샘플 URL</label>' +
-      '<input type="text" spellcheck="false" autocomplete="off" placeholder="https://smartnuo.com/#ps=..." /></div>' +
-      '<button type="button" class="apply">적용</button></div>' +
+      '<div class="chips">' + chipsHtml + '<span class="empty" hidden></span></div></div>' +
       '<p class="msg" role="status" aria-live="polite"></p></div>';
 
     var chips = [].slice.call(root.querySelectorAll('.chip'));
     var emptyEl = root.querySelector('.empty');
-    var pill = root.querySelector('.pill');
-    var urlBox = root.querySelector('.url');
-    var inp = root.querySelector('input');
-    var apply = root.querySelector('.apply');
     var msgEl = root.querySelector('.msg');
     var msgTimer = null;
-    var persistTimer = null;
 
     function setMsg(text, kind, holdMs) {
       clearTimeout(msgTimer);
@@ -407,55 +302,10 @@
       });
     });
 
-    pill.addEventListener('click', function () {
-      var open = urlBox.hidden;
-      urlBox.hidden = !open;
-      pill.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (!open) { setMsg(''); return; }
-      try {
-        chrome.storage.session.get([urlKey], function (got) {
-          if (chrome.runtime.lastError) return;
-          inp.value = got[urlKey] != null ? String(got[urlKey]) : '';
-        });
-      } catch (eS) {}
-      try { inp.focus(); } catch (eF) {}
-    });
-
-    inp.addEventListener('input', function () {
-      clearTimeout(persistTimer);
-      persistTimer = setTimeout(function () {
-        var o = {};
-        o[urlKey] = inp.value;
-        try { chrome.storage.session.set(o); } catch (eP) {}
-      }, 200);
-    });
-    inp.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Enter') apply.click();
-    });
-
-    apply.addEventListener('click', function () {
-      if (apply.disabled) return;
-      apply.disabled = true;
-      setMsg('');
-      var url = inp.value;
-      var opts = side === 'attacker'
-        ? { atkUrl: url, defUrl: '', onlyAttacker: true, onlyDefender: false }
-        : { atkUrl: '', defUrl: url, onlyAttacker: false, onlyDefender: true };
-      orchestrateCalcFillSide(opts).then(function (r) {
-        var w = r && r.warnings;
-        setMsg(Array.isArray(w) && w.length ? '입력 완료. 참고: ' + w.join(' ') : '입력 완료', 'ok', 2500);
-      }).catch(function (err) {
-        setMsg((err && err.message) || mapErr(''), 'err');
-      }).then(function () {
-        apply.disabled = false;
-      });
-    });
-
     renderers.push(render);
     render();
     return function teardown() {
       clearTimeout(msgTimer);
-      clearTimeout(persistTimer);
       var ix = renderers.indexOf(render);
       if (ix >= 0) renderers.splice(ix, 1);
     };
@@ -464,7 +314,7 @@
   function rowSpec(side, idx) {
     return {
       key: 'calc-party-' + side,
-      enabled: function () { return rowsOn && isCalcOrSpeedRoute(); },
+      enabled: isCalcOrSpeedRoute,
       find: function () { return findProfileHeaderSlot(idx); },
       build: function (root) {
         refreshSnapshot();
@@ -475,14 +325,9 @@
 
   function init() {
     if (typeof CS.keepInjected !== 'function') return;
-    // 설정을 읽은 뒤 등록 — 꺼둔 사용자에게 첫 tick 전까지 줄이 번쩍이지 않도록.
-    chrome.storage.local.get([LOCAL_SHOW_FLOAT], function (got) {
-      rowsOn = chrome.runtime.lastError ? true : got[LOCAL_SHOW_FLOAT] !== false;
-      CS.keepInjected(rowSpec('attacker', 0));
-      CS.keepInjected(rowSpec('defender', 1));
-    });
+    CS.keepInjected(rowSpec('attacker', 0));
+    CS.keepInjected(rowSpec('defender', 1));
     if (CS.onLocalPrefChange) {
-      CS.onLocalPrefChange([LOCAL_SHOW_FLOAT], function (got) { rowsOn = got[LOCAL_SHOW_FLOAT] !== false; });
       CS.onLocalPrefChange(['nuo_fmt_teamSlotsCache'], function () {
         if (renderers.length) refreshSnapshot();
       });

@@ -1,6 +1,6 @@
 /**
- * Service worker: 샘플 공유 URL → 계산기 기입용 페이로드.
- * globalThis.nuoCalcPayload.buildSidePayloads(atkUrl, defUrl, docs, page)
+ * Service worker: 팀빌더 슬롯 → 계산기 기입용 페이로드.
+ * globalThis.nuoCalcPayload.buildSidePayloadFromSlot(slot, side, docs, page)
  */
 (function () {
   'use strict';
@@ -202,43 +202,6 @@
 
   function asInt(v) {
     return SR.asInt(v);
-  }
-
-  /**
-   * F18: SW 라이프타임 동안 같은 share id는 한 번만 GET (어머니 사이트 보호 §A.2 #2).
-   * 사용자가 같은 공유 URL로 계산기 입력을 반복할 때 누오에 같은 GET을 다시 보내지 않는다.
-   * - key: origin + '|' + id (도메인 분리 보호)
-   * - TTL: 60초 (보수적; 사이트가 의미 있는 갱신을 했을 가능성을 감안)
-   * - 실패한 응답은 캐시하지 않음 (재시도 허용)
-   */
-  var SHARE_GET_TTL_MS = 60 * 1000;
-  var shareGetCache = Object.create(null);
-
-  function fetchShareGET(fullUrl) {
-    var id = SR.extractPsId(fullUrl);
-    if (!id) return Promise.reject(new Error('no_ps_id'));
-    var baseUrl = new URL(SR.normalizePartyUrlInput(fullUrl));
-    var key = baseUrl.origin + '|' + id;
-    var entry = shareGetCache[key];
-    if (entry && Date.now() - entry.t < SHARE_GET_TTL_MS) {
-      return entry.p;
-    }
-    var p = fetch(baseUrl.origin + '/api/party/share/' + encodeURIComponent(id), {
-      method: 'GET',
-      credentials: 'include',
-      headers: { Accept: 'application/json' },
-    }).then(function (res) {
-      if (!res.ok) return res.text().then(function (t) {
-        throw new Error('GET ' + res.status + (t ? ': ' + t.slice(0, 80) : ''));
-      });
-      return res.json();
-    });
-    shareGetCache[key] = { p: p, t: Date.now() };
-    p.catch(function () {
-      // 실패 응답은 캐시 무효화 — 다음 호출에서 재시도 허용
-      if (shareGetCache[key] && shareGetCache[key].p === p) delete shareGetCache[key];
-    });
-    return p;
   }
 
   var SMARTNUO_STAT_KEYS = ['hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed'];
@@ -562,7 +525,7 @@
 
   /**
    * 팀빌더 슬롯 pokemon.moves[] 만으로 첫 유효 공격기 추출 — PokeAPI·moveKoMap 없음 (신규 기술 대응).
-   * URL 공유 경로(buildOneSide)는 옛 firstDamagingMoveMeta 유지.
+   * 못 찾으면 호출자가 firstDamagingMoveMeta 로 폴백.
    */
   function firstDamagingMoveFromSlotPokemon(slot, typeKoDoc, moveKoDoc, moveKoFallbackDoc) {
     var nested = (slot && slot.pokemon) || (slot && typeof slot === 'object' ? slot : null);
@@ -707,8 +670,7 @@
   }
 
   /**
-   * 슬롯 하나(공유 응답의 single 또는 팀빌더 bridge 의 단일 슬롯)에서 한쪽 페이로드를 만든다.
-   * URL 경로(buildOneSide) 와 슬롯 직접 경로(buildOneSideFromSlot) 가 공유한다.
+   * 슬롯 하나(팀빌더 bridge 의 단일 슬롯)에서 한쪽 페이로드를 만든다.
    * @param {object} slot raw slot (SR.flattenSlot 적용 가능한 형태)
    * @param {object} docs natureKoDoc / natureStatMulDoc / typeKoDoc / moveKoDoc / moveKoFallbackDoc / modifiersDoc / moveSlugToEnDoc / moveTagsDoc
    * @param {'attacker'|'defender'} role
@@ -811,26 +773,8 @@
     });
   }
 
-  function buildOneSide(urlText, docs, role, page) {
-    if (!page) page = 'calc';
-    var full = SR.normalizePartyUrlInput(urlText);
-    if (!full) return Promise.resolve({ error: 'empty_url' });
-
-    return fetchShareGET(full).then(function (j) {
-      var cls = SR.classifyShareGetResponse(j);
-      if (cls.type === 'party') {
-        return { error: 'party_url_not_supported' };
-      }
-      if (cls.type !== 'single') {
-        return { error: 'unknown_share_shape' };
-      }
-      return buildOneSideFromFlatSlot(cls.slot, docs, role, page);
-    });
-  }
-
   /**
    * defender 페이로드의 _defNatureRow 후처리 + incomingPhysical 결정.
-   * buildSidePayloads(URL 두 개) 와 buildSidePayloadFromSlot(슬롯 한 개) 가 공유한다.
    */
   function finalizePair(attacker, defender) {
     var incPhys = true;
@@ -857,46 +801,13 @@
   }
 
   /**
-   * @param {string} atkUrl
-   * @param {string} defUrl
-   * @param {{
-   *   natureKoDoc: object,
-   *   natureStatMulDoc: object,
-   *   typeKoDoc?: object,
-   *   moveKoDoc?: { byKo?: Record<string,string> },
-   *   moveKoFallbackDoc?: { byKo?: Record<string,string> },
-   *   modifiersDoc?: { abilities?: object }
-   * }} docs
-   */
-  function buildSidePayloads(atkUrl, defUrl, docs, page) {
-    if (!page) page = 'calc';
-    docs = docs || {};
-    cleanupLegacyKoSlugStorage();  // F0: 옛 storage 캐시 1회 청소
-    var pAtk = (atkUrl || '').trim()
-      ? buildOneSide(atkUrl, docs, 'attacker', page)
-      : Promise.resolve(null);
-    var pDef = (defUrl || '').trim()
-      ? buildOneSide(defUrl, docs, 'defender', page)
-      : Promise.resolve(null);
-
-    return Promise.all([pAtk, pDef]).then(function (pair) {
-      var attacker = pair[0];
-      var defender = pair[1];
-      if (page !== 'speed') {
-        finalizePair(attacker, defender);
-      }
-      return { attacker: attacker, defender: defender };
-    });
-  }
-
-  /**
    * 팀빌더 슬롯 객체 한 개를 한쪽 패널 페이로드로 변환. URL fetch 없음 — 어머니 사이트 트래픽 0.
    * @param {object} slot 팀빌더 bridge 가 준 single slot (SR.flattenSlot 적용 가능)
    * @param {'attacker'|'defender'} side 어느 패널에 적용할지
-   * @param {object} docs buildSidePayloads 와 동일한 8개 doc 묶음
+   * @param {object} docs background.js loadCalcPayloadDocs() 의 8개 doc 묶음
    * @returns {Promise<{attacker?: object, defender?: object}>} 한쪽만 채워진 모양 (반대쪽은 null).
    *   incomingPhysical 결정: attacker 단독이면 정의 안 됨 — 호출자가 onlyAttacker 를 줄 것.
-   *   defender 단독이면 디폴트 true (= URL 경로의 onlyDefender 케이스와 동일 동작).
+   *   defender 단독이면 디폴트 true.
    */
   function buildSidePayloadFromSlot(slot, side, docs, page) {
     if (!page) page = 'calc';
@@ -918,7 +829,6 @@
   }
 
   globalThis.nuoCalcPayload = {
-    buildSidePayloads: buildSidePayloads,
     buildSidePayloadFromSlot: buildSidePayloadFromSlot,
   };
 })();

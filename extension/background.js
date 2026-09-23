@@ -150,9 +150,8 @@ importScripts('showdownPaste.js');
   );
 
   /**
-   * F41: 계산기 자동입력 — GET_CALC_PAYLOADS / GET_CALC_PAYLOADS_FROM_SLOT 두 핸들러가
-   * 같은 8개 doc 묶음을 Promise.all 로 모았다. 새 doc 이 추가될 때 두 곳을 같이 손대야
-   * 하는 회귀를 막기 위해 헬퍼 한 곳으로 모은다.
+   * F41: 계산기 자동입력 GET_CALC_PAYLOADS_FROM_SLOT 의 8개 doc 묶음 (옛 URL 경로
+   * GET_CALC_PAYLOADS 와 공유하던 헬퍼 — URL 경로는 REDESIGN §11 에서 제거).
    *
    * F40: moveTags.json 은 calcPayload.js 자체 로더에서도 fetch 하던 것을 본 헬퍼로 단일화.
    * buildOneSideFromFlatSlot 가 docs.moveTagsDoc 를 그대로 읽는다.
@@ -492,8 +491,6 @@ importScripts('showdownPaste.js');
 
   /**
    * F14: 옛 if-체인을 dict lookup 으로. alias 키들은 같은 메시지를 명시적으로 매핑.
-   * cross-context 동기화 주의: `no_ps_id`·`unknown_share_shape` 두 키는 calcFillShared 의
-   * CALC_FILL_ERR_MSG 와 함께 사용된다 — 메시지 동일하게 유지.
    */
   var SHARE_ERR_MSG = {
     empty: 'URL을 입력해 주세요.',
@@ -849,28 +846,6 @@ importScripts('showdownPaste.js');
               bulkCompact: bulkCompact,
             });
           });
-        })
-        .catch(function (err) {
-          sendResponse({
-            ok: false,
-            error: mapShareError(err) || String((err && err.message) || err),
-          });
-        });
-      return true;
-    }
-
-    if (msg.type === 'GET_CALC_PAYLOADS') {
-      var CP = globalThis.nuoCalcPayload;
-      if (!CP || typeof CP.buildSidePayloads !== 'function') {
-        sendResponse({ ok: false, error: 'calc_payload_unavailable' });
-        return true;
-      }
-      loadCalcPayloadDocs()
-        .then(function (docs) {
-          return CP.buildSidePayloads(msg.atkUrl || '', msg.defUrl || '', docs, msg.page);
-        })
-        .then(function (payloads) {
-          sendResponse({ ok: true, payloads: payloads });
         })
         .catch(function (err) {
           sendResponse({

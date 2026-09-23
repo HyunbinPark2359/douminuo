@@ -131,16 +131,10 @@
 
   /**
    * F14: 옛 if-체인을 dict lookup 으로. 같은 의미의 alias 들은 한 줄씩 나란히 적어 둠.
-   * SW측 mapShareError 와 cross-context 동기화는 코드 공유 불가하므로 주석으로 가이드:
-   *   `no_ps_id`·`unknown_share_shape` 두 키만 양측에서 같이 쓰임 — 메시지 동일하게 유지.
    */
   var CALC_FILL_ERR_MSG = {
-    party_url_not_supported: '파티 공유 URL은 계산기 입력에 사용할 수 없습니다. 샘플 URL만 넣어 주세요.',
-    empty_url: '해당 칸에 URL을 입력해 주세요.',
-    no_ps_id: '#ps= 가 포함된 스마트누오 URL인지 확인해 주세요.',
     empty_slot: '샘플이 비어 있거나 종 이름을 읽지 못했습니다.',
     no_species: '샘플이 비어 있거나 종 이름을 읽지 못했습니다.',
-    unknown_share_shape: '지원하지 않는 공유 형식입니다.',
     vue_calc_not_found: '계산기 상태(attacker/defender)를 찾지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.',
     nuxt_state_not_found: '페이지 상태(Nuxt)를 읽지 못했습니다. 스마트누오를 새로고침한 뒤 다시 시도해 주세요.',
     species_not_in_dex: '도감에서 해당 종을 찾지 못했습니다. 이름·폼을 확인해 주세요.',

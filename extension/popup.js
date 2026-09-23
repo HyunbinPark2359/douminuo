@@ -22,8 +22,6 @@
   }
 
   var LK = {
-    showCalcFloating: 'nuo_fmt_showCalcFloating',
-    showTeamBuilderFloating: 'nuo_fmt_showTeamBuilderFloating',
     tbInlineEnabled: 'nuo_fmt_tbInlineEnabled',
     simpleSpeedCalcEnabled: 'nuo_fmt_simpleSpeedCalcEnabled',
     updateNoticeEnabled: 'nuo_fmt_updateNoticeEnabled',
@@ -39,8 +37,6 @@
   ];
   var FMT_KEYS = FMT.map(function (f) { return f.key; });
 
-  var showCalcFloatingEl = document.getElementById('showCalcFloating');
-  var showTeamBuilderFloatingEl = document.getElementById('showTeamBuilderFloating');
   var tbInlineEnabledEl = document.getElementById('tbInlineEnabled');
   var simpleSpeedCalcEnabledEl = document.getElementById('simpleSpeedCalcEnabled');
   var updateNoticeEnabledEl = document.getElementById('updateNoticeEnabled');
@@ -64,20 +60,10 @@
 
   function applyExtensionPrefsFromLocal(got) {
     if (chrome.runtime.lastError) {
-      if (showCalcFloatingEl) showCalcFloatingEl.checked = true;
-      if (showTeamBuilderFloatingEl) showTeamBuilderFloatingEl.checked = true;
       if (tbInlineEnabledEl) tbInlineEnabledEl.checked = true;
       if (simpleSpeedCalcEnabledEl) simpleSpeedCalcEnabledEl.checked = true;
       if (updateNoticeEnabledEl) updateNoticeEnabledEl.checked = true;
       return;
-    }
-    if (showCalcFloatingEl) {
-      showCalcFloatingEl.checked = got[LK.showCalcFloating] !== false;
-    }
-    if (showTeamBuilderFloatingEl) {
-      var teamF = got[LK.showTeamBuilderFloating];
-      if (teamF === undefined) teamF = got[LK.showCalcFloating];
-      showTeamBuilderFloatingEl.checked = teamF !== false;
     }
     if (tbInlineEnabledEl) {
       tbInlineEnabledEl.checked = got[LK.tbInlineEnabled] !== false;
@@ -115,8 +101,6 @@
   }
 
   var EXTENSION_PREF_KEYS = [
-    LK.showCalcFloating,
-    LK.showTeamBuilderFloating,
     LK.tbInlineEnabled,
     LK.simpleSpeedCalcEnabled,
     LK.updateNoticeEnabled,
@@ -131,8 +115,6 @@
       chrome.storage.local.get(FMT_KEYS, applyFormatOptions);
     }
     var hit =
-      Object.prototype.hasOwnProperty.call(changes, LK.showCalcFloating) ||
-      Object.prototype.hasOwnProperty.call(changes, LK.showTeamBuilderFloating) ||
       Object.prototype.hasOwnProperty.call(changes, LK.tbInlineEnabled) ||
       Object.prototype.hasOwnProperty.call(changes, LK.simpleSpeedCalcEnabled) ||
       Object.prototype.hasOwnProperty.call(changes, LK.updateNoticeEnabled);
@@ -154,19 +136,6 @@
   if (tbInlineEnabledEl) {
     tbInlineEnabledEl.addEventListener('change', function () {
       chrome.storage.local.set({ [LK.tbInlineEnabled]: !!tbInlineEnabledEl.checked });
-    });
-  }
-
-  if (showCalcFloatingEl) {
-    showCalcFloatingEl.addEventListener('change', function () {
-      chrome.storage.local.set({ [LK.showCalcFloating]: !!showCalcFloatingEl.checked });
-    });
-  }
-  if (showTeamBuilderFloatingEl) {
-    showTeamBuilderFloatingEl.addEventListener('change', function () {
-      chrome.storage.local.set({
-        [LK.showTeamBuilderFloating]: !!showTeamBuilderFloatingEl.checked,
-      });
     });
   }
 

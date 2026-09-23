@@ -2,7 +2,8 @@
  * 스마트누오 파티(팀빌더) 페이지 복사 아이콘 — 사이트 슬롯 `#N` 아이콘 줄 · `파티 리스트` 초록
  * 그룹에 합류 (REDESIGN §4.1 B). 슬롯 요약 복사 / 파티 복사. 서버·포맷 로직은 기존과 동일.
  * 복사 옵션 UI 는 환경설정(popup)으로 이관 — 여기선 chrome.storage.local 값만 읽음.
- * 성공: 아이콘 → 체크 1.2s. 오류: 아이콘 아래 말풍선 2.5s.
+ * 피드백 = 사이트 아이콘 줄 방식 — hover 툴팁 없음, 클릭 후 아이콘 위 말풍선
+ * (성공 "샘플 복사 완료" 1.5s — 사이트 실측, 오류 문구 2.5s).
  * 슬롯 갱신: MutationObserver + hashchange + 라우트 전환. 슬롯 스냅샷(hot/캐시)은 계산기
  * "내 파티" 줄이 읽는다.
  *
@@ -10,11 +11,6 @@
  */
 (function () {
   'use strict';
-
-  /** 팝업 환경설정: 계산기 "내 파티" 줄 */
-  var LOCAL_SHOW_CALC_FLOATING = 'nuo_fmt_showCalcFloating';
-  /** 팝업 환경설정: 파티 복사 아이콘 (미설정 시 계산기 키와 동일하게 취급) */
-  var LOCAL_SHOW_TEAM_FLOATING = 'nuo_fmt_showTeamBuilderFloating';
 
   var SK = {
     includeUrls: 'nuo_fmt_includeUrls',
@@ -36,14 +32,6 @@
       typeof CS.keepInjected !== 'function') {
     // teamBuilderShared / calcFillShared 가 못 올라왔으면 안전하게 종료. manifest 순서 점검.
     return;
-  }
-
-  /** Nuxt 슬롯 pokemon.name_kr 과 옛 키 병행 — 아이콘 접근성·툴팁. */
-  function slotPokeKr(slot) {
-    var nested = (slot && slot.pokemon) || slot || {};
-    return String(
-      nested.name_kr || nested.nameKr || nested.namekr || nested.species || nested.speciesName || ''
-    ).trim();
   }
 
   function copyTextBestEffort(text) {
@@ -150,13 +138,11 @@
   /* ===== 사이트 아이콘 줄 합류 (REDESIGN §4.1 B) ===== */
 
   var SUM_SVG = '<svg class="base" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>';
-  var OK_SVG = '<svg class="ok" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg>';
   var ICON_CSS = (globalThis.nuoTokensCss || '') + '\n' + (globalThis.nuoTeamCopyIconsCss || '');
+  // 간격은 host 인라인 — .ic 에 두면 host 폭에 섞여 말풍선 중앙이 어긋남. 인라인이라 사이트 preflight 도 이김.
   var HOST_INLINE = 'display:inline-flex;vertical-align:middle;';
 
-  var iconsOn = true;        // nuo_fmt_showTeamBuilderFloating (미설정 시 showCalcFloating 폴백)
   var filled = [false, false, false, false, false, false];
-  var lastSlots = null;
   var bridgeReady = false;
   var injectors = [];
 
@@ -190,34 +176,34 @@
    */
   function buildIcon(root, kind, label, onClick) {
     root.innerHTML = '<style>' + ICON_CSS + '</style>' +
-      '<button type="button" class="ic ' + kind + '"></button><div class="tip" role="alert" hidden></div>';
+      '<button type="button" class="ic ' + kind + '"></button><div class="tip" role="status" hidden></div>';
     var btn = root.querySelector('.ic');
     var tip = root.querySelector('.tip');
-    btn.innerHTML = SUM_SVG + OK_SVG;
+    btn.innerHTML = SUM_SVG;
     btn.setAttribute('aria-label', label);
-    btn.setAttribute('title', label);
     var timers = [];
     function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+    function showTip(text, ms) {
+      tip.textContent = text;
+      tip.hidden = false;
+      timers.push(setTimeout(function () { tip.hidden = true; }, ms));
+    }
     var fb = {
       busy: function () {
         clearTimers();
         tip.hidden = true;
-        btn.classList.remove('done');
         btn.classList.add('busy');
         btn.setAttribute('aria-busy', 'true');
       },
       done: function () {
         btn.classList.remove('busy');
         btn.removeAttribute('aria-busy');
-        btn.classList.add('done');
-        timers.push(setTimeout(function () { btn.classList.remove('done'); }, 1200));
+        showTip('샘플 복사 완료', 1500);
       },
       fail: function (msg) {
         btn.classList.remove('busy');
         btn.removeAttribute('aria-busy');
-        tip.textContent = msg != null ? String(msg) : '';
-        tip.hidden = false;
-        timers.push(setTimeout(function () { tip.hidden = true; }, 2500));
+        showTip(msg != null ? String(msg) : '', 2500);
       }
     };
     btn.addEventListener('click', function (ev) {
@@ -323,12 +309,11 @@
       (function (idx1) {
         injectors.push(CS.keepInjected({
           key: 'tb-slot-copy-' + idx1,
-          hostStyle: HOST_INLINE,
-          enabled: function () { return iconsOn && bridgeReady && isTeamBuilderRoute() && filled[idx1 - 1] === true; },
+          hostStyle: HOST_INLINE + 'margin-left:4px;',
+          enabled: function () { return bridgeReady && isTeamBuilderRoute() && filled[idx1 - 1] === true; },
           find: function () { return findSlotIconRow(idx1); },
           build: function (root) {
-            var kr = lastSlots && lastSlots[idx1 - 1] ? slotPokeKr(lastSlots[idx1 - 1]) : '';
-            return buildIcon(root, 'slot', (kr ? kr + ' ' : '') + '요약 샘플 복사', function (fb) {
+            return buildIcon(root, 'slot', '요약 샘플 복사', function (fb) {
               runCopySlot(idx1, fb);
             });
           }
@@ -337,8 +322,8 @@
     }
     injectors.push(CS.keepInjected({
       key: 'tb-party-copy',
-      hostStyle: HOST_INLINE,
-      enabled: function () { return iconsOn && bridgeReady && isTeamBuilderRoute() && filled.indexOf(true) >= 0; },
+      hostStyle: HOST_INLINE + 'margin-right:4px;',
+      enabled: function () { return bridgeReady && isTeamBuilderRoute() && filled.indexOf(true) >= 0; },
       find: findPartyIconGroup,
       build: function (root) {
         return buildIcon(root, 'party', '파티 샘플 복사', function (fb) { runCopyPartyShareUrl(fb); });
@@ -356,7 +341,7 @@
   }
 
   function refreshSlots() {
-    if (!bridgeReady || !iconsOn) return;
+    if (!bridgeReady) return;
     if (!isTeamBuilderRoute()) {
       clearFilled();
       return;
@@ -372,35 +357,17 @@
         TBS.setSlotSnapshot({ slots: r.slots, slotArt: r.slotArt });
       }
       filled = r.filled.slice(0, 6);
-      lastSlots = r.slots;
       refreshInjectors();
     });
-  }
-
-  function applyIconsPref(got) {
-    var v = got ? got[LOCAL_SHOW_TEAM_FLOATING] : undefined;
-    if (v === undefined && got) v = got[LOCAL_SHOW_CALC_FLOATING];
-    iconsOn = v !== false;
-    if (iconsOn && !bridgeReady) {
-      injectTeamBridgeOnce().then(function () {
-        bridgeReady = true;
-        refreshSlots();
-      }).catch(function () {});
-    }
-    // 꺼져 있는 동안 MO 가 갱신을 건너뛰었으므로 다시 켤 때 슬롯 상태부터 새로 읽음.
-    if (iconsOn && bridgeReady) refreshSlots();
-    refreshInjectors();
   }
 
   function init() {
     if (!isSmartnuoHost()) return;
     registerInjectors();
-    chrome.storage.local.get([LOCAL_SHOW_TEAM_FLOATING, LOCAL_SHOW_CALC_FLOATING], function (got) {
-      applyIconsPref(chrome.runtime.lastError ? null : got);
-    });
-    if (CS.onLocalPrefChange) {
-      CS.onLocalPrefChange([LOCAL_SHOW_TEAM_FLOATING, LOCAL_SHOW_CALC_FLOATING], applyIconsPref);
-    }
+    injectTeamBridgeOnce().then(function () {
+      bridgeReady = true;
+      refreshSlots();
+    }).catch(function () {});
     var tbMoTouchSlot =
       typeof TBS.tbMoRecordsTouchSlotList === 'function'
         ? TBS.tbMoRecordsTouchSlotList
@@ -409,7 +376,7 @@
           };
     var moTimer = null;
     var mo = new MutationObserver(function (records) {
-      if (!iconsOn || !tbMoTouchSlot(records)) return;
+      if (!tbMoTouchSlot(records)) return;
       clearTimeout(moTimer);
       moTimer = setTimeout(refreshSlots, 500);
     });
