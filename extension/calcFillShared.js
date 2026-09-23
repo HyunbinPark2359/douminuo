@@ -214,9 +214,9 @@
 
   /* ===== REDESIGN §4.1: 사이트 DOM 앵커 삽입 ===== */
 
-  /** 사이트 PC 레이아웃(tailwind `pc:` = min-width 1024px) 여부. 삽입 진입점은 PC 전용. */
+  /** 사이트 PC 레이아웃(tailwind `pc:` = min-width 820px, 2026-09-23 실측) 여부. 삽입 진입점은 PC 전용. */
   function isPcLayout() {
-    try { return window.matchMedia('(min-width: 1024px)').matches; } catch (e) { return true; }
+    try { return window.matchMedia('(min-width: 820px)').matches; } catch (e) { return true; }
   }
 
   /**
@@ -253,7 +253,8 @@
 
   function syncInjected(s) {
     var on = false;
-    try { on = isPcLayout() && !!s.enabled(); } catch (eEn) { on = false; }
+    // extAlive: refresh() 경로(슬롯 MO 등)로도 불리므로 폴링 정지만으론 부족 — 옛 스크립트 재삽입 차단.
+    try { on = extAlive() && isPcLayout() && !!s.enabled(); } catch (eEn) { on = false; }
     if (!on) { unmountInjected(s); return; }
     // 붙어 있으면 find 생략 — 폴링 비용은 앵커를 못 찾은 동안에만 든다.
     if (s.host && s.host.isConnected) return;
