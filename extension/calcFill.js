@@ -1,39 +1,26 @@
 /**
- * smartnuo.com 계산기 자동 입력 — 본 라운드 “팀 슬롯 원클릭” 으로 UI 재작성.
+ * smartnuo.com 계산기·스피드 자동 입력 — 좌/우 패널 "내 파티" 줄 (REDESIGN §4.1 A).
  *
- * 옛 좌/우 puck(공격/수비 두 dock) → 폐기. 단일 FAB(우하단, 팀빌더 FAB 와 같은 자리·크기)
- * 로 통합:
- *  - 큰 버튼 = 공격/수비 모드 토글 (검·방패 SVG, 텍스트 라벨 없음). yellowish(공) /
- *    greenish(수) 색은 styles/calcPanel.js 의 CSS 변수가 .is-mode-atk / .is-mode-def 로
- *    동적 전환.
- *  - 위에서 아래 7칸: Write 슬롯 + 슬롯 1~6.
- *      Write 클릭 → 좌측으로 펼치는 URL 입력 morph (옛 puck 의 URL 입력 흐름을 한 곳에
- *      축약). orchestrateCalcFillSide(URL 경로) 그대로 재사용.
- *      슬롯 1~6 클릭 → 현재 토글 모드 측 패널에 즉시 자동 입력. SW 메시지
- *      GET_CALC_PAYLOADS_FROM_SLOT 으로 페이로드 변환 → applyPayloads.
+ *  - 프로필 헤더 아래 섹션으로 삽입 (calcFillShared.keepInjected). 누른 패널 = 적용 측
+ *    (좌 = 공격, 우 = 수비) — 옛 FAB 의 공격/수비 모드 토글은 폐지.
+ *  - 칩 1~6 클릭 → SW GET_CALC_PAYLOADS_FROM_SLOT 로 페이로드 변환 → applyPayloads.
+ *  - URL pill → 같은 줄 인라인 필드 펼침 → orchestrateCalcFillSide(URL 경로) 재사용.
  *  - 슬롯 데이터: 콘텐츠 스크립트 isolated world 의 hot snapshot → chrome.storage.local
  *    영속 캐시 순서로 read. **bridge 호출 안 함**(T-1) — 계산기 라우트로 이동하면 팀빌더
  *    Vue store 가 unmount 되었을 가능성이 높아 빈 결과로 hot/캐시 를 덮어쓸 위험 회피.
- *    둘 다 비어 있으면 슬롯 6칸 회색 placeholder + 헤더 토스트(C-3).
- *  - 좌측 설정 트레이는 만들지 않음(C-6) — 클립보드 복사 옵션은 계산기 자동입력 흐름과
- *    무관. “있어도 동작 안 하는 UI” 가 되므로 통째로 생략.
- *  - 슬롯 hover 아이콘 = 검(공) / 방패(수), 토글 색을 그대로 따라감 — “지금 누르면 어디로
- *    가는가” 가 토글 + hover 두 곳에서 일관됨.
+ *    둘 다 비어 있으면 칩 대신 안내 문구.
  *
- * 브리지(MAIN bridge calcFillBridge.js) 주입은 background.js 의 INJECT_CALC_BRIDGE 로
- * 그대로. 페이로드 적용 측은 변경 없음 — 본 라운드는 “페이로드를 어떻게 만드는가” 만 확장.
+ * 브리지(MAIN bridge calcFillBridge.js) 주입은 background.js 의 INJECT_CALC_BRIDGE 로 그대로.
  */
 (function () {
   'use strict';
 
-  /** session 에만 보관하는 UX state. atk/def 토글 모드는 콘텐츠 스크립트 메모리에만 유지
-   *  (사용자 답변 §9-2: 항상 '공' 으로 시작 — 새로고침 시 자동 리셋이 자연스러움) */
+  /** session 에만 보관하는 UX state — 패널별 URL 입력 자동복원. */
   var SK = {
-    calcWriteUrlAtk: 'nuo_fmt_calcAtkUrl',  // 옛 키 그대로 — Write morph 의 URL 입력 자동복원
+    calcWriteUrlAtk: 'nuo_fmt_calcAtkUrl',  // 옛 키 그대로 — URL 입력 자동복원
     calcWriteUrlDef: 'nuo_fmt_calcDefUrl',
   };
 
-  var PANEL_HOST_ID = 'nuo-fmt-calc-panel-host';
   var LOCAL_SHOW_FLOAT = 'nuo_fmt_showCalcFloating';
 
   var CS = globalThis.nuoCsCommon || {};
@@ -280,639 +267,233 @@
     return Promise.resolve(null);
   }
 
-  /* ===== Shadow DOM 마크업 ===== */
+  /* ===== "내 파티" 줄 (REDESIGN §4.1 A) ===== */
 
-  /** 공격(검) — 옛 calcFill `morph-orb` 의 SVG 그대로 재사용. */
-  var SWORD_SVG =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<path d="M14.5 17.5L3 6V3h3l11.5 11.5" />' +
-    '<path d="M13 19l6-6" />' +
-    '<path d="M16 16l4 4" />' +
-    '<path d="M19 21l2-2" />' +
-    '</svg>';
+  var ROW_CSS = (globalThis.nuoTokensCss || '') + '\n' + (globalThis.nuoCalcPartyRowCss || '');
+  var rowsOn = true;                 // nuo_fmt_showCalcFloating
+  var snap = { slots: null, art: [], filled: [], msg: '' };
+  var renderers = [];                // 붙어 있는 줄들의 render
 
-  /** 수비(방패) — 옛 calcFill `morph-orb` 의 SVG 그대로 재사용. */
-  var SHIELD_SVG =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />' +
-    '</svg>';
-
-  /**
-   * 슬롯 hover — Font Awesome Free v7.2.0 "file-import" 솔리드. “이 슬롯의 샘플을 가져오기”
-   * 의 의미. 모드(공/수) 무관 단일 아이콘 — 모드 색은 부모 .lyr-ic 의 color 가 mode-tint.
-   * https://fontawesome.com/license/free  Copyright 2026 Fonticons, Inc.
-   */
-  var FILE_IMPORT_SVG =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true">' +
-    '<path d="M192 64C156.7 64 128 92.7 128 128L128 368L310.1 368L279.1 337C269.7 327.6 269.7 312.4 279.1 303.1C288.5 293.8 303.7 293.7 313 303.1L385 375.1C394.4 384.5 394.4 399.7 385 409L313 481C303.6 490.4 288.4 490.4 279.1 481C269.8 471.6 269.7 456.4 279.1 447.1L310.1 416.1L128 416.1L128 512.1C128 547.4 156.7 576.1 192 576.1L448 576.1C483.3 576.1 512 547.4 512 512.1L512 234.6C512 217.6 505.3 201.3 493.3 189.3L386.7 82.7C374.7 70.7 358.5 64 341.5 64L192 64zM453.5 240L360 240C346.7 240 336 229.3 336 216L336 122.5L453.5 240z"/>' +
-    '</svg>';
-
-  /**
-   * Write 슬롯 — Font Awesome Free v7.2.0 "pen-to-square" 솔리드.
-   * https://fontawesome.com/license/free  Copyright 2026 Fonticons, Inc.
-   * 사용자 지정(§5.4 SVG 본문 인라인 보존).
-   */
-  var PEN_TO_SQUARE_SVG =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true">' +
-    '<path d="M535.6 85.7C513.7 63.8 478.3 63.8 456.4 85.7L432 110.1L529.9 208L554.3 183.6C576.2 161.7 576.2 126.3 554.3 104.4L535.6 85.7zM236.4 305.7C230.3 311.8 225.6 319.3 222.9 327.6L193.3 416.4C190.4 425 192.7 434.5 199.1 441C205.5 447.5 215 449.7 223.7 446.8L312.5 417.2C320.7 414.5 328.2 409.8 334.4 403.7L496 241.9L398.1 144L236.4 305.7zM160 128C107 128 64 171 64 224L64 480C64 533 107 576 160 576L416 576C469 576 512 533 512 480L512 384C512 366.3 497.7 352 480 352C462.3 352 448 366.3 448 384L448 480C448 497.7 433.7 512 416 512L160 512C142.3 512 128 497.7 128 480L128 224C128 206.3 142.3 192 160 192L256 192C273.7 192 288 177.7 288 160C288 142.3 273.7 128 256 128L160 128z"/>' +
-    '</svg>';
-
-  var SPINNER_SVG =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
-    '<circle cx="12" cy="12" r="9" stroke-linecap="round" stroke-dasharray="14 32"/>' +
-    '</svg>';
-
-  var CHECK_SVG =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
-    '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>' +
-    '</svg>';
-
-  var BAN_SVG =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
-    '<circle cx="12" cy="12" r="9" />' +
-    '<path stroke-linecap="round" d="M7 7l10 10" />' +
-    '</svg>';
-
-  var BAN_SVG_SLIM =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<circle cx="12" cy="12" r="10" />' +
-    '<path d="M4.9 4.9l14.2 14.2" />' +
-    '</svg>';
-
-  /** F46: 그라데이션 ::before/::after 와 분리한 은은한 glow( opacity cross-fade 전용 span ). */
-  var FAB_GLOW_RINGS_HTML =
-    '<span class="fab-glow-ring fab-glow-ring-a" aria-hidden="true"></span>' +
-    '<span class="fab-glow-ring fab-glow-ring-b" aria-hidden="true"></span>';
-
-  /** 슬롯/토글 공통 피드백 layer (hover/busy/done/err). */
-  function feedbackHtmlForSlot() {
-    return (
-      '<span class="fab-fb" aria-hidden="true">' +
-      '<span class="lyr lyr-hover">' +
-      '<span class="lyr-bg"></span>' +
-      '<span class="lyr-ic lyr-ic-import">' + FILE_IMPORT_SVG + '</span>' +
-      '<span class="lyr-ic lyr-ic-ban">' + BAN_SVG_SLIM + '</span>' +
-      '</span>' +
-      '<span class="lyr lyr-busy"><span class="lyr-bg"></span><span class="lyr-ic">' + SPINNER_SVG + '</span></span>' +
-      '<span class="lyr lyr-done"><span class="lyr-bg"></span><span class="lyr-ic">' + CHECK_SVG + '</span></span>' +
-      '<span class="lyr lyr-err"><span class="lyr-bg"></span><span class="lyr-ic">' + BAN_SVG + '</span></span>' +
-      '</span>'
-    );
+  /** 슬롯 객체에 비어 있지 않은 값이 하나라도 있으면 채워진 것 (teamBuilderBridge.slotEmpty 와 동의). */
+  function deriveFilled(slots) {
+    var i, out = [];
+    for (i = 0; i < 6; i++) {
+      var s = slots && slots[i];
+      if (!s || typeof s !== 'object') { out.push(false); continue; }
+      var keys = Object.keys(s).filter(function (k) {
+        var v = s[k];
+        if (v == null || v === '') return false;
+        if (Array.isArray(v) && v.length === 0) return false;
+        if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) return false;
+        return true;
+      });
+      out.push(keys.length > 0);
+    }
+    return out;
   }
 
-  /** 토글 버튼 피드백 — hover 는 안 쓰고 busy/done/err 만. */
-  function feedbackHtmlForToggle() {
-    return (
-      '<span class="fab-fb" aria-hidden="true">' +
-      '<span class="lyr lyr-busy"><span class="lyr-bg"></span><span class="lyr-ic">' + SPINNER_SVG + '</span></span>' +
-      '<span class="lyr lyr-done"><span class="lyr-bg"></span><span class="lyr-ic">' + CHECK_SVG + '</span></span>' +
-      '<span class="lyr lyr-err"><span class="lyr-bg"></span><span class="lyr-ic">' + BAN_SVG + '</span></span>' +
-      '</span>'
-    );
+  function renderAll() {
+    renderers.forEach(function (fn) { try { fn(); } catch (e) {} });
   }
 
-  function buildShadowMarkup(root) {
-    root.innerHTML =
-      '<style>' + (globalThis.nuoCalcPanelCss || '') + '</style>' +
-      '<div class="fab-root nuo-off is-mode-atk" id="fabRoot" part="fab">' +
-      '  <div class="fab-inner">' +
-      '    <div class="fab-dock" id="fabDock">' +
-      '      <div class="fab-head-toast" id="fabHeadToast" role="alert" aria-live="assertive"></div>' +
-      '      <div class="fab-dock-main">' +
-      '        <div class="fab-write-wrap" id="fabWriteWrap">' +
-      '          <div class="fab-write-morph" id="fabWriteMorph" tabindex="0" role="group" aria-label="공유 URL 입력">' +
-      FAB_GLOW_RINGS_HTML +
-      '            <span class="fab-write-bg-expanded" aria-hidden="true"></span>' +
-      '            <div class="fab-write-gear" aria-hidden="true">' + PEN_TO_SQUARE_SVG + '</div>' +
-      '            <div class="fab-write-panel-content">' +
-      '              <div class="fab-write-head">' +
-      '                <span id="fabWriteHeadLabel">공격 샘플 URL</span>' +
-      '              </div>' +
-      '              <input type="text" class="fab-write-inp" id="fabWriteInp" spellcheck="false" autocomplete="off" placeholder="https://smartnuo.com/#ps=..." />' +
-      '              <button type="button" class="fab-write-apply" id="fabWriteApply">' +
-      '                <span class="fab-write-apply-label">입력</span>' +
-      '                <span class="fab-write-spinner" hidden aria-hidden="true"></span>' +
-      '              </button>' +
-      '              <p class="fab-write-status" id="fabWriteStatus" role="status" aria-live="polite"></p>' +
-      '            </div>' +
-      '          </div>' +
-      '        </div>' +
-      '        <div class="fab-party-col">' +
-      '          <div class="fab-slots" id="fabSlots"></div>' +
-      '          <div class="fab-party-wrap">' +
-      '            <button type="button" class="fab-btn fab-mode-toggle" id="fabModeToggle" aria-label="공격으로 적용 / 클릭 시 수비로 전환">' +
-      FAB_GLOW_RINGS_HTML +
-      '              <span class="fab-toggle-ic fab-toggle-ic-atk">' + SWORD_SVG + '</span>' +
-      '              <span class="fab-toggle-ic fab-toggle-ic-def">' + SHIELD_SVG + '</span>' +
-      feedbackHtmlForToggle() +
-      '            </button>' +
-      '          </div>' +
-      '        </div>' +
-      '      </div>' +
-      '    </div>' +
-      '  </div>' +
-      '</div>';
-  }
-
-  function mountCalcSamplePanel() {
-    CS.mountFloatingPanel({
-      hostId: PANEL_HOST_ID,
-      buildShadow: function (root) {
-        buildShadowMarkup(root);
-
-    var fabRoot = root.getElementById('fabRoot');
-    var fabDock = root.getElementById('fabDock');
-    var fabSlots = root.getElementById('fabSlots');
-    var modeToggle = root.getElementById('fabModeToggle');
-    var headToast = root.getElementById('fabHeadToast');
-
-    var writeWrap = root.getElementById('fabWriteWrap');
-    var writeMorph = root.getElementById('fabWriteMorph');       // 단일 엘리먼트 — hover 시 자기 자신을 panel 로 변형 (팀빌더 .fab-settings-morph 패턴)
-    var writeHeadLabel = root.getElementById('fabWriteHeadLabel');
-    var writeInp = root.getElementById('fabWriteInp');
-    var writeApply = root.getElementById('fabWriteApply');
-    var writeSpin = writeApply.querySelector('.fab-write-spinner');
-    var writeStatus = root.getElementById('fabWriteStatus');
-
-    /** 현재 토글 모드 — 메모리에만 보관 (페이지 새로고침 시 atk 으로 리셋). */
-    var modeAtk = true;
-
-    function applyModeClass() {
-      if (!fabRoot) return;
-      fabRoot.classList.toggle('is-mode-atk', modeAtk);
-      fabRoot.classList.toggle('is-mode-def', !modeAtk);
-      // Write panel head 라벨도 mode 따라 — 좌측 puck hover 시 보임.
-      if (writeHeadLabel) {
-        writeHeadLabel.textContent = modeAtk ? '공격 샘플 URL' : '수비 샘플 URL';
+  var snapInflight = false;
+  function refreshSnapshot() {
+    if (snapInflight) return;
+    snapInflight = true;
+    getSlotsFromHotOrCache().then(function (s) {
+      snapInflight = false;
+      if (s && Array.isArray(s.slots) && s.slots.length > 0) {
+        snap = { slots: s.slots, art: s.slotArt || [], filled: deriveFilled(s.slots), msg: '' };
+      } else {
+        snap = { slots: null, art: [], filled: [], msg: '파티 페이지를 한 번 열어 주세요' };
       }
-      // aria-label: “지금 보이는 게 아니라 누르면 어디로 가는가” 기조
-      modeToggle.setAttribute(
-        'aria-label',
-        modeAtk
-          ? '공격 모드 — 클릭 시 수비로 전환'
-          : '수비 모드 — 클릭 시 공격으로 전환'
-      );
+      renderAll();
+    }).catch(function () {
+      snapInflight = false;
+      snap = { slots: null, art: [], filled: [], msg: '팀 정보를 불러오지 못했습니다.' };
+      renderAll();
+    });
+  }
+
+  /** 좌(idx 0) / 우(idx 1) 패널 프로필 헤더(`시즌…` 줄을 품은 border-bottom 박스) 다음 형제 자리. */
+  function findProfileHeaderSlot(idx) {
+    var leaves = CS.findTextLeaves(/^시즌/);
+    var el = leaves[idx];
+    while (el && el !== document.body) {
+      var cs = getComputedStyle(el);
+      if (cs.borderBottomStyle !== 'none' && parseFloat(cs.borderBottomWidth) > 0 && el.offsetHeight >= 40) {
+        return { parent: el.parentElement, before: el.nextElementSibling };
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function buildPartyRow(root, side) {
+    var urlKey = side === 'attacker' ? SK.calcWriteUrlAtk : SK.calcWriteUrlDef;
+    var chipsHtml = '';
+    var i;
+    for (i = 1; i <= 6; i++) {
+      chipsHtml += '<button type="button" class="chip" aria-label="#' + i + ' 슬롯">' +
+        '<img alt="" decoding="async" /><span class="num">' + i + '</span></button>';
+    }
+    root.innerHTML = '<style>' + ROW_CSS + '</style>' +
+      '<div class="sec"><div class="row"><p class="ttl">내 파티</p>' +
+      '<div class="chips">' + chipsHtml + '<span class="empty" hidden></span></div>' +
+      '<button type="button" class="pill" aria-expanded="false">URL</button></div>' +
+      '<div class="url" hidden><div class="field"><label>샘플 URL</label>' +
+      '<input type="text" spellcheck="false" autocomplete="off" placeholder="https://smartnuo.com/#ps=..." /></div>' +
+      '<button type="button" class="apply">적용</button></div>' +
+      '<p class="msg" role="status" aria-live="polite"></p></div>';
+
+    var chips = [].slice.call(root.querySelectorAll('.chip'));
+    var emptyEl = root.querySelector('.empty');
+    var pill = root.querySelector('.pill');
+    var urlBox = root.querySelector('.url');
+    var inp = root.querySelector('input');
+    var apply = root.querySelector('.apply');
+    var msgEl = root.querySelector('.msg');
+    var msgTimer = null;
+    var persistTimer = null;
+
+    function setMsg(text, kind, holdMs) {
+      clearTimeout(msgTimer);
+      msgEl.textContent = text || '';
+      msgEl.classList.toggle('err', kind === 'err');
+      if (text && holdMs) msgTimer = setTimeout(function () { setMsg(''); }, holdMs);
     }
 
-    /* ===== 슬롯 1~6 DOM 생성 (Write 는 이제 좌측 puck — markup 에 박혀 있음) ===== */
-
-    var slotBtns = [];
-    var bi;
-    for (bi = 1; bi <= 6; bi++) {
-      (function (idx1) {
-        var row = document.createElement('div');
-        row.className = 'fab-slot-row';
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'fab-btn fab-slot is-empty';
-        b.disabled = true;
-        b.setAttribute('data-slot-idx', String(idx1));
-        b.setAttribute('aria-label', '#' + idx1 + ' 슬롯');
-        b.innerHTML =
-          FAB_GLOW_RINGS_HTML +
-          '<span class="fab-slot-label">' +
-          '<img class="fab-slot-mon" alt="" decoding="async" />' +
-          '<span class="fab-slot-fallback-num">' + idx1 + '</span>' +
-          '</span>' +
-          feedbackHtmlForSlot();
-        row.appendChild(b);
-        fabSlots.appendChild(row);
-        slotBtns.push(b);
-      })(bi);
-    }
-
-    /* ===== 슬롯 visuals: hot/cache 데이터로 image/disabled 갱신 ===== */
-
-    /** in-memory 의 “현재 슬롯 데이터” — 클릭 시점에 사용. */
-    var currentSlots = null;
-    /** 슬롯 데이터 갱신 1회 진행중 가드. */
-    var snapshotInflight = false;
-
-    function applySlotVisuals(slotArt, filledArr) {
-      var i, b, art, hasMon, hasArt, imgEl;
-      for (i = 0; i < 6; i++) {
-        b = slotBtns[i];
-        if (!b) continue;
-        art = (slotArt && slotArt[i]) || '';
-        hasMon = !!(filledArr && filledArr[i]);
-        hasArt = !!(hasMon && art);
-        // 팀빌더 FAB 와 동일 패턴: disabled 안 걸고 .is-empty 클래스로만 “비어있음” 표시.
-        // 그래야 빈 슬롯에도 hover 가 살아있어 ban 아이콘이 뜸 (disabled 상태에선
-        // .fab-btn:not(:disabled):hover 셀렉터 발화 안 됨).
-        // sprite 빈 문자열 슬롯도 filled 면 클릭 가능 — 썸네일만 fallback 숫자.
-        b.disabled = false;
-        b.classList.toggle('is-empty', !hasMon);
-        b.classList.toggle('has-mon', !!hasMon);
-        imgEl = b.querySelector('.fab-slot-mon');
-        if (imgEl) {
-          if (hasArt) {
-            if (imgEl.getAttribute('src') !== art) imgEl.setAttribute('src', art);
-          } else {
-            imgEl.removeAttribute('src');
-          }
+    function render() {
+      var has = !!snap.slots;
+      emptyEl.hidden = has;
+      emptyEl.textContent = has ? '' : snap.msg;
+      chips.forEach(function (c, k) {
+        c.hidden = !has;
+        var on = has && snap.filled[k] === true;
+        c.disabled = !on;
+        var img = c.querySelector('img');
+        var art = on && snap.art[k] ? String(snap.art[k]) : '';
+        if (art) {
+          if (img.getAttribute('src') !== art) img.setAttribute('src', art);
+        } else {
+          img.removeAttribute('src');
         }
-      }
-    }
-
-    /** 슬롯 6칸 모두 회색 + 비활성. */
-    function clearAllSlotVisuals() {
-      applySlotVisuals(null, null);
-    }
-
-    function deriveFilled(slots) {
-      var i, out = [];
-      for (i = 0; i < 6; i++) {
-        var s = slots && slots[i];
-        if (!s || typeof s !== 'object') { out.push(false); continue; }
-        // 매우 단순한 휴리스틱: nameKr / species / name 또는 stats 가 있으면 채워진 것으로 간주.
-        // teamBuilderBridge.flattenSlot/slotEmpty 와 의미는 같지만 content script 에 SR 없음.
-        var keys = Object.keys(s).filter(function (k) {
-          var v = s[k];
-          if (v == null || v === '') return false;
-          if (Array.isArray(v) && v.length === 0) return false;
-          if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) return false;
-          return true;
-        });
-        out.push(keys.length > 0);
-      }
-      return out;
-    }
-
-    function setHeadToast(msg) {
-      if (!headToast) return;
-      headToast.textContent = msg || '';
-      headToast.classList.toggle('show', !!msg);
-    }
-
-    function refreshSlotsFromSnapshot() {
-      if (snapshotInflight) return;
-      snapshotInflight = true;
-      getSlotsFromHotOrCache().then(function (snap) {
-        snapshotInflight = false;
-        if (snap && Array.isArray(snap.slots) && snap.slots.length > 0) {
-          currentSlots = snap.slots;
-          var filled = deriveFilled(snap.slots);
-          applySlotVisuals(snap.slotArt || [], filled);
-          setHeadToast('');
-          return;
-        }
-        currentSlots = null;
-        clearAllSlotVisuals();
-        setHeadToast('팀빌더 페이지를 한 번 열어 주세요.');
-      }).catch(function () {
-        snapshotInflight = false;
-        currentSlots = null;
-        clearAllSlotVisuals();
-        setHeadToast('팀 정보를 불러오지 못했습니다.');
+        c.classList.toggle('has-art', !!art);
       });
     }
 
-    /* ===== 피드백 helper ===== */
-
-    function setBtnState(b, state) {
-      if (!b) return;
-      b.classList.remove('fab-busy', 'fab-done', 'fab-err', 'fab-bounce');
-      if (state) b.classList.add('fab-' + state);
-    }
-
-    function flashClickBounce(b) {
-      if (!b || b.disabled || b.classList.contains('fab-err')) return;
-      b.classList.remove('fab-bounce');
-      // reflow
-      try { void b.offsetWidth; } catch (e) {}
-      b.classList.add('fab-bounce');
-      setTimeout(function () {
-        try { b.classList.remove('fab-bounce'); } catch (eRm) {}
-      }, 200);
-    }
-
-    function showSlotError(b, msg) {
-      setBtnState(b, 'err');
-      // 헤더 토스트 영역을 슬롯 에러 메시지로 일시 노출
-      setHeadToast(msg || '입력에 실패했습니다.');
-      setTimeout(function () {
-        if (b.classList.contains('fab-err')) setBtnState(b, '');
-      }, 1300);
-      setTimeout(function () {
-        // 슬롯 데이터 자체는 유효하므로 토스트는 다시 비움
-        setHeadToast('');
-      }, 2200);
-    }
-
-    function showSlotSuccess(b) {
-      setBtnState(b, 'done');
-      setTimeout(function () {
-        if (b.classList.contains('fab-done')) setBtnState(b, '');
-      }, 1100);
-    }
-
-    /* ===== 슬롯 클릭 → 자동 입력 ===== */
-
-    function onSlotClick(idx0) {
-      var b = slotBtns[idx0];
-      if (!b) return;
-      // 빈 슬롯: 시각 피드백(bounce) 만, 실제 자동입력은 진행 안 함. 팀빌더 FAB 와 동일 패턴.
-      if (b.classList.contains('is-empty')) {
-        flashClickBounce(b);
-        return;
-      }
-      if (b.classList.contains('fab-busy') || b.classList.contains('fab-done') || b.classList.contains('fab-err')) {
-        return;
-      }
-      var slot = currentSlots && currentSlots[idx0];
-      if (!slot) {
-        showSlotError(b, '슬롯을 읽지 못했습니다.');
-        return;
-      }
-      flashClickBounce(b);
-      setBtnState(b, 'busy');
-      orchestrateCalcFillFromSlot(slot, modeAtk ? 'attacker' : 'defender')
-        .then(function () {
-          showSlotSuccess(b);
-        })
-        .catch(function (err) {
-          var msg = (err && err.message) || mapErr('');
-          showSlotError(b, msg);
+    chips.forEach(function (c, k) {
+      c.querySelector('img').addEventListener('error', function () {
+        this.removeAttribute('src');
+        c.classList.remove('has-art');
+      });
+      c.addEventListener('click', function () {
+        if (c.disabled || c.classList.contains('busy')) return;
+        var slot = snap.slots && snap.slots[k];
+        if (!slot) { setMsg('슬롯을 읽지 못했습니다.', 'err', 2500); return; }
+        c.classList.remove('done', 'err');
+        c.classList.add('busy');
+        setMsg('');
+        orchestrateCalcFillFromSlot(slot, side).then(function () {
+          c.classList.remove('busy');
+          c.classList.add('done');
+          setTimeout(function () { c.classList.remove('done'); }, 1200);
+        }).catch(function (err) {
+          c.classList.remove('busy');
+          c.classList.add('err');
+          setTimeout(function () { c.classList.remove('err'); }, 1200);
+          setMsg((err && err.message) || mapErr(''), 'err', 2500);
         });
-    }
-
-    var si;
-    for (si = 0; si < 6; si++) {
-      (function (idx0) {
-        slotBtns[idx0].addEventListener('click', function (ev) {
-          ev.stopPropagation();
-          onSlotClick(idx0);
-        });
-      })(si);
-    }
-
-    /* ===== Write puck (좌측, hover 진입점) ===== */
-
-    /**
-     * 현재 토글 모드에 맞는 URL 을 session storage 에서 다시 읽어 input 에 표시.
-     * mode 토글 / dock 펼침 / 초기 마운트 시 호출.
-     */
-    function refreshWriteInputForMode() {
-      try {
-        chrome.storage.session.get([SK.calcWriteUrlAtk, SK.calcWriteUrlDef], function (got) {
-          if (chrome.runtime.lastError) return;
-          if (!writeInp) return;
-          var v = modeAtk ? got[SK.calcWriteUrlAtk] : got[SK.calcWriteUrlDef];
-          writeInp.value = v != null ? String(v) : '';
-        });
-      } catch (e) {}
-      setWriteStatus('');
-    }
-
-    // morph 클릭 — 빈 영역(gear/bg) 이면 input 으로 focus 이동(편의용 단축).
-    // 입력란/apply 버튼 자체 클릭은 native 이벤트가 bubble 되어 여기 도달하지만 input 에 다시 focus
-    // 하는 건 무해. apply 클릭은 자기 핸들러에서 stopPropagation.
-    writeMorph.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      if (writeInp && ev.target !== writeApply) {
-        try { writeInp.focus(); } catch (eFc) {}
-      }
+      });
     });
 
-    function setWriteStatus(msg, kind) {
-      writeStatus.textContent = msg || '';
-      writeStatus.classList.remove('err', 'ok');
-      if (kind === 'err') writeStatus.classList.add('err');
-      else if (kind === 'ok') writeStatus.classList.add('ok');
-    }
+    pill.addEventListener('click', function () {
+      var open = urlBox.hidden;
+      urlBox.hidden = !open;
+      pill.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (!open) { setMsg(''); return; }
+      try {
+        chrome.storage.session.get([urlKey], function (got) {
+          if (chrome.runtime.lastError) return;
+          inp.value = got[urlKey] != null ? String(got[urlKey]) : '';
+        });
+      } catch (eS) {}
+      try { inp.focus(); } catch (eF) {}
+    });
 
-    function setWriteApplyBusy(on) {
-      writeApply.disabled = !!on;
-      writeSpin.hidden = !on;
-      writeApply.setAttribute('aria-busy', on ? 'true' : 'false');
-    }
-
-    var writePersistTimer = null;
-    function scheduleWritePersist() {
-      clearTimeout(writePersistTimer);
-      writePersistTimer = setTimeout(function () {
-        try {
-          var o = {};
-          if (modeAtk) o[SK.calcWriteUrlAtk] = writeInp.value;
-          else o[SK.calcWriteUrlDef] = writeInp.value;
-          chrome.storage.session.set(o);
-        } catch (e) {}
+    inp.addEventListener('input', function () {
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(function () {
+        var o = {};
+        o[urlKey] = inp.value;
+        try { chrome.storage.session.set(o); } catch (eP) {}
       }, 200);
-    }
-    writeInp.addEventListener('input', scheduleWritePersist);
+    });
+    inp.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') apply.click();
+    });
 
-    writeApply.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      setWriteStatus('');
-      setWriteApplyBusy(true);
-      var url = writeInp.value;
-      var opts = modeAtk
+    apply.addEventListener('click', function () {
+      if (apply.disabled) return;
+      apply.disabled = true;
+      setMsg('');
+      var url = inp.value;
+      var opts = side === 'attacker'
         ? { atkUrl: url, defUrl: '', onlyAttacker: true, onlyDefender: false }
         : { atkUrl: '', defUrl: url, onlyAttacker: false, onlyDefender: true };
-      orchestrateCalcFillSide(opts)
-        .then(function (r) {
-          var w = r && r.warnings;
-          if (Array.isArray(w) && w.length) {
-            setWriteStatus('입력을 완료했습니다. 참고: ' + w.join(' '), 'ok');
-          } else {
-            setWriteStatus('입력을 완료했습니다.', 'ok');
-          }
-          scheduleWritePersist();
-        })
-        .catch(function (err) {
-          setWriteStatus((err && err.message) || mapErr(''), 'err');
-        })
-        .then(function () {
-          setWriteApplyBusy(false);
-        });
-    });
-
-    /* ===== 모드 토글 ===== */
-
-    modeToggle.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      flashClickBounce(modeToggle);
-      modeAtk = !modeAtk;
-      applyModeClass();
-      refreshWriteInputForMode();   // 모드 변경 시 URL 입력란도 해당 모드 값으로 교체
-    });
-
-    // input focus 시 dock 자동 닫힘 차단 / blur 시 다시 close 스케줄.
-    writeInp.addEventListener('focus', function () {
-      cancelDockCloseTimer();
-    });
-    writeInp.addEventListener('blur', function () {
-      // 마우스가 dock 위면 mouseover 가 cancel 시키니, 그 외 케이스에서만 닫힘.
-      scheduleDockClose();
-    });
-
-    /* ===== Dock open/close: hover 기반 (팀빌더 FAB 와 동일) ===== */
-
-    var dockCloseTimer = null;
-    function cancelDockCloseTimer() {
-      if (dockCloseTimer) {
-        clearTimeout(dockCloseTimer);
-        dockCloseTimer = null;
-      }
-    }
-    function openDock() {
-      if (!fabDock) return;
-      cancelDockCloseTimer();
-      fabDock.classList.add('fab-dock--open');
-      if (fabRoot) fabRoot.classList.add('fab-root--dock-open');
-      // 펼치는 시점에 슬롯 visuals 재갱신 (사용자가 다른 탭에서 팀빌더 변경한 후 돌아온 케이스)
-      refreshSlotsFromSnapshot();
-      refreshWriteInputForMode();
-    }
-    function scheduleDockClose() {
-      if (!fabDock) return;
-      cancelDockCloseTimer();
-      dockCloseTimer = setTimeout(function () {
-        dockCloseTimer = null;
-        if (!fabDock) return;
-        // input 에 focus 가 있으면 dock 유지 (사용자가 키보드로 입력 중일 수 있음).
-        if (writeInp && root.activeElement === writeInp) return;
-        fabDock.classList.remove('fab-dock--open');
-        if (fabRoot) fabRoot.classList.remove('fab-root--dock-open');
-      }, 90);
-    }
-    function onDockMouseOut(ev) {
-      if (!fabDock) return;
-      var rt = ev.relatedTarget;
-      if (rt && fabDock.contains(rt)) return;
-      scheduleDockClose();
-    }
-    function onDockMouseOver() {
-      cancelDockCloseTimer();
-    }
-    if (fabDock) {
-      modeToggle.addEventListener('mouseenter', openDock);
-      fabDock.addEventListener('mouseout', onDockMouseOut);
-      fabDock.addEventListener('mouseover', onDockMouseOver);
-    }
-
-    /* ===== 외부 클릭 / Esc — hover-only panel 이라 morph close 핸들러는 더 이상 없음. ESC 는 input blur. ===== */
-
-    function onKeyDown(ev) {
-      if (ev.key === 'Escape') {
-        if (root.activeElement === writeInp) {
-          try { writeInp.blur(); } catch (eEsc) {}
-        }
-      }
-    }
-    window.addEventListener('keydown', onKeyDown, true);
-
-    /* ===== 표시 휴리스틱 (계산기 화면일 때만 보이기) ===== */
-
-    function setWrapVisible(on) {
-      if (!fabRoot) return;
-      fabRoot.classList.toggle('nuo-off', !on);
-    }
-
-    function syncCalcHeuristic() {
-      var on = isCalcOrSpeedRoute();
-      setWrapVisible(on);
-      if (on) {
-        // 표시 시점에 1회 갱신
-        refreshSlotsFromSnapshot();
-        refreshWriteInputForMode();
-      } else {
-        // 숨겨질 때 dock 도 접음 — write panel 은 hover-only 라 자동으로 사라짐.
-        if (fabDock) fabDock.classList.remove('fab-dock--open');
-        if (fabRoot) fabRoot.classList.remove('fab-root--dock-open');
-        if (writeInp && root.activeElement === writeInp) {
-          try { writeInp.blur(); } catch (eBl) {}
-        }
-      }
-    }
-
-    /* ===== 초기화 ===== */
-
-    applyModeClass();
-    syncCalcHeuristic();
-    refreshWriteInputForMode();
-
-    window.addEventListener('hashchange', function () {
-      setTimeout(syncCalcHeuristic, 100);
-    });
-    // R3: SPA pushState 라우트 전환 시 즉시 표시/숨김 갱신.
-    if (CS.onRouteChange) {
-      CS.onRouteChange(syncCalcHeuristic);
-    }
-
-    // 슬롯 데이터가 다른 콘텐츠 스크립트(팀빌더 FAB / 인라인 어노)에 의해 갱신되었을 때
-    // 우리도 visuals 즉시 갱신할 수 있도록, dock 펼칠 때 + heuristic on 일 때 이미 갱신함.
-    // 여기에 추가로 chrome.storage.onChanged 리스너로 영속 캐시 변경에도 반응 — 다른 탭에서
-    // 팀빌더를 수정한 케이스 보강.
-    if (CS.onLocalPrefChange) {
-      CS.onLocalPrefChange(['nuo_fmt_teamSlotsCache'], function () {
-        if (fabRoot && !fabRoot.classList.contains('nuo-off')) {
-          refreshSlotsFromSnapshot();
-        }
+      orchestrateCalcFillSide(opts).then(function (r) {
+        var w = r && r.warnings;
+        setMsg(Array.isArray(w) && w.length ? '입력 완료. 참고: ' + w.join(' ') : '입력 완료', 'ok', 2500);
+      }).catch(function (err) {
+        setMsg((err && err.message) || mapErr(''), 'err');
+      }).then(function () {
+        apply.disabled = false;
       });
-    }
-
-    // REMOVE_GHOST_RING: 아래 한 블록과 extension/calcGhostRing.js, manifest 의 해당 라인만
-    // 지우면 ghost ring 기능을 깨끗이 제거 가능 (CALC_PARTY_FILL_PLAN.md §4 격리 가이드).
-    var ghostRingPref = { enabled: true };
-    var ghostRingHandle = null;
-    if (globalThis.nuoGhostRing && fabRoot) {
-      try {
-        ghostRingHandle = globalThis.nuoGhostRing.attach(
-          fabRoot,
-          function () {
-            return modeAtk ? 'attacker' : 'defender';
-          },
-          {
-            getGhostRingEnabled: function () {
-              return ghostRingPref.enabled;
-            },
-          }
-        );
-      } catch (eGr) {}
-    }
-    // ghost ring은 계산기 FAB on/off에 편입 — 별도 설정 없이 항상 활성
-    ghostRingPref.enabled = true;
-      }
     });
+
+    renderers.push(render);
+    render();
+    return function teardown() {
+      clearTimeout(msgTimer);
+      clearTimeout(persistTimer);
+      var ix = renderers.indexOf(render);
+      if (ix >= 0) renderers.splice(ix, 1);
+    };
   }
 
-  function tryMountPanel() {
-    if (!document.body) return;
-    mountCalcSamplePanel();
+  function rowSpec(side, idx) {
+    return {
+      key: 'calc-party-' + side,
+      enabled: function () { return rowsOn && isCalcOrSpeedRoute(); },
+      find: function () { return findProfileHeaderSlot(idx); },
+      build: function (root) {
+        refreshSnapshot();
+        return buildPartyRow(root, side);
+      }
+    };
   }
 
-  function removeCalcPanelHost() {
-    var h = document.getElementById(PANEL_HOST_ID);
-    if (h) {
-      h.remove();
-    }
-  }
-
-  function startCalcFloatingFromSettings() {
+  function init() {
+    if (typeof CS.keepInjected !== 'function') return;
+    CS.keepInjected(rowSpec('attacker', 0));
+    CS.keepInjected(rowSpec('defender', 1));
     chrome.storage.local.get([LOCAL_SHOW_FLOAT], function (got) {
-      if (chrome.runtime.lastError) {
-        tryMountPanel();
-        return;
-      }
-      if (got[LOCAL_SHOW_FLOAT] === false) return;
-      tryMountPanel();
+      rowsOn = chrome.runtime.lastError ? true : got[LOCAL_SHOW_FLOAT] !== false;
     });
-  }
-
-  function initFloatingPanelGate() {
-    startCalcFloatingFromSettings();
     if (CS.onLocalPrefChange) {
-      CS.onLocalPrefChange([LOCAL_SHOW_FLOAT], function (got) {
-        if (got[LOCAL_SHOW_FLOAT] === false) removeCalcPanelHost();
-        else tryMountPanel();
+      CS.onLocalPrefChange([LOCAL_SHOW_FLOAT], function (got) { rowsOn = got[LOCAL_SHOW_FLOAT] !== false; });
+      CS.onLocalPrefChange(['nuo_fmt_teamSlotsCache'], function () {
+        if (renderers.length) refreshSnapshot();
       });
+    }
+    if (CS.onRouteChange) {
+      CS.onRouteChange(function () { if (isCalcOrSpeedRoute()) refreshSnapshot(); });
     }
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initFloatingPanelGate);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    initFloatingPanelGate();
+    init();
   }
 })();
