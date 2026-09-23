@@ -13,6 +13,7 @@
   var css = (globalThis.nuoTokensCss || '') + '\n' + (globalThis.nuoPrefsModalCss || '');
   var escHandler = null;
   var heightHandler = null;
+  var LEAVE_MS = 150; // 사이트 p-dialog-leave-active 와 동일
 
   function onSupportedRoute() {
     var r = CS.getRoute ? CS.getRoute() : 'other';
@@ -31,9 +32,15 @@
     return null;
   }
 
+  /** 닫힘 = 사이트 Dialog leave 모션(역재생) 후 제거. 재진입 가드는 host id 가 제거 시점까지 유지. */
   function close() {
     var h = document.getElementById(MODAL_HOST_ID);
-    if (h && h.parentNode) h.parentNode.removeChild(h);
+    if (h && !h.getAttribute('data-leaving')) {
+      h.setAttribute('data-leaving', '1');
+      var bd = h.shadowRoot && h.shadowRoot.querySelector('.backdrop');
+      if (bd) bd.classList.remove('on');
+      setTimeout(function () { if (h.parentNode) h.parentNode.removeChild(h); }, LEAVE_MS);
+    }
     if (escHandler) { document.removeEventListener('keydown', escHandler, true); escHandler = null; }
     if (heightHandler) { window.removeEventListener('message', heightHandler); heightHandler = null; }
   }
@@ -54,6 +61,15 @@
       '  </div>' +
       '</div>';
     var frame = root.querySelector('.frame');
+    var box = root.querySelector('.box');
+    var backdrop = root.querySelector('.backdrop');
+    // dim 은 바로, 박스는 iframe 이 제 높이를 알려 준 뒤 등장 — 빈 박스·높이 점프 안 보이게.
+    // 메시지가 안 오면(로드 실패 등) 600ms 뒤 그냥 보임.
+    function reveal() { box.classList.add('ready'); }
+    var revealTimer = setTimeout(reveal, 600);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { backdrop.classList.add('on'); });
+    });
     frame.src = chrome.runtime.getURL('popup.html') + '?embed=1';
     frame.addEventListener('load', function () {
       try { frame.contentWindow.focus(); } catch (eF) {}
@@ -70,6 +86,8 @@
       if (!ev.data || ev.data.source !== 'nuo-popup-embed' || ev.data.type !== 'NUO_POPUP_EMBED_HEIGHT') return;
       var h = Number(ev.data.height);
       if (h > 0) frame.style.height = Math.min(h + 2, 580) + 'px';
+      clearTimeout(revealTimer);
+      requestAnimationFrame(reveal);
     };
     window.addEventListener('message', heightHandler);
   }

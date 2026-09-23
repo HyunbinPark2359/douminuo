@@ -14,7 +14,10 @@
         }, '*');
       }
     }
-    if (document.readyState === 'loading') {
+    // 웹폰트 적용 뒤 높이 — 부모 모달이 이 메시지를 받고 나서 등장하므로 글꼴 교체 번쩍임이 안 보임.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(sendEmbedHeight);
+    } else if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', sendEmbedHeight);
     } else {
       sendEmbedHeight();
