@@ -2,7 +2,7 @@
  * updateToast.js — 업데이트 알림 인페이지 토스트.
  * smartnuo.com 페이지 로드 시 nuo_fmt_pendingUpdateNotice 가 있으면
  * 우상단에 Shadow DOM 토스트를 표시한다.
- * 자체 완결 (nuoCsCommon 의존 없음).
+ * nuoCsCommon 의존 없음, 토큰(styles/nuoTokens.js)만 사용.
  */
 (function () {
   'use strict';
@@ -51,83 +51,36 @@
 
     function startDismiss() {
       clearTimeout(autoTimer);
-      var toastEl = shadow.querySelector('.toast');
-      if (!toastEl) { doActualDismiss(); return; }
-      var rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (rm) { doActualDismiss(); return; }
-      toastEl.classList.add('hiding');
-      var done = false;
-      function onEnd() { if (done) return; done = true; doActualDismiss(); }
-      toastEl.addEventListener('animationend', onEnd);
-      setTimeout(onEnd, 500);
+      doActualDismiss();
     }
 
     var css = [
       ':host { all: initial; }',
+      (globalThis.nuoTokensCss || ''),
       '*, *::before, *::after { box-sizing: border-box; }',
       '.toast {',
-      '  position: fixed;',
-      '  top: 80px;',
-      '  right: 16px;',
-      '  z-index: 2147483647;',
-      '  background: linear-gradient(180deg, #f7fcfe 0%, #ffffff 42%, #e8f4fa 100%);',
-      '  border-radius: 14px;',
-      '  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(156, 207, 229, 0.65);',
-      '  padding: 11px 14px;',
-      '  display: flex;',
-      '  align-items: center;',
-      '  gap: 8px;',
-      '  font-family: SCDream, system-ui, sans-serif;',
-      '  font-size: 13px;',
-      '  color: #1e293b;',
-      '  line-height: 1.5;',
-      '  max-width: 340px;',
-      '  animation: nuo-toast-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);',
-      '}',
-      '@keyframes nuo-toast-in {',
-      '  from { opacity: 0; transform: translateX(calc(100% + 32px)); }',
-      '  to   { opacity: 1; transform: translateX(0); }',
-      '}',
-      '@keyframes nuo-toast-out {',
-      '  from { opacity: 1; }',
-      '  to   { opacity: 0; }',
-      '}',
-      '.toast.hiding {',
-      '  animation: nuo-toast-out 0.25s ease forwards;',
-      '}',
-      '@media (prefers-reduced-motion: reduce) {',
-      '  .toast         { animation: none !important; }',
-      '  .toast.hiding  { animation: none !important; opacity: 0; }',
+      '  position: fixed; top: 20px; right: 20px; z-index: 2147483647;',
+      '  display: flex; align-items: center; gap: 10px; max-width: 340px;',
+      '  padding: 10px 12px; background: #fff;',
+      '  border: 1px solid var(--nuo-border); border-radius: 8px; box-shadow: var(--nuo-shadow);',
+      '  font: 400 12px/1.5 var(--nuo-font); color: var(--nuo-text);',
       '}',
       '.msg { flex: 1; white-space: nowrap; }',
-      '.version {',
-      '  color: #2563eb;',
-      '  text-decoration: underline;',
-      '  cursor: pointer;',
-      '  font-weight: 400;',
-      '}',
-      '.version:hover { color: #1d4ed8; }',
-      '.dismiss {',
-      '  background: none;',
-      '  border: none;',
-      '  cursor: pointer;',
-      '  color: #94a3b8;',
-      '  font-size: 15px;',
-      '  line-height: 1;',
-      '  padding: 0 2px;',
-      '  flex-shrink: 0;',
-      '}',
-      '.dismiss:hover { color: #475569; }',
+      '.version { color: var(--nuo-primary); cursor: pointer; font-weight: 500; }',
+      '.version:hover { text-decoration: underline; }',
+      '.dismiss { flex: 0 0 auto; width: 16px; height: 16px; padding: 0; border: 0; background: none; color: var(--nuo-text-muted); cursor: pointer; line-height: 0; transition: color 0.15s; }',
+      '.dismiss:hover { color: var(--nuo-primary); }',
+      '@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }'
     ].join('\n');
 
-    // 구조: "도우미누오가 [v1.5.0]으로 업데이트됐어요! [아이콘] [✕]"
+    // 구조: "도우미누오가 [v1.5.0]으로 업데이트되었습니다. [×]"
     shadow.innerHTML =
       '<style>' + css + '</style>' +
       '<div class="toast">' +
         '<span class="msg">' +
-          '도우미누오가 <span class="version"></span>으로 업데이트됐어요!' +
+          '도우미누오가 <span class="version"></span>으로 업데이트되었습니다.' +
         '</span>' +
-        '<button class="dismiss" aria-label="닫기">✕</button>' +
+        '<button class="dismiss" aria-label="닫기"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="1.5" y1="1.5" x2="10.5" y2="10.5"/><line x1="10.5" y1="1.5" x2="1.5" y2="10.5"/></svg></button>' +
       '</div>';
 
     // textContent로 삽입 (XSS 방지)
@@ -189,7 +142,7 @@
       window.open(CHANGELOG_URL, '_blank');
     });
 
-    // 닫기 버튼 → fade-out 후 dismiss
+    // 닫기 버튼 → 즉시 dismiss
     shadow.querySelector('.dismiss').addEventListener('click', function () {
       startDismiss();
     });

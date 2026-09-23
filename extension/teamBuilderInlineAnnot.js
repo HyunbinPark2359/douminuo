@@ -1,7 +1,7 @@
 /**
  * 팀빌더 좌측 샘플 카드 인라인: 결정력(기술명 직후) · 우상단 물리/특수 내구.
  *
- * F6: 옛 teamBuilderFill.js 에서 분리. FAB(우하단 플로팅) 와 인라인 어노테이션은
+ * F6: 옛 teamBuilderFill.js 에서 분리. 복사 진입점(teamBuilderFill) 과 인라인 어노테이션은
  * 독립된 시스템이라 한 IIFE 에 묶을 이유가 없었음. 분리 후 각 파일이 ~700 / ~1400 줄.
  *
  * 의존: globalThis.nuoCsCommon (calcFillShared.js), globalThis.nuoTeamBuilderShared
@@ -61,9 +61,9 @@
     var st = document.createElement('style');
     st.id = TB_INLINE_STYLE_ID;
     st.textContent =
-      '.nuo-fmt-tb-ann{font-size:9px;font-weight:400;color:#64748b;display:inline;}' +
+      '.nuo-fmt-tb-ann{font-size:9px;font-weight:400;color:#888;display:inline;}' +
       '.nuo-fmt-tb-ann-num{white-space:nowrap;}' +
-      '.nuo-fmt-tb-bulk-corner{position:absolute;top:8px;right:10px;font-size:9px;font-weight:400;color:#64748b;line-height:1.2;text-align:right;white-space:nowrap;pointer-events:none;z-index:4;}';
+      '.nuo-fmt-tb-bulk-corner{position:absolute;top:8px;right:10px;font-size:9px;font-weight:400;color:#888;line-height:1.2;text-align:right;white-space:nowrap;pointer-events:none;z-index:4;}';
     document.head.appendChild(st);
   }
 
