@@ -176,6 +176,7 @@
   /* ===== "내 파티" 줄 (REDESIGN §4.1 A) ===== */
 
   var ROW_CSS = (globalThis.nuoTokensCss || '') + '\n' + (globalThis.nuoCalcPartyRowCss || '');
+  var UPLOAD_SVG = '<svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M264-192q-30 0-51-21t-21-51v-36q0-15 10-25.5t26-10.5q15 0 25.5 10.5T264-300v36h432v-36q0-15 10.5-25.5T732-336q15 0 25.5 10.5T768-300v36q0 30-21 51t-51 21H264Zm180-486-80 80q-11 11-25.5 11T313-598q-11-11-11-25.5t11-25.5l142-142q5-5 11.5-7.5T480-801q7 0 13.5 2.5T505-791l142 142q11 11 11 25t-10.5 25Q636-588 621.5-588T596-599l-80-79v306q0 15-10.5 25.5T480-336q-15 0-25.5-10.5T444-372v-306Z"/></svg>';
   var snap = { slots: null, art: [], filled: [], msg: '' };
   var renderers = [];                // 붙어 있는 줄들의 render
 
@@ -242,8 +243,10 @@
         '<img alt="" decoding="async" /><span class="num">' + i + '</span></button>';
     }
     root.innerHTML = '<style>' + ROW_CSS + '</style>' +
-      '<div class="sec"><div class="row"><p class="ttl">내 파티</p>' +
-      '<div class="chips">' + chipsHtml + '<span class="empty" hidden></span></div></div>' +
+      '<div class="sec"><div class="fld"><p class="ttl">내 파티</p>' +
+      '<div class="chips">' + chipsHtml + '<span class="empty" hidden></span></div>' +
+      '<span class="bar"></span>' +
+      '<button type="button" class="load" aria-label="저장한 샘플 불러오기">' + UPLOAD_SVG + '</button></div>' +
       '<p class="msg" role="status" aria-live="polite"></p></div>';
 
     var chips = [].slice.call(root.querySelectorAll('.chip'));
@@ -299,6 +302,21 @@
           setTimeout(function () { c.classList.remove('err'); }, 1200);
           setMsg((err && err.message) || mapErr(''), 'err', 2500);
         });
+      });
+    });
+
+    // 저장한 샘플 불러오기 (SAMPLE_LIBRARY_PLAN §5.3·§5.4) — 슬롯 스냅샷과 무관하게 항상 보임.
+    var LIB = globalThis.nuoSampleLibrary;
+    root.querySelector('.load').addEventListener('click', function () {
+      if (!LIB || typeof LIB.openListDialog !== 'function') return;
+      LIB.openListDialog({
+        hint: side === 'defender' ? '누르면 수비 측에 입력' : '누르면 공격 측에 입력',
+        onPick: function (item) {
+          setMsg('');
+          orchestrateCalcFillFromSlot(item.slot, side).catch(function (err) {
+            setMsg((err && err.message) || mapErr(''), 'err', 2500);
+          });
+        }
       });
     });
 
