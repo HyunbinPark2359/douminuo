@@ -16,9 +16,12 @@
 
   g.nuoSampleCardCss = [
     '* { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--nuo-font); }',
-    '.count { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 11px; color: var(--nuo-text-muted); }',
+    // 라벨 가운데 · 뱃지 오른쪽 — 3칸 grid(양옆 1fr 동일)라 뱃지 폭과 무관하게 라벨이 정확히 중앙.
+    '.count { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 6px; font-size: 11px; color: var(--nuo-text-muted); }',
+    // 제목 스타일 = 사이트 섹션 제목('공격 수치' 등) 14px/500, 자간 -0.35 (옛 "내 파티" 제목과 같은 값).
+    '.count .lbl { grid-column: 2; font-size: 14px; font-weight: 500; letter-spacing: -0.35px; color: var(--nuo-text-strong); }',
     // 개수 뱃지 = 사이트 파티 탭 "SP 66/66" 뱃지 실측(2026-09-24: 9px/300 lh13.5, padding 2px 8px, radius 5) — 색만 회색.
-    '.badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 5px; background: var(--nuo-neutral-btn); font-size: 9px; font-weight: 300; line-height: 13.5px; color: #fff; }',
+    '.badge { grid-column: 3; justify-self: end; display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 5px; background: var(--nuo-neutral-btn); font-size: 9px; font-weight: 300; line-height: 13.5px; color: #fff; }',
     '.badge svg { width: 10px; height: 10px; fill: #fff; }',
     '.empty { padding: 8px 0 2px; font-size: 11px; color: var(--nuo-text-muted); text-align: center; word-break: keep-all; }',
     '.msg { margin-bottom: 6px; font-size: 11px; color: var(--nuo-primary); }',

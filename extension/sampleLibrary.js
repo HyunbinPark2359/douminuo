@@ -214,7 +214,7 @@
         '<p class="empty">저장한 샘플이 없습니다</p>';
     }
     // 개수 뱃지 = 파티 탭 우측 패널 "SP 66/66" 뱃지 실측(9px/300, padding 2px 8px, radius 5) + 회색(사용자 선택)
-    return '<p class="count">내 샘플 목록<span class="badge">' + BOX_SVG + items.length + '/' + LIMIT + '</span></p>' +
+    return '<p class="count"><span class="lbl">내 샘플</span><span class="badge">' + BOX_SVG + items.length + '/' + LIMIT + '</span></p>' +
       '<p class="msg" role="status"></p>' +
       '<div class="shell"><div class="list">' + items.map(renderCard).join('') + '</div>' +
       '<div class="sb"><div class="thumb"></div></div><div class="tip" role="status" hidden></div></div>';

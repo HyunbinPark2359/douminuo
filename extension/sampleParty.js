@@ -145,8 +145,9 @@
   }
 
   function buildDialogList(root, host) {
-    root.innerHTML = '<style>' + TOKENS + '\n:host { all: initial; display: block; margin-top: 12px; }\n' +
-      (g.nuoSampleCardCss || '') + '</style><div class="lib"></div>';
+    // 버튼 줄과의 간격은 Shadow 안 .lib 에 — host 의 margin 은 사이트 preflight(* { margin:0 })가 이김.
+    root.innerHTML = '<style>' + TOKENS + '\n:host { all: initial; display: block; }\n' +
+      (g.nuoSampleCardCss || '') + '\n.lib { margin-top: 12px; }</style><div class="lib"></div>';
     // 카드(사이트 336.67px)가 들어가도록 사이트 다이얼로그 폭 320 → 380.
     // 인라인 width 는 안 됨: URL 칸 입력마다 Dialog 가 re-render 되며 Vue 가 인라인 width:320px 를 다시 씀 (2026-09-24 실측).
     // → 문서 stylesheet !important (인라인 일반 선언보다 우선) + 표시 속성. 철거 시 둘 다 제거.
