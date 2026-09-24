@@ -33,6 +33,7 @@ scripts/legacy/regulationMaSpeedRefNamu.json
 /SETTINGS_FAB_PLAN.md
 /POWER_BULK_CALC_DATA_PLAN.md
 /REDESIGN_PLAN.md
+/SAMPLE_LIBRARY_PLAN.md
 /docs/
 
 # Legacy demo media (v0.1–v0.2) — kept locally for history, not published
@@ -47,3 +48,4 @@ scripts/legacy/regulationMaSpeedRefNamu.json
 .DS_Store
 Thumbs.db
 *.zip
+.superpowers/
