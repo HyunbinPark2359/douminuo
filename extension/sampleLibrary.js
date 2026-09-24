@@ -118,7 +118,7 @@
     var k;
     for (k = 0; k < 4; k++) {
       var m = moves[k];
-      var mName = m ? String(m.name_kr || '') : '';
+      var mName = m ? String(m.name_kr || textOf(m.name)) : ''; // name_kr 빈 문자열 슬롯 있음 → 사이트처럼 name.kr 폴백
       var mIcon = mName && A.move[m.type] ? '<img src="' + A.move[m.type] + '" alt="">' : '';
       h += '<div class="mv">' + (mName ? mIcon + '<span>' + esc(mName) + '</span>' : '') + '</div>';
     }

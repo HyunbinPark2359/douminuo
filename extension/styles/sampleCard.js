@@ -22,7 +22,7 @@
     '.msg:empty { display: none; }',
     // 네이티브 스크롤바 숨김(Windows 기본 바가 카드 폭을 14px 깎음) + 오버레이 thumb — styles/speedPanel.js .inline-sb 와 같은 값.
     '.shell { position: relative; }',
-    '.list { max-height: 395px; overflow-y: auto; scrollbar-width: none; }',
+    '.list { max-height: 395px; overflow-y: auto; padding-right: 2px; scrollbar-width: none; }', // padding 2 → 카드 336.8 (사이트 336.7)
     '.list::-webkit-scrollbar { width: 0; height: 0; }',
     '.list > .card:last-child { margin-bottom: 0; }',
     '.sb { position: absolute; top: 0; bottom: 0; right: 1px; width: 6px; opacity: 0; transition: opacity .35s ease; pointer-events: none; z-index: 20; }',
