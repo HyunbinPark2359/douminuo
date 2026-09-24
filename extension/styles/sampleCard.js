@@ -20,7 +20,10 @@
     '.empty { padding: 8px 0 2px; font-size: 11px; color: var(--nuo-text-muted); text-align: center; word-break: keep-all; }',
     '.msg { margin-bottom: 6px; font-size: 11px; color: var(--nuo-primary); }',
     '.msg:empty { display: none; }',
-    '.list { max-height: 395px; overflow-y: auto; padding-right: 2px; }',
+    // 스크롤바 숨김 = 사이트 스크롤 영역 규칙(.p-scrollpanel-content 등 display:none)과 동일. Windows 기본 바가 카드 폭을 14px 깎음.
+    '.list { max-height: 395px; overflow-y: auto; scrollbar-width: none; }',
+    '.list::-webkit-scrollbar { display: none; }',
+    '.list > .card:last-child { margin-bottom: 0; }',
     '.head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 12px; color: #272727; }',
     '.head .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
     '.del { flex: none; width: 12px; height: 12px; padding: 0; border: 0; background: none; color: #808080; cursor: pointer; line-height: 0; }',
