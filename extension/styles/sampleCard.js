@@ -81,7 +81,8 @@
     '.backdrop.on { background: rgba(0, 0, 0, 0.5); }',
     '.box { position: relative; padding: 0 20px 20px; background: #fff; border: 1px solid var(--p-surface-200, #e2e8f0); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); opacity: 0; scale: 0.75; transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), scale 0.15s cubic-bezier(0.4, 0, 0.2, 1); }',
     '.backdrop.on .box { opacity: 1; scale: 1; transition-timing-function: cubic-bezier(0, 0, 0.2, 1); }',
-    '.box.list-box { width: 380px; }',
+    // 사이트 원본은 위 여백 0(제목이 윗변에 붙음) — 우리 계산기 창만 사방 20 으로 보정 (사용자 요청 2026-09-24).
+    '.box.list-box { width: 380px; padding-top: 20px; }',
     '.hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }',
     '.ttl { display: flex; align-items: center; font-size: 15px; font-weight: 500; color: #E4007F; }',
     '.ttl img { width: 24px; height: 24px; margin-right: 6px; }',
