@@ -85,13 +85,120 @@ function resolveIdent(chunks, file, id, depth) {
   return null;
 }
 
+/* ===== PNG 축소 (stdlib zlib 만) — 테라 200px 원본이 12px 로만 표시돼 용량 낭비 (자산 파일 375KB 중 297KB) ===== */
+
+const zlib = require('zlib');
+
+function paeth(a, b, c) {
+  const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+  return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+}
+
+/** RGBA 8bit PNG (비인터레이스·Adam7) → { w, h, px: Uint8Array RGBA }. 다른 형식은 throw. */
+function decodePng(buf) {
+  let pos = 8, w = 0, h = 0, interlace = 0;
+  const idat = [];
+  while (pos < buf.length) {
+    const len = buf.readUInt32BE(pos), type = buf.toString('ascii', pos + 4, pos + 8), d = buf.subarray(pos + 8, pos + 8 + len);
+    if (type === 'IHDR') {
+      w = d.readUInt32BE(0); h = d.readUInt32BE(4); interlace = d[12];
+      if (d[8] !== 8 || d[9] !== 6) throw new Error('RGBA 8bit PNG 아님');
+    } else if (type === 'IDAT') idat.push(d);
+    pos += 12 + len;
+  }
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  const px = new Uint8Array(w * h * 4);
+  const passes = interlace ? [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]] : [[0, 0, 1, 1]];
+  let off = 0;
+  for (const [x0, y0, dx, dy] of passes) {
+    const pw = Math.ceil((w - x0) / dx), ph = Math.ceil((h - y0) / dy);
+    if (pw <= 0 || ph <= 0) continue;
+    const stride = pw * 4;
+    let prev = new Uint8Array(stride);
+    for (let y = 0; y < ph; y++) {
+      const f = raw[off++], cur = new Uint8Array(raw.subarray(off, off + stride));
+      off += stride;
+      for (let i = 0; i < stride; i++) {
+        const a = i >= 4 ? cur[i - 4] : 0, b = prev[i], c = i >= 4 ? prev[i - 4] : 0;
+        cur[i] = (cur[i] + (f === 1 ? a : f === 2 ? b : f === 3 ? (a + b) >> 1 : f === 4 ? paeth(a, b, c) : 0)) & 255;
+      }
+      for (let x = 0; x < pw; x++) px.set(cur.subarray(x * 4, x * 4 + 4), ((y0 + y * dy) * w + x0 + x * dx) * 4);
+      prev = cur;
+    }
+  }
+  return { w, h, px };
+}
+
+/** 면적 평균 축소 (premultiplied alpha — 투명 가장자리 검은 테두리 방지). */
+function resizeArea(src, T) {
+  const out = new Uint8Array(T * T * 4), sx = src.w / T, sy = src.h / T;
+  for (let oy = 0; oy < T; oy++) for (let ox = 0; ox < T; ox++) {
+    let r = 0, g = 0, b = 0, a = 0, wsum = 0;
+    for (let y = Math.floor(oy * sy); y < Math.ceil((oy + 1) * sy); y++) {
+      const wy = Math.min(y + 1, (oy + 1) * sy) - Math.max(y, oy * sy);
+      for (let x = Math.floor(ox * sx); x < Math.ceil((ox + 1) * sx); x++) {
+        const wt = wy * (Math.min(x + 1, (ox + 1) * sx) - Math.max(x, ox * sx)), i = (y * src.w + x) * 4, al = src.px[i + 3];
+        r += src.px[i] * al * wt; g += src.px[i + 1] * al * wt; b += src.px[i + 2] * al * wt; a += al * wt; wsum += wt;
+      }
+    }
+    const o = (oy * T + ox) * 4;
+    out[o + 3] = Math.round(a / wsum);
+    if (a > 0) { out[o] = Math.round(r / a); out[o + 1] = Math.round(g / a); out[o + 2] = Math.round(b / a); }
+  }
+  return { w: T, h: T, px: out };
+}
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+function crc32(buf) { let c = 0xffffffff; for (const x of buf) c = CRC_TABLE[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function chunk(type, data) {
+  const len = Buffer.alloc(4), crc = Buffer.alloc(4), td = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+  len.writeUInt32BE(data.length); crc.writeUInt32BE(crc32(td));
+  return Buffer.concat([len, td, crc]);
+}
+
+/** RGBA → PNG (행마다 5필터 중 절댓값 합 최소 선택 + deflate 9). */
+function encodePng(img) {
+  const stride = img.w * 4, rows = [];
+  let prev = new Uint8Array(stride);
+  for (let y = 0; y < img.h; y++) {
+    const cur = img.px.subarray(y * stride, (y + 1) * stride);
+    let best = null, bestSum = Infinity;
+    for (let f = 0; f < 5; f++) {
+      const row = Buffer.alloc(stride + 1);
+      row[0] = f;
+      let sum = 0;
+      for (let i = 0; i < stride; i++) {
+        const a = i >= 4 ? cur[i - 4] : 0, b = prev[i], c = i >= 4 ? prev[i - 4] : 0;
+        const v = (cur[i] - (f === 1 ? a : f === 2 ? b : f === 3 ? (a + b) >> 1 : f === 4 ? paeth(a, b, c) : 0)) & 255;
+        row[i + 1] = v; sum += v < 128 ? v : 256 - v;
+      }
+      if (sum < bestSum) { bestSum = sum; best = row; }
+    }
+    rows.push(best);
+    prev = cur;
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(img.w, 0); ihdr.writeUInt32BE(img.h, 4); ihdr[8] = 8; ihdr[9] = 6;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(Buffer.concat(rows), { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
+}
+
+/** data URI PNG 를 T px 정사각으로 축소 (원본이 T 이하거나 정사각 아니면 그대로). */
+function shrinkDataUri(uri, T) {
+  const img = decodePng(Buffer.from(uri.split(',')[1], 'base64'));
+  if (img.w <= T || img.w !== img.h) return uri;
+  return 'data:image/png;base64,' + encodePng(resizeArea(img, T)).toString('base64');
+}
+
 async function toDataUri(v) {
   if (!v) throw new Error('빈 값');
   if (v.startsWith('data:')) return v;
   return fetchDataUri(v.startsWith('http') ? v : ORIGIN + v);
 }
 
-(async () => {
+module.exports = { decodePng, encodePng, resizeArea };
+
+if (require.main === module) (async () => {
   const argIx = process.argv.indexOf('--list');
   const extra = argIx > 0 ? process.argv[argIx + 1] : null;
   const chunks = await crawl(extra);
@@ -119,7 +226,8 @@ async function toDataUri(v) {
   const tera = {};
   for (let k = 0; k < TYPES_KO.length; k++) {
     move[TYPES_KO[k]] = await toDataUri(raw[moveIx][k]);
-    tera[TYPES_KO[k]] = await toDataUri(raw[teraIx][k]);
+    // 200 → 100px (원본 절반): 12px 표시에서 DPR 1~2 오차 ≤4/255, DPR 3 ≤13 (2026-09-24 측정). 48~72px 는 DPR 1.65 에서 가장자리 번짐 측정됨.
+    tera[TYPES_KO[k]] = shrinkDataUri(await toDataUri(raw[teraIx][k]), 100);
   }
   const stat = [];
   for (let k = 1; k <= 6; k++) {
@@ -134,7 +242,7 @@ async function toDataUri(v) {
     if (m) { pokeballPath = '/_nuxt/' + m[0]; break; }
   }
   if (!pokeballPath) throw new Error('pokeball 이미지 경로를 못 찾음');
-  const pokeball = await fetchDataUri(ORIGIN + pokeballPath);
+  const pokeball = await fetchDataUri(ORIGIN + pokeballPath); // 원본 유지 — 축소 절감(~13KB) 대비 DPR 3 오차 큼
 
   Object.keys(MOVE_LEN_ANCHOR).forEach((k) => {
     if (move[k].length !== MOVE_LEN_ANCHOR[k]) console.warn('경고: 기술 아이콘 길이 다름', k, move[k].length, '기대', MOVE_LEN_ANCHOR[k]);
