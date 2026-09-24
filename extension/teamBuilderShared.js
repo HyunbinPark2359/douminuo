@@ -166,6 +166,7 @@
         resolve(r);
       }
       function onMsg(ev) {
+        if (ev.source !== window) return; // 다른 frame 의 위조 응답 무시
         var d = ev.data;
         if (!d || d.source !== MSG_BRIDGE || d.type !== replyType) return;
         if (String(d.requestId) !== rid) return;

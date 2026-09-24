@@ -387,6 +387,8 @@
   }
 
   window.addEventListener('message', function (ev) {
+    // 같은 window(우리 콘텐츠 스크립트)에서 온 것만 — 사이트 안 다른 출처 iframe 이 슬롯을 덮어쓰지 못하게.
+    if (ev.source !== window) return;
     var d = ev.data;
     if (!d || d.source !== MSG_EXT) return;
     if (d.type !== 'NUO_TEAM_READ_INPUT' && d.type !== 'NUO_TEAM_WRITE_INPUT') return;
