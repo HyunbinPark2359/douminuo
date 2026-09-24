@@ -152,6 +152,8 @@
     bridge_timeout: '사이트 정보를 읽지 못했습니다. 새로고침 후 다시 시도해 주세요.',
     bridge_state_missing: '사이트 정보를 읽지 못했습니다. 새로고침 후 다시 시도해 주세요.',
     storage_failed: '샘플을 저장하지 못했습니다.',
+    storage_read_failed: '저장한 샘플을 불러오지 못했습니다.',
+    storage_delete_failed: '샘플을 삭제하지 못했습니다.',
     sample_invalid: '이 샘플은 불러올 수 없습니다.',
     sample_limit: '샘플은 최대 100개까지 저장할 수 있습니다.',
   };

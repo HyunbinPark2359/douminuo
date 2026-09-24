@@ -79,7 +79,8 @@
         return LIB.saveEntry(r.slot, art).then(function () { fb.done('샘플 저장 완료'); });
       });
     }).catch(function (err) {
-      fb.fail(mapErr(err && err.message));
+      fb.idle();
+      window.alert(mapErr(err && err.message));
     });
   }
 
@@ -90,7 +91,7 @@
     var btn = root.querySelector('.sv');
     var tip = root.querySelector('.tip');
     var timer = null;
-    // 말풍선 = 결과 피드백 전용 (hover 안내는 사용자 요청으로 없음)
+    // 말풍선 = 성공 피드백 전용, 오류는 alert (hover 안내는 사용자 요청으로 없음)
     function show(text, ms) {
       clearTimeout(timer);
       tip.textContent = text;
@@ -100,8 +101,7 @@
     var fb = {
       busy: function () { btn.classList.add('busy'); tip.hidden = true; },
       idle: function () { btn.classList.remove('busy'); },
-      done: function (t) { fb.idle(); show(t, 1500); },
-      fail: function (t) { fb.idle(); show(t, 2500); }
+      done: function (t) { fb.idle(); show(t, 1500); }
     };
     var inp = host.parentElement ? host.parentElement.querySelector('input') : null;
     btn.addEventListener('click', function (e) {
@@ -157,13 +157,12 @@
     document.head.appendChild(wide);
     if (dlg) dlg.setAttribute('data-nuo-sample-wide', '');
     var off = LIB.mountList(root.querySelector('.lib'), {
-      onPick: function (item, setMsg) {
-        setMsg('');
+      onPick: function (item) {
         TBS.writeInputToBridge(item.slot).then(function (r) {
           if (!r || !r.ok) throw new Error((r && r.error) || 'bridge_timeout');
           closeSiteDialog();
         }).catch(function (err) {
-          setMsg(mapErr(err && err.message));
+          window.alert(mapErr(err && err.message));
         });
       }
     });

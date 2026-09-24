@@ -2,8 +2,8 @@
  * 스마트누오 파티(팀빌더) 페이지 복사 아이콘 — 사이트 슬롯 `#N` 아이콘 줄 · `파티 리스트` 초록
  * 그룹에 합류 (REDESIGN §4.1 B). 슬롯 요약 복사 / 파티 복사. 서버·포맷 로직은 기존과 동일.
  * 복사 옵션 UI 는 환경설정(popup)으로 이관 — 여기선 chrome.storage.local 값만 읽음.
- * 피드백 = 사이트 아이콘 줄 방식 — hover 툴팁 없음, 클릭 후 아이콘 위 말풍선
- * (성공 "샘플 복사 완료" 1.5s — 사이트 실측, 오류 문구 2.5s).
+ * 피드백 = 사이트 아이콘 줄 방식 — hover 툴팁 없음, 성공은 클릭 후 아이콘 위 말풍선
+ * ("샘플 복사 완료" 1.5s — 사이트 실측), 오류는 사이트처럼 네이티브 alert.
  * 슬롯 갱신: MutationObserver + hashchange + 라우트 전환. 슬롯 스냅샷(hot/캐시)은 계산기
  * "내 파티" 줄이 읽는다.
  *
@@ -32,6 +32,12 @@
       typeof CS.keepInjected !== 'function') {
     // teamBuilderShared / calcFillShared 가 못 올라왔으면 안전하게 종료. manifest 순서 점검.
     return;
+  }
+
+  function mapErr(code) {
+    return typeof globalThis.mapCalcFillError === 'function'
+      ? globalThis.mapCalcFillError(code)
+      : String(code || '');
   }
 
   function copyTextBestEffort(text) {
@@ -203,7 +209,7 @@
       fail: function (msg) {
         btn.classList.remove('busy');
         btn.removeAttribute('aria-busy');
-        showTip(msg != null ? String(msg) : '', 2500);
+        window.alert(msg ? String(msg) : mapErr(''));
       }
     };
     btn.addEventListener('click', function (ev) {
@@ -235,7 +241,7 @@
           },
           function (bg) {
             if (chrome.runtime.lastError) {
-              fb.fail(chrome.runtime.lastError.message || '오류');
+              fb.fail(mapErr('')); // 매퍼가 lastError 를 한국어로 (영문 원문 노출 금지)
               return;
             }
             if (!bg || !bg.ok) {
@@ -281,7 +287,7 @@
           },
           function (bg) {
             if (chrome.runtime.lastError) {
-              fb.fail(chrome.runtime.lastError.message || '오류');
+              fb.fail(mapErr('')); // 매퍼가 lastError 를 한국어로 (영문 원문 노출 금지)
               return;
             }
             if (!bg || !bg.ok) {

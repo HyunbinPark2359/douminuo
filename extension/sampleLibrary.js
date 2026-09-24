@@ -225,7 +225,7 @@
    * 복사 = 파티 탭 슬롯 복사와 같은 변환(teamBuilderFill.js nuoTeamCopy).
    * box 가 속한 Shadow root 에 nuoSampleCardCss 가 있어야 함.
    * @param {Element} box
-   * @param {{ onPick: function(object, function(string)) }} opts
+   * @param {{ onPick: function(object) }} opts
    * @returns {function} teardown
    */
   function mountList(box, opts) {
@@ -256,7 +256,7 @@
       for (i = 0; i < items.length; i++) if (items[i].id === id) return items[i];
       return null;
     }
-    readAll().then(function (it) { items = it; draw(); }, function () { items = []; draw(); setMsg(mapErr('storage_failed')); });
+    readAll().then(function (it) { items = it; draw(); }, function () { items = []; draw(); setMsg(mapErr('storage_read_failed')); });
     var off = onItemsChange(function (it) { items = it; draw(); });
 
     box.addEventListener('click', function (e) {
@@ -271,7 +271,7 @@
           showTip(cp, '샘플 복사 완료', 1500);
         }, function (err) {
           cp.classList.remove('busy');
-          showTip(cp, (err && err.message) || '변환 실패', 2500);
+          window.alert((err && err.message) || '변환 실패');
         });
         return;
       }
@@ -280,7 +280,7 @@
         var d = itemOf(del);
         if (!d) return;
         confirmDialog('\'' + d.name + '\' 샘플을 삭제할까요?', '삭제하기', '삭제하면 복구할 수 없습니다.').then(function (yes) {
-          if (yes) removeEntry(d.id).catch(function () { setMsg(mapErr('storage_failed')); });
+          if (yes) removeEntry(d.id).catch(function () { window.alert(mapErr('storage_delete_failed')); });
         });
         return;
       }
@@ -288,8 +288,8 @@
       if (!card) return;
       var it = itemOf(card);
       if (!it) return;
-      if (!isLoadable(it)) { setMsg(mapErr('sample_invalid')); return; }
-      opts.onPick(it, setMsg);
+      if (!isLoadable(it)) { window.alert(mapErr('sample_invalid')); return; }
+      opts.onPick(it);
     });
     // 커스텀 오버레이 스크롤바 — 스피드표 펼치기(speedOutspeedCalc.js updateInlineScrollbar 등)와 같은 모양·동작.
     // 네이티브 바는 숨김(카드 폭 보존), 스크롤하는 동안만 thumb 가 보였다가 1.4s 뒤 fade.

@@ -23,7 +23,7 @@
     '.chip img:not([src]) { display: none; }',
     '.chip .num { font-size: 10px; color: var(--nuo-text-subtle); }',
     '.chip.has-art .num { display: none; }',
-    '.chip:hover:not(:disabled), .chip.done, .chip.err { border-color: var(--nuo-primary); }',
+    '.chip:hover:not(:disabled), .chip.done { border-color: var(--nuo-primary); }',
     '.chip:disabled { cursor: default; }',
     '.chip.busy { opacity: 0.5; cursor: default; }',
     '.empty { flex: 1; font-size: 10px; color: var(--nuo-text-subtle); padding: 0 6px; }',
@@ -32,9 +32,6 @@
     // 불러오기 = 파티 탭 사이트 업로드 버튼과 같은 모양, 26px(아래 줄 사이트 원형 버튼과 같은 리듬) · radius 6 · 아이콘 18px.
     '.load { position: relative; flex: none; width: 26px; height: 26px; margin: 0 12px; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: var(--nuo-neutral-btn); cursor: pointer; }',
     '.load svg { width: 18px; height: 18px; fill: #fff; }',
-    '.msg { margin: 6px 0 0; font-size: 10px; color: var(--nuo-text-subtle); }',
-    '.msg:empty { display: none; }',
-    '.msg.err { color: var(--nuo-primary); }',
     'button:focus-visible { outline: 2px solid var(--nuo-primary-focus); outline-offset: 1px; }',
     '@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }'
   ].join('\n');

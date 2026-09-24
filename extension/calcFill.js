@@ -246,19 +246,14 @@
       '<div class="sec"><div class="fld"><p class="ttl">내 파티</p>' +
       '<div class="chips">' + chipsHtml + '<span class="empty" hidden></span></div>' +
       '<span class="bar"></span>' +
-      '<button type="button" class="load" aria-label="저장한 샘플 불러오기">' + UPLOAD_SVG + '</button></div>' +
-      '<p class="msg" role="status" aria-live="polite"></p></div>';
+      '<button type="button" class="load" aria-label="저장한 샘플 불러오기">' + UPLOAD_SVG + '</button></div></div>';
 
     var chips = [].slice.call(root.querySelectorAll('.chip'));
     var emptyEl = root.querySelector('.empty');
-    var msgEl = root.querySelector('.msg');
-    var msgTimer = null;
 
-    function setMsg(text, kind, holdMs) {
-      clearTimeout(msgTimer);
-      msgEl.textContent = text || '';
-      msgEl.classList.toggle('err', kind === 'err');
-      if (text && holdMs) msgTimer = setTimeout(function () { setMsg(''); }, holdMs);
+    // 오류 = 사이트 계산기 입력 누락 경고와 같은 네이티브 alert (2026-09-24 실측)
+    function alertErr(err) {
+      window.alert((err && err.message) || mapErr(''));
     }
 
     function render() {
@@ -288,19 +283,16 @@
       c.addEventListener('click', function () {
         if (c.disabled || c.classList.contains('busy')) return;
         var slot = snap.slots && snap.slots[k];
-        if (!slot) { setMsg('슬롯을 읽지 못했습니다.', 'err', 2500); return; }
-        c.classList.remove('done', 'err');
+        if (!slot) { window.alert('슬롯을 읽지 못했습니다.'); return; }
+        c.classList.remove('done');
         c.classList.add('busy');
-        setMsg('');
         orchestrateCalcFillFromSlot(slot, side).then(function () {
           c.classList.remove('busy');
           c.classList.add('done');
           setTimeout(function () { c.classList.remove('done'); }, 1200);
         }).catch(function (err) {
           c.classList.remove('busy');
-          c.classList.add('err');
-          setTimeout(function () { c.classList.remove('err'); }, 1200);
-          setMsg((err && err.message) || mapErr(''), 'err', 2500);
+          alertErr(err);
         });
       });
     });
@@ -317,10 +309,7 @@
         color: side === 'defender' ? '#8FC31F' : '#E9C46A',
         icon: sideIcon ? sideIcon.src : '',
         onPick: function (item) {
-          setMsg('');
-          orchestrateCalcFillFromSlot(item.slot, side).catch(function (err) {
-            setMsg((err && err.message) || mapErr(''), 'err', 2500);
-          });
+          orchestrateCalcFillFromSlot(item.slot, side).catch(alertErr);
         }
       });
     });
@@ -328,7 +317,6 @@
     renderers.push(render);
     render();
     return function teardown() {
-      clearTimeout(msgTimer);
       var ix = renderers.indexOf(render);
       if (ix >= 0) renderers.splice(ix, 1);
     };
