@@ -738,8 +738,46 @@ importScripts('showdownPaste.js');
     chrome.storage.local.set({ nuo_fmt_pendingUpdateNotice: { version: curr, shownInPage: false } });
   }
 
+  /**
+   * MAIN world 에서 실행 — Nuxt 가 SSR 화면 hydration 을 끝낼 때까지 대기 (최대 10초).
+   * 그 전에 사이트 DOM 에 우리 host 를 끼우면 Vue 가 불일치로 판단해 화면이 뒤엉킴 (2026-09-24 재현:
+   * 계산기 새로고침 5회 중 3회 "Hydration completed but contains mismatches", 확장 없는 브라우저 9회 중 0회).
+   */
+  function waitNuxtHydratedInPage() {
+    return new Promise(function (resolve) {
+      var t0 = Date.now();
+      (function poll() {
+        var el = document.getElementById('__nuxt');
+        var nx = el && el.__vue_app__ && el.__vue_app__.$nuxt;
+        if ((nx && nx.isHydrating === false) || Date.now() - t0 > 10000) { resolve(true); return; }
+        setTimeout(poll, 50);
+      })();
+    });
+  }
+
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
     if (!msg) return;
+
+    if (msg.type === 'WAIT_SITE_HYDRATED') {
+      var hyTabId = _sender && _sender.tab && _sender.tab.id;
+      if (hyTabId == null) {
+        sendResponse({ ok: false });
+        return true;
+      }
+      chrome.scripting
+        .executeScript({
+          target: { tabId: hyTabId, frameIds: [_sender.frameId || 0] },
+          world: 'MAIN',
+          func: waitNuxtHydratedInPage,
+        })
+        .then(function () {
+          sendResponse({ ok: true });
+        })
+        .catch(function () {
+          sendResponse({ ok: false });
+        });
+      return true;
+    }
 
     if (msg.type === 'INJECT_CALC_BRIDGE' || msg.type === 'INJECT_TEAM_BUILDER_BRIDGE') {
       var injTabId = _sender && _sender.tab && _sender.tab.id;

@@ -238,6 +238,23 @@
 
   var injectSpecs = [];
   var injectTimer = null;
+  // 사이트(Nuxt SSR) hydration 이 끝나기 전엔 삽입 금지 — 끼운 host 를 Vue 가 불일치로 보고 패널 DOM 을 뒤엉키게 함
+  // (background.js waitNuxtHydratedInPage 주석 참고). SW 가 MAIN world 에서 대기 후 응답, 실패·12초 초과 시에도 진행.
+  var siteHydrated = false;
+  function markSiteHydrated() {
+    if (siteHydrated) return;
+    siteHydrated = true;
+    injectTick();
+  }
+  try {
+    chrome.runtime.sendMessage({ type: 'WAIT_SITE_HYDRATED' }, function () {
+      void chrome.runtime.lastError;
+      markSiteHydrated();
+    });
+  } catch (eHy) {
+    siteHydrated = true;
+  }
+  setTimeout(markSiteHydrated, 12000);
 
   function extAlive() {
     try { return !!(chrome && chrome.runtime && chrome.runtime.id); } catch (e) { return false; }
@@ -255,6 +272,7 @@
     // extAlive: refresh() 경로(슬롯 MO 등)로도 불리므로 폴링 정지만으론 부족 — 옛 스크립트 재삽입 차단.
     try { on = extAlive() && isPcLayout() && !!s.enabled(); } catch (eEn) { on = false; }
     if (!on) { unmountInjected(s); return; }
+    if (!siteHydrated) return;
     // 붙어 있으면 find 생략 — 폴링 비용은 앵커를 못 찾은 동안에만 든다.
     if (s.host && s.host.isConnected) return;
     var a = null;
@@ -303,6 +321,7 @@
 
   g.mapCalcFillError = mapCalcFillError;
   g.nuoCsCommon = {
+    isSiteHydrated: function () { return siteHydrated; },
     getRoute: getRoute,
     isCalculatorRoute: isCalculatorRoute,
     isTeamBuilderRoute: isTeamBuilderRoute,

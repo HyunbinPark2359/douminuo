@@ -1198,6 +1198,8 @@
       return;
     }
     var wrap = null;
+    // 사이트 hydration 전 삽입 금지 (calcFillShared.isSiteHydrated 주석) — 끝나면 다음 tick 에 붙음.
+    if (CS.isSiteHydrated && !CS.isSiteHydrated()) return;
     // R2/S1: isTeamBuilderRoute 가 host 검사 포함 — /party 일 때만 wrap 탐색.
     if (isTeamBuilderRoute()) {
       wrap = findSpeedRealWrap();
