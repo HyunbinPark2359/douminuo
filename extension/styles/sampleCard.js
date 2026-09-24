@@ -16,7 +16,10 @@
 
   g.nuoSampleCardCss = [
     '* { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--nuo-font); }',
-    '.count { margin-bottom: 6px; font-size: 11px; color: var(--nuo-text-muted); }',
+    '.count { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 11px; color: var(--nuo-text-muted); }',
+    // 개수 뱃지 = 사이트 파티 탭 "SP 66/66" 뱃지 실측(2026-09-24: 9px/300 lh13.5, padding 2px 8px, radius 5) — 색만 회색.
+    '.badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 5px; background: var(--nuo-neutral-btn); font-size: 9px; font-weight: 300; line-height: 13.5px; color: #fff; }',
+    '.badge svg { width: 10px; height: 10px; fill: #fff; }',
     '.empty { padding: 8px 0 2px; font-size: 11px; color: var(--nuo-text-muted); text-align: center; word-break: keep-all; }',
     '.msg { margin-bottom: 6px; font-size: 11px; color: var(--nuo-primary); }',
     '.msg:empty { display: none; }',
@@ -31,6 +34,15 @@
     '.thumb:hover { background: rgba(148, 163, 184, 0.8); }',
     '.head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 12px; color: #272727; }',
     '.head .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
+    '.head .acts { flex: none; display: flex; align-items: center; gap: 6px; }',
+    // 복사 = 파티 탭 슬롯 아이콘 줄 요약 아이콘(styles/teamCopyIcons.js .ic.slot)과 같은 12px 회색.
+    '.cp { flex: none; width: 12px; height: 12px; padding: 0; border: 0; background: none; color: #808080; cursor: pointer; line-height: 0; transition: color 0.15s, opacity 0.15s; }',
+    '.cp:hover { color: var(--nuo-primary); }',
+    '.cp svg { width: 12px; height: 12px; display: block; }',
+    '.cp.busy { opacity: 0.5; cursor: default; }',
+    // 복사 결과 말풍선 — .list 가 overflow 로 자르므로 .shell 에 두고 JS 가 버튼 위치(left/top)를 줌. 모양은 nuoSampleTipCss 와 같음.
+    '.shell > .tip { position: absolute; transform: translate(-50%, calc(-100% - 4px)); z-index: 30; white-space: nowrap; pointer-events: none; padding: 4px 8px; border-radius: 4px; background: #333; font: 400 11px/1.5 var(--nuo-font); color: #fff; }',
+    '.shell > .tip[hidden] { display: none; }',
     '.del { flex: none; width: 12px; height: 12px; padding: 0; border: 0; background: none; color: #808080; cursor: pointer; line-height: 0; }',
     '.del:hover { color: var(--nuo-primary); }',
     '.del svg { width: 12px; height: 12px; fill: currentColor; }',

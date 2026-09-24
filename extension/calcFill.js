@@ -310,7 +310,6 @@
     root.querySelector('.load').addEventListener('click', function () {
       if (!LIB || typeof LIB.openListDialog !== 'function') return;
       LIB.openListDialog({
-        hint: side === 'defender' ? '누르면 수비 측에 입력' : '누르면 공격 측에 입력',
         onPick: function (item) {
           setMsg('');
           orchestrateCalcFillFromSlot(item.slot, side).catch(function (err) {

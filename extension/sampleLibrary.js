@@ -10,6 +10,8 @@
   var A = g.NUO_SAMPLE_CARD_ASSETS || { stat: [], move: {}, tera: {}, pokeball: '' };
   var KEY = 'nuo_fmt_sampleLibrary';
   var SCHEMA = 1;
+  // 2026-09-24 실측: 카드 1장 HTML ≈ 18KB(아이콘 data URI 반복) → 100장 그리기 44~72ms. 넘기려면 아이콘을 CSS 로 한 번만 두고 올릴 것.
+  var LIMIT = 100;
 
   function mapErr(code) {
     return typeof g.mapCalcFillError === 'function' ? g.mapCalcFillError(code) : String(code || '');
@@ -34,6 +36,11 @@
   function withSaved(items, entry) {
     var n = normName(entry.name);
     return [entry].concat(items.filter(function (it) { return normName(it.name) !== n; }));
+  }
+
+  /** 새 이름은 LIMIT 미만일 때만, 같은 이름 덮어쓰기는 항상 가능. */
+  function canAdd(items, name) {
+    return items.length < LIMIT || !!findByName(items, name);
   }
 
   function withoutId(items, id) {
@@ -89,6 +96,9 @@
     return String(v == null ? '' : v);
   }
 
+  // 파티 탭 슬롯 아이콘 줄 요약 복사 아이콘과 같은 모양 (teamBuilderFill.js SUM_SVG).
+  var COPY_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>';
+  var BOX_SVG = '<svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M200-80q-33 0-56.5-23.5T120-160v-451q-18-11-29-28.5T80-680v-120q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v120q0 23-11 40.5T840-611v451q0 33-23.5 56.5T760-80H200Zm0-520v440h560v-440H200Zm-40-80h640v-120H160v120Zm200 280h240v-80H360v80Zm120 20Z"/></svg>';
   var TRASH_SVG = '<svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Z"/></svg>';
 
   /**
@@ -106,8 +116,9 @@
     var moves = Array.isArray(p.moves) ? p.moves : [];
     var stats = p.stats || {};
     var id = esc(item.id);
-    var h = '<div class="head"><span class="nm">' + esc(item.name) + '</span>' +
-      '<button type="button" class="del" data-id="' + id + '" aria-label="삭제">' + TRASH_SVG + '</button></div>' +
+    var h = '<div class="head"><span class="nm">' + esc(item.name) + '</span><span class="acts">' +
+      '<button type="button" class="cp" data-id="' + id + '" aria-label="샘플 복사">' + COPY_SVG + '</button>' +
+      '<button type="button" class="del" data-id="' + id + '" aria-label="삭제">' + TRASH_SVG + '</button></span></div>' +
       '<div class="card" role="button" tabindex="0" data-id="' + id + '" style="background:' + typeBg(p.first_type) + '">' +
       '<div class="info"><div class="line"><b>' + esc(species) + '</b>' +
       (nat ? '<span>' + esc(nat) + '</span>' : '') +
@@ -197,27 +208,44 @@
 
   /* ===== 목록 ===== */
 
-  function renderList(items, hint) {
+  function renderList(items) {
     if (!items.length) {
       return '<p class="msg" role="status"></p>' +
         '<p class="empty">저장한 샘플이 없습니다</p>';
     }
-    return '<p class="count">저장한 샘플 · ' + items.length + (hint ? ' — ' + esc(hint) : '') + '</p>' +
+    // 개수 뱃지 = 파티 탭 우측 패널 "SP 66/66" 뱃지 실측(9px/300, padding 2px 8px, radius 5) + 회색(사용자 선택)
+    return '<p class="count">내 샘플 목록<span class="badge">' + BOX_SVG + items.length + '/' + LIMIT + '</span></p>' +
       '<p class="msg" role="status"></p>' +
       '<div class="shell"><div class="list">' + items.map(renderCard).join('') + '</div>' +
-      '<div class="sb"><div class="thumb"></div></div></div>';
+      '<div class="sb"><div class="thumb"></div></div><div class="tip" role="status" hidden></div></div>';
   }
 
   /**
-   * box(Shadow 안 요소)에 목록을 그리고 저장소 변경을 따라감. 카드 클릭 = onPick, 휴지통 = 확인 후 삭제.
+   * box(Shadow 안 요소)에 목록을 그리고 저장소 변경을 따라감. 카드 클릭 = onPick, 휴지통 = 확인 후 삭제,
+   * 복사 = 파티 탭 슬롯 복사와 같은 변환(teamBuilderFill.js nuoTeamCopy).
    * box 가 속한 Shadow root 에 nuoSampleCardCss 가 있어야 함.
    * @param {Element} box
-   * @param {{ hint?: string, onPick: function(object, function(string)) }} opts
+   * @param {{ onPick: function(object, function(string)) }} opts
    * @returns {function} teardown
    */
   function mountList(box, opts) {
     var items = [];
-    function draw() { box.innerHTML = renderList(items, opts.hint); }
+    var tipTimer = null;
+    function draw() { box.innerHTML = renderList(items); }
+    /** 결과 말풍선 — .list 가 overflow 로 자르므로 .shell 기준으로 버튼 위에 띄움. */
+    function showTip(btn, text, ms) {
+      var tip = box.querySelector('.shell > .tip');
+      var shell = box.querySelector('.shell');
+      if (!tip || !shell) return;
+      var b = btn.getBoundingClientRect();
+      var s = shell.getBoundingClientRect();
+      tip.textContent = text;
+      tip.style.left = (b.left + b.width / 2 - s.left) + 'px';
+      tip.style.top = (b.top - s.top) + 'px';
+      tip.hidden = false;
+      clearTimeout(tipTimer);
+      tipTimer = setTimeout(function () { tip.hidden = true; }, ms);
+    }
     function setMsg(t) {
       var m = box.querySelector('.msg');
       if (m) m.textContent = t || '';
@@ -232,6 +260,21 @@
     var off = onItemsChange(function (it) { items = it; draw(); });
 
     box.addEventListener('click', function (e) {
+      var cp = e.target.closest('.cp');
+      if (cp) {
+        var c = itemOf(cp);
+        var TC = g.nuoTeamCopy;
+        if (!c || cp.classList.contains('busy') || !TC) return;
+        cp.classList.add('busy');
+        TC.copySampleSlot(c.slot).then(function () {
+          cp.classList.remove('busy');
+          showTip(cp, '샘플 복사 완료', 1500);
+        }, function (err) {
+          cp.classList.remove('busy');
+          showTip(cp, (err && err.message) || '변환 실패', 2500);
+        });
+        return;
+      }
       var del = e.target.closest('.del');
       if (del) {
         var d = itemOf(del);
@@ -269,7 +312,11 @@
       clearTimeout(sbHideTimer);
       sbHideTimer = setTimeout(function () { if (!sbDragging) sb.classList.remove('show'); }, 1400);
     }
-    box.addEventListener('scroll', function () { syncScrollbar(true); }, true); // scroll 은 버블 안 함 → capture
+    box.addEventListener('scroll', function () {
+      syncScrollbar(true);
+      var tip = box.querySelector('.shell > .tip');
+      if (tip) tip.hidden = true; // 버튼과 함께 안 움직이므로 스크롤 시 숨김
+    }, true); // scroll 은 버블 안 함 → capture
     box.addEventListener('mousedown', function (e) {
       if (!e.target.classList || !e.target.classList.contains('thumb')) return;
       e.preventDefault();
@@ -300,7 +347,10 @@
     box.addEventListener('error', function (e) {
       if (e.target && e.target.tagName === 'IMG') e.target.style.visibility = 'hidden';
     }, true);
-    return off;
+    return function () {
+      clearTimeout(tipTimer);
+      off();
+    };
   }
 
   /* ===== 다이얼로그 셸 — 사이트 PrimeVue Dialog 복제 (§5.4·§5.5) ===== */
@@ -387,7 +437,7 @@
 
   /**
    * 계산기·스피드 "내 파티" 줄 불러오기 버튼용 목록 다이얼로그.
-   * @param {{ hint: string, onPick: function(object) }} opts
+   * @param {{ onPick: function(object) }} opts
    */
   function openListDialog(opts) {
     var sh = openShell('list-box',
@@ -395,7 +445,6 @@
       '<button type="button" class="x" aria-label="닫기">' + X_SVG + '</button></div><div class="lib"></div>');
     sh.root.querySelector('.x').addEventListener('click', function () { dismiss(sh); });
     sh.teardown = mountList(sh.root.querySelector('.lib'), {
-      hint: opts.hint,
       onPick: function (item) {
         sh.close();
         opts.onPick(item);
@@ -404,8 +453,10 @@
   }
 
   g.nuoSampleLibrary = {
+    LIMIT: LIMIT,
     normName: normName,
     findByName: findByName,
+    canAdd: canAdd,
     isLoadable: isLoadable,
     readAll: readAll,
     saveEntry: saveEntry,
@@ -416,7 +467,8 @@
     openListDialog: function (o) { return openListDialog(o); },
     _pure: {
       normName: normName, findByName: findByName, withSaved: withSaved, withoutId: withoutId,
-      isLoadable: isLoadable, spColor: spColor, natureDot: natureDot, typeBg: typeBg, esc: esc, renderCard: renderCard
+      isLoadable: isLoadable, spColor: spColor, natureDot: natureDot, typeBg: typeBg, esc: esc, renderCard: renderCard,
+      renderList: renderList, canAdd: canAdd, LIMIT: LIMIT
     }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

@@ -67,6 +67,11 @@
       }
       var art = findActiveArt(r.active) || String(r.slot.pokemon.sprite || '');
       return LIB.readAll().then(function (items) {
+        if (!LIB.canAdd(items, name)) {
+          fb.idle();
+          window.alert(mapErr('sample_limit'));
+          return false;
+        }
         if (!LIB.findByName(items, name)) return true;
         return LIB.confirmDialog('\'' + name + '\' 샘플이 이미 있어요. 덮어쓸까요?', '덮어쓰기', '기존 샘플 내용은 복구할 수 없습니다.');
       }).then(function (go) {
@@ -151,7 +156,6 @@
     document.head.appendChild(wide);
     if (dlg) dlg.setAttribute('data-nuo-sample-wide', '');
     var off = LIB.mountList(root.querySelector('.lib'), {
-      hint: '',
       onPick: function (item, setMsg) {
         setMsg('');
         TBS.writeInputToBridge(item.slot).then(function (r) {

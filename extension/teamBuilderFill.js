@@ -301,6 +301,39 @@
     });
   }
 
+  /**
+   * 저장한 샘플 복사 (sampleLibrary 목록 카드 복사 버튼) — runCopySlot 과 같은 변환·환경설정.
+   * 샘플은 파티 슬롯 번호가 없으므로 slotIndex 1 (공유 URL 옵션일 때 share POST 메타 값일 뿐).
+   * pathname '/party' 고정 — 계산기·스피드 탭에서 눌러도 링크가 파티 탭 복사와 같은 경로로 나오게.
+   * @param {object} slotData 저장된 슬롯 원본
+   * @returns {Promise<void>} 실패 시 reject(Error(한국어 문구))
+   */
+  function copySampleSlot(slotData) {
+    return new Promise(function (resolve, reject) {
+      readFormatOptions(function (fo) {
+        chrome.runtime.sendMessage(
+          {
+            type: 'FORMAT_BUILDER_SLOT',
+            slotIndex: 1,
+            slotData: slotData,
+            origin: location.origin,
+            pathname: '/party',
+            formatOptions: fo,
+          },
+          function (bg) {
+            if (chrome.runtime.lastError || !bg) { reject(new Error('변환 실패')); return; }
+            if (!bg.ok) { reject(new Error(bg.error || '변환 실패')); return; }
+            var t = bg.text != null ? String(bg.text) : '';
+            if (!t) { reject(new Error('출력이 비었습니다.')); return; }
+            copyTextBestEffort(t);
+            resolve();
+          }
+        );
+      });
+    });
+  }
+  globalThis.nuoTeamCopy = { copySampleSlot: copySampleSlot };
+
   /* ===== 삽입 등록 · 슬롯 갱신 ===== */
 
   function registerInjectors() {
