@@ -235,7 +235,7 @@
       if (del) {
         var d = itemOf(del);
         if (!d) return;
-        confirmDialog('\'' + d.name + '\' 샘플을 삭제할까요?', '삭제').then(function (yes) {
+        confirmDialog('\'' + d.name + '\' 샘플을 삭제할까요?', '삭제하기', '삭제하면 복구할 수 없습니다.').then(function (yes) {
           if (yes) removeEntry(d.id).catch(function () { setMsg(mapErr('storage_failed')); });
         });
         return;
@@ -260,13 +260,105 @@
     return off;
   }
 
-  /* ===== 다이얼로그 (Task 4 에서 채움) ===== */
+  /* ===== 다이얼로그 셸 — 사이트 PrimeVue Dialog 복제 (§5.4·§5.5) ===== */
 
-  function confirmDialog() {
-    return Promise.resolve(false);
+  var DIALOG_CSS = (g.nuoTokensCss || '') + '\n' + (g.nuoSampleDialogCss || '') + '\n' + (g.nuoSampleCardCss || '');
+  var LEAVE_MS = 150; // 사이트 p-dialog-leave-active 와 동일 (prefsEntry 와 같은 값)
+  var MASK_DISMISS = false; // 2026-09-24 실측: 사이트 Dialog 는 마스크 클릭으로 안 닫힘
+  var X_SVG = '<svg width="18" height="18" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg>';
+  var shells = [];
+
+  /** 겹쳐 뜰 수 있음 (목록 위 확인창). Esc·마스크 = 맨 위 것만 닫힘. */
+  function openShell(boxClass, html, onDismiss) {
+    var host = document.createElement('div');
+    host.setAttribute('data-nuo-inject', 'sample-dialog');
+    document.body.appendChild(host);
+    var root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = '<style>' + DIALOG_CSS + '</style>' +
+      '<div class="backdrop" role="dialog" aria-modal="true"><div class="box ' + boxClass + '">' + html + '</div></div>';
+    var bd = root.querySelector('.backdrop');
+    var sh = { root: root, closed: false, onDismiss: onDismiss || null, teardown: null };
+    sh.close = function () {
+      if (sh.closed) return;
+      sh.closed = true;
+      var ix = shells.indexOf(sh);
+      if (ix >= 0) shells.splice(ix, 1);
+      if (sh.teardown) { try { sh.teardown(); } catch (eT) {} }
+      bd.classList.remove('on');
+      setTimeout(function () { if (host.parentNode) host.parentNode.removeChild(host); }, LEAVE_MS);
+    };
+    bd.addEventListener('click', function (e) {
+      if (MASK_DISMISS && e.target === bd) dismiss(sh);
+    });
+    shells.push(sh);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { bd.classList.add('on'); });
+    });
+    return sh;
   }
 
-  function openListDialog() {}
+  function dismiss(sh) {
+    var cb = sh.onDismiss;
+    sh.close();
+    if (cb) cb();
+  }
+
+  try {
+    // 사이트 Dialog 는 Esc 무반응이지만 키보드 접근성 위해 우리 창은 Esc = 닫기(취소) 유지
+    document.addEventListener('keydown', function (e) {
+      if (!shells.length) return;
+      if (e.key !== 'Escape' && e.keyCode !== 27) return;
+      e.stopPropagation(); // 뒤의 사이트 다이얼로그까지 같이 닫히지 않게
+      dismiss(shells[shells.length - 1]);
+    }, true);
+    // 라우트 전환 시 떠 있는 우리 다이얼로그 정리 (prefsEntry 와 같은 처리)
+    if (typeof CS.onRouteChange === 'function') {
+      CS.onRouteChange(function () { while (shells.length) dismiss(shells[shells.length - 1]); });
+    }
+  } catch (eWire) {}
+
+  /**
+   * 사이트 슬롯 삭제 확인창 복제 — 제목 + 설명 2줄, [취소][확인] 순.
+   * @param {string} question 예: "'물리접수' 샘플이 이미 있어요. 덮어쓸까요?"
+   * @param {string} okLabel 예: '덮어쓰기' / '삭제하기'
+   * @param {string=} sub 설명 줄 예: '삭제하면 복구할 수 없습니다.'
+   * @returns {Promise<boolean>}
+   */
+  function confirmDialog(question, okLabel, sub) {
+    return new Promise(function (resolve) {
+      var sh = openShell('confirm',
+        '<p class="q">' + esc(question) + '</p>' +
+        (sub ? '<p class="sub">' + esc(sub) + '</p>' : '') +
+        '<div class="acts"><button type="button" class="btn ghost" data-a="no">취소</button>' +
+        '<button type="button" class="btn ok" data-a="yes">' + esc(okLabel) + '</button></div>',
+        function () { resolve(false); });
+      sh.root.querySelector('.acts').addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        sh.close();
+        resolve(b.getAttribute('data-a') === 'yes');
+      });
+      sh.root.querySelector('.btn.ok').focus();
+    });
+  }
+
+  /**
+   * 계산기·스피드 "내 파티" 줄 불러오기 버튼용 목록 다이얼로그.
+   * @param {{ hint: string, onPick: function(object) }} opts
+   */
+  function openListDialog(opts) {
+    var sh = openShell('list-box',
+      '<div class="hd"><span class="ttl">' + (A.pokeball ? '<img src="' + A.pokeball + '" alt="">' : '') + '샘플 불러오기</span>' +
+      '<button type="button" class="x" aria-label="닫기">' + X_SVG + '</button></div><div class="lib"></div>');
+    sh.root.querySelector('.x').addEventListener('click', function () { dismiss(sh); });
+    sh.teardown = mountList(sh.root.querySelector('.lib'), {
+      hint: opts.hint,
+      onPick: function (item) {
+        sh.close();
+        opts.onPick(item);
+      }
+    });
+  }
 
   g.nuoSampleLibrary = {
     normName: normName,
@@ -277,7 +369,7 @@
     removeEntry: removeEntry,
     renderCard: renderCard,
     mountList: mountList,
-    confirmDialog: function (q, ok) { return confirmDialog(q, ok); },
+    confirmDialog: function (q, ok, sub) { return confirmDialog(q, ok, sub); },
     openListDialog: function (o) { return openListDialog(o); },
     _pure: {
       normName: normName, findByName: findByName, withSaved: withSaved, withoutId: withoutId,

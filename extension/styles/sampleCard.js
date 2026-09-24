@@ -49,24 +49,26 @@
     '.st .v { font-weight: 500; }'
   ].join('\n');
 
-  // 사이트 PrimeVue Dialog 복제 — 모션·마스크는 styles/prefsModalCss.js 실측값 계승, radius 는 '샘플 불러오기' 다이얼로그(rounded-lg 8).
-  // border·shadow·확인창(.confirm/.q/.acts) 수치는 Task 4 Step 1 실측으로 확정.
+  // 사이트 PrimeVue Dialog 복제 — 모션·마스크는 styles/prefsModalCss.js 실측값 계승.
+  // 2026-09-24 실측: 헤더 없는 Dialog, radius 12 (rounded-lg 클래스보다 PrimeVue 테마가 이김), content padding 0 20px 20px
+  // (샘플 불러오기 창은 제목 줄이 윗변에 붙음), 확인창 = 폭 360 + 내부 p-4 text-center, 제목+설명 2줄.
   g.nuoSampleDialogCss = [
     ':host { all: initial; }',
     '.backdrop { position: fixed; inset: 0; z-index: 2147483646; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0); transition: background-color 0.15s ease; font-family: var(--nuo-font); }',
     '.backdrop.on { background: rgba(0, 0, 0, 0.5); }',
-    '.box { position: relative; padding: 16px; background: #fff; border: 1px solid var(--p-surface-200, #e2e8f0); border-radius: 8px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); opacity: 0; scale: 0.75; transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), scale 0.15s cubic-bezier(0.4, 0, 0.2, 1); }',
+    '.box { position: relative; padding: 0 20px 20px; background: #fff; border: 1px solid var(--p-surface-200, #e2e8f0); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); opacity: 0; scale: 0.75; transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), scale 0.15s cubic-bezier(0.4, 0, 0.2, 1); }',
     '.backdrop.on .box { opacity: 1; scale: 1; transition-timing-function: cubic-bezier(0, 0, 0.2, 1); }',
     '.box.list-box { width: 380px; }',
     '.hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }',
     '.ttl { display: flex; align-items: center; font-size: 15px; font-weight: 500; color: #E4007F; }',
     '.ttl img { width: 24px; height: 24px; margin-right: 6px; }',
     '.x { width: 18px; height: 18px; padding: 0; border: 0; background: none; color: #000; cursor: pointer; line-height: 0; }',
-    '.box.confirm { width: 300px; text-align: center; }',
-    '.q { margin: 0 0 12px; font-size: 16px; font-weight: 600; color: #272727; word-break: keep-all; }',
+    '.box.confirm { width: 360px; padding: 16px 36px 36px; text-align: center; }',
+    '.q { margin: 0 0 4px; font-size: 16px; font-weight: 600; line-height: 24px; color: #334155; word-break: keep-all; }',
+    '.sub { margin: 0 0 12px; font-size: 11px; line-height: 16.5px; color: #334155; word-break: keep-all; }',
     '.acts { display: flex; justify-content: center; gap: 6px; }',
     '.btn { width: 50px; height: 20px; padding: 0; border: 0; border-radius: 5px; font: 300 10px var(--nuo-font); cursor: pointer; }',
-    '.btn.ghost { background: transparent; color: #272727; }',
+    '.btn.ghost { background: #EBEBED; color: #272727; }',
     '.btn.ok { background: #E9C46A; color: #fff; }',
     '.x:focus-visible, .btn:focus-visible { outline: 2px solid var(--nuo-primary-focus); outline-offset: 1px; }',
     '@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }'
