@@ -119,4 +119,61 @@
     hostStyle: 'position:absolute;right:34px;top:50%;transform:translateY(-50%);width:20px;height:20px;z-index:1;',
     build: buildSave
   });
+
+  /** 사이트 '샘플 불러오기' 다이얼로그: URL 입력칸 다음 = 취소/불러오기 줄 → 그 다음 자리. */
+  function findDialogAnchor() {
+    var f = document.querySelector('[role="dialog"] input.preset-url-field');
+    var actions = f && f.nextElementSibling;
+    if (!actions || !actions.parentElement) return null;
+    return { parent: actions.parentElement, before: actions.nextSibling };
+  }
+
+  function closeSiteDialog() {
+    var list = document.querySelectorAll('[role="dialog"] button');
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i].textContent.trim() === '취소') { list[i].click(); return; }
+    }
+  }
+
+  function buildDialogList(root, host) {
+    root.innerHTML = '<style>' + TOKENS + '\n:host { all: initial; display: block; margin-top: 12px; }\n' +
+      (g.nuoSampleCardCss || '') + '</style><div class="lib"></div>';
+    // 카드(사이트 336.67px)가 들어가도록 사이트 다이얼로그 폭 320 → 380 (인라인, 철거 시 원복)
+    var dlg = host.closest('[role="dialog"]');
+    var prevW = dlg ? dlg.style.width : '';
+    if (dlg) dlg.style.width = '380px';
+    var off = LIB.mountList(root.querySelector('.lib'), {
+      hint: '',
+      onPick: function (item, setMsg) {
+        setMsg('');
+        TBS.writeInputToBridge(item.slot).then(function (r) {
+          if (!r || !r.ok) throw new Error((r && r.error) || 'bridge_timeout');
+          closeSiteDialog();
+        }).catch(function (err) {
+          setMsg(mapErr(err && err.message));
+        });
+      }
+    });
+    return function () {
+      off();
+      if (dlg) dlg.style.width = prevW;
+    };
+  }
+
+  var listHandle = CS.keepInjected({
+    key: 'sample-party-list',
+    enabled: isTeamRoute,
+    find: findDialogAnchor,
+    build: buildDialogList
+  });
+
+  // 다이얼로그가 뜨는 즉시 삽입 (400ms 폴링 대기로 목록이 늦게 튀어나오는 것 방지).
+  // PrimeVue 가 마스크를 body 직계로 teleport → body childList 만 관찰 (비용 거의 0).
+  try {
+    new MutationObserver(function () {
+      var h = listHandle.getHost();
+      if (!h || !h.isConnected) listHandle.refresh();
+    }).observe(document.body, { childList: true });
+  } catch (eMo) {}
 })(typeof globalThis !== 'undefined' ? globalThis : self);
