@@ -309,7 +309,13 @@
     var LIB = globalThis.nuoSampleLibrary;
     root.querySelector('.load').addEventListener('click', function () {
       if (!LIB || typeof LIB.openListDialog !== 'function') return;
+      // 제목 = 사이트 '계산' 결과 모달의 공격측/수비측 제목 (색 실측 2026-09-24).
+      // 칼/방패 아이콘은 해시 파일명(/_nuxt/attacker.<해시>.png)이라 패널 헤더에 떠 있는 사이트 이미지 주소를 그대로 씀.
+      var sideIcon = document.querySelector('img[src*="/_nuxt/' + side + '."]');
       LIB.openListDialog({
+        title: side === 'defender' ? '수비측' : '공격측',
+        color: side === 'defender' ? '#8FC31F' : '#E9C46A',
+        icon: sideIcon ? sideIcon.src : '',
         onPick: function (item) {
           setMsg('');
           orchestrateCalcFillFromSlot(item.slot, side).catch(function (err) {

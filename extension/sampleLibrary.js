@@ -436,12 +436,24 @@
   }
 
   /**
+   * 목록 창 제목 — 기본 = 포켓볼 + '샘플 불러오기' (사이트 창), 계산기 = 칼/방패 + 공격측/수비측
+   * (사이트 '계산' 결과 모달 제목과 같은 아이콘·색, 2026-09-24 실측).
+   * @param {{ title?: string, icon?: string, color?: string }} o
+   */
+  function listTitleHtml(o) {
+    var icon = safeUrl(o.icon) || A.pokeball;
+    var color = /^#[0-9a-fA-F]{3,8}$/.test(o.color || '') ? ' style="color:' + o.color + '"' : '';
+    return '<span class="ttl"' + color + '>' + (icon ? '<img src="' + esc(icon) + '" alt="">' : '') +
+      esc(o.title || '샘플 불러오기') + '</span>';
+  }
+
+  /**
    * 계산기·스피드 "내 파티" 줄 불러오기 버튼용 목록 다이얼로그.
-   * @param {{ onPick: function(object) }} opts
+   * @param {{ title?: string, icon?: string, color?: string, onPick: function(object) }} opts
    */
   function openListDialog(opts) {
     var sh = openShell('list-box',
-      '<div class="hd"><span class="ttl">' + (A.pokeball ? '<img src="' + A.pokeball + '" alt="">' : '') + '샘플 불러오기</span>' +
+      '<div class="hd">' + listTitleHtml(opts) +
       '<button type="button" class="x" aria-label="닫기">' + X_SVG + '</button></div><div class="lib"></div>');
     sh.root.querySelector('.x').addEventListener('click', function () { dismiss(sh); });
     sh.teardown = mountList(sh.root.querySelector('.lib'), {
@@ -468,7 +480,7 @@
     _pure: {
       normName: normName, findByName: findByName, withSaved: withSaved, withoutId: withoutId,
       isLoadable: isLoadable, spColor: spColor, natureDot: natureDot, typeBg: typeBg, esc: esc, renderCard: renderCard,
-      renderList: renderList, canAdd: canAdd, LIMIT: LIMIT
+      renderList: renderList, canAdd: canAdd, LIMIT: LIMIT, listTitleHtml: listTitleHtml
     }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

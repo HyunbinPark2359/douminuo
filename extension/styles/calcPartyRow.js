@@ -11,9 +11,10 @@
     ':host { all: initial; display: block; }',
     '.sec { padding: 16px 10px 10px; border-bottom: 1px solid var(--nuo-border); font-family: var(--nuo-font); color: var(--nuo-text); }',
     '* { box-sizing: border-box; font-family: inherit; }',
-    '.fld { position: relative; display: flex; align-items: center; gap: 6px; height: 50px; padding: 0 12px 0 8px; border: 1px solid var(--nuo-field-border); border-radius: 8px; background: #fff; }',
+    // 구분선 = 아래 줄 '타입'·'위력' 칸 사이 중앙(2026-09-24 실측: 칸 왼쪽에서 285.5px) — 불러오기 버튼 양옆 14px 로 맞춤.
+    '.fld { position: relative; display: flex; align-items: center; height: 50px; padding: 0 0 0 8px; border: 1px solid var(--nuo-field-border); border-radius: 8px; background: #fff; }',
     '.ttl { position: absolute; top: -6px; left: 12px; margin: 0; padding: 0 4px; background: #fff; font-size: 9px; font-weight: 400; line-height: 1; color: var(--nuo-text-muted); white-space: nowrap; }',
-    '.chips { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; }',
+    '.chips { flex: 1; min-width: 0; margin-right: 8px; display: flex; align-items: center; justify-content: space-between; }',
     '.chip { width: 34px; height: 34px; padding: 0; display: flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer; transition: border-color 0.15s, opacity 0.15s; }',
     '.chip[hidden] { display: none; }',
     '.chip img { width: 32px; height: 32px; object-fit: contain; }',
@@ -27,7 +28,7 @@
     '.empty[hidden] { display: none; }',
     '.bar { flex: none; width: 1px; height: 22px; background: #e6e6e6; }',
     // 불러오기 = 파티 탭 사이트 업로드 버튼과 같은 모양, 26px(아래 줄 사이트 원형 버튼과 같은 리듬) · radius 6 · 아이콘 18px.
-    '.load { position: relative; flex: none; width: 26px; height: 26px; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: var(--nuo-neutral-btn); cursor: pointer; }',
+    '.load { position: relative; flex: none; width: 26px; height: 26px; margin: 0 14px; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: var(--nuo-neutral-btn); cursor: pointer; }',
     '.load svg { width: 18px; height: 18px; fill: #fff; }',
     '.msg { margin: 6px 0 0; font-size: 10px; color: var(--nuo-text-subtle); }',
     '.msg:empty { display: none; }',
