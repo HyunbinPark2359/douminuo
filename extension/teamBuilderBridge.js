@@ -3,8 +3,8 @@
  * NUO_TEAM_SLOTS_REPLY.slotArt: pokemon.sprite 우선(검증 통과 시 정규화 URL, 아니면 원문).
  */
 (function () {
-  if (window.__NUO_TEAM_BUILDER_BRIDGE_V8__) return;
-  window.__NUO_TEAM_BUILDER_BRIDGE_V8__ = true;
+  if (window.__NUO_TEAM_BUILDER_BRIDGE_V9__) return;
+  window.__NUO_TEAM_BUILDER_BRIDGE_V9__ = true;
 
   var MSG_EXT = 'nuo-team-ext';
   var MSG_BRIDGE = 'nuo-team-bridge';
@@ -368,6 +368,61 @@
         },
         '*'
       );
+    });
+  });
+
+  /**
+   * 샘플 저장·불러오기 (SAMPLE_LIBRARY_PLAN §4.2).
+   * 읽기 = 우측 편집 패널 `$sparty.input` 을 계산기 칩과 같은 보강(augmentSlotWithDex) 후 깊은 복사.
+   * 쓰기 = `$sparty.input` 대입 — 사이트가 slots[active-1]·좌측 카드·localStorage 까지 동기화.
+   * slots[i] 직접 변경은 사이트 localStorage 에 반영 안 됨 (2026-09-23 실측) → 금지.
+   */
+  function postInputReply(type, rid, body) {
+    var msg = { source: MSG_BRIDGE, type: type, requestId: rid };
+    var k;
+    for (k in body) {
+      if (Object.prototype.hasOwnProperty.call(body, k)) msg[k] = body[k];
+    }
+    window.postMessage(msg, '*');
+  }
+
+  window.addEventListener('message', function (ev) {
+    var d = ev.data;
+    if (!d || d.source !== MSG_EXT) return;
+    if (d.type !== 'NUO_TEAM_READ_INPUT' && d.type !== 'NUO_TEAM_WRITE_INPUT') return;
+    var rid = d.requestId != null ? String(d.requestId) : '';
+    var replyType = d.type === 'NUO_TEAM_READ_INPUT' ? 'NUO_TEAM_INPUT_REPLY' : 'NUO_TEAM_WRITE_REPLY';
+    waitForPokeListReady(2000, 100).then(function () {
+      var s = getNuxtState();
+      var input = s && s['$sparty.input'];
+      var active = s && Number(s['$sparty.active_slot']);
+      if (!input || typeof input !== 'object' || !(active >= 1 && active <= 6)) {
+        postInputReply(replyType, rid, { ok: false, error: 'bridge_state_missing' });
+        return;
+      }
+      if (d.type === 'NUO_TEAM_READ_INPUT') {
+        var hasPoke = !!(input.pokemon && input.pokemon.name);
+        var slot = hasPoke ? cloneSlots(augmentSlotWithDex(input, s)) : null;
+        if (hasPoke && !slot) {
+          postInputReply(replyType, rid, { ok: false, error: 'bridge_state_missing' });
+          return;
+        }
+        postInputReply(replyType, rid, { ok: true, slot: slot, active: active });
+        return;
+      }
+      var next = cloneSlots(d.slot);
+      if (!next || !next.pokemon || !next.pokemon.name) {
+        postInputReply(replyType, rid, { ok: false, error: 'sample_invalid' });
+        return;
+      }
+      next.slot_display = '#' + active;
+      try {
+        s['$sparty.input'] = next;
+      } catch (eW) {
+        postInputReply(replyType, rid, { ok: false, error: 'bridge_state_missing' });
+        return;
+      }
+      postInputReply(replyType, rid, { ok: true });
     });
   });
 })();

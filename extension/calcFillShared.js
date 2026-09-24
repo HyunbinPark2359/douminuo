@@ -149,6 +149,10 @@
     bridge_inject_failed: '브리지 주입에 실패했습니다. 탭을 새로고침한 뒤 확장을 다시 로드해 보세요.',
     calc_apply_timeout: '시간 초과. 계산기 탭을 활성화한 뒤 다시 시도해 주세요.',
     calc_payload_unavailable: '계산기용 스크립트를 불러오지 못했습니다. 확장 프로그램을 다시 로드해 주세요.',
+    bridge_timeout: '사이트 정보를 읽지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+    bridge_state_missing: '사이트 정보를 읽지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+    storage_failed: '샘플을 저장하지 못했습니다.',
+    sample_invalid: '이 샘플은 불러올 수 없습니다.',
   };
 
   function mapCalcFillError(code) {

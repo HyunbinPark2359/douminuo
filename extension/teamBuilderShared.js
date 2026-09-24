@@ -149,6 +149,56 @@
   }
 
   /**
+   * bridge 요청/응답 1회 (requestId 매칭, 8초 timeout → bridge_timeout).
+   * @param {string} type 요청 타입
+   * @param {string} replyType 응답 타입
+   * @param {object=} extra 요청에 덧붙일 필드
+   * @returns {Promise<object>} 응답 메시지 그대로 (timeout 이면 { ok:false, error:'bridge_timeout' })
+   */
+  function bridgeRpc(type, replyType, extra) {
+    return new Promise(function (resolve) {
+      var rid = String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+      var done = false;
+      function finish(r) {
+        if (done) return;
+        done = true;
+        window.removeEventListener('message', onMsg);
+        resolve(r);
+      }
+      function onMsg(ev) {
+        var d = ev.data;
+        if (!d || d.source !== MSG_BRIDGE || d.type !== replyType) return;
+        if (String(d.requestId) !== rid) return;
+        finish(d);
+      }
+      window.addEventListener('message', onMsg);
+      var msg = { source: MSG_EXT, type: type, requestId: rid };
+      var k;
+      if (extra) {
+        for (k in extra) {
+          if (Object.prototype.hasOwnProperty.call(extra, k)) msg[k] = extra[k];
+        }
+      }
+      window.postMessage(msg, '*');
+      setTimeout(function () { finish({ ok: false, error: 'bridge_timeout' }); }, 8000);
+    });
+  }
+
+  /** 샘플 저장용 — 현재 편집 슬롯 읽기 (SAMPLE_LIBRARY_PLAN §4.2). */
+  function readInputFromBridge() {
+    return injectTeamBridgeOnce().then(function () {
+      return bridgeRpc('NUO_TEAM_READ_INPUT', 'NUO_TEAM_INPUT_REPLY', null);
+    });
+  }
+
+  /** 샘플 불러오기 — 현재 편집 슬롯에 쓰기. */
+  function writeInputToBridge(slot) {
+    return injectTeamBridgeOnce().then(function () {
+      return bridgeRpc('NUO_TEAM_WRITE_INPUT', 'NUO_TEAM_WRITE_REPLY', { slot: slot });
+    });
+  }
+
+  /**
    * 슬롯 스냅샷 — 계산기 자동입력의 “팀 슬롯 원클릭” 흐름을 위한 두 층 mirror.
    *
    * - Hot snapshot (C-5a): 콘텐츠 스크립트 isolated world 의 `_hot` 변수.
@@ -295,6 +345,8 @@
     injectTeamBridge: injectTeamBridge,
     injectTeamBridgeOnce: injectTeamBridgeOnce,
     getSlotsFromBridge: getSlotsFromBridge,
+    readInputFromBridge: readInputFromBridge,
+    writeInputToBridge: writeInputToBridge,
     setSlotSnapshot: setSlotSnapshot,
     getHotSnapshot: getHotSnapshot,
     getCacheSnapshot: getCacheSnapshot,
