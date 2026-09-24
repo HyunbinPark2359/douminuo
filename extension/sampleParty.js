@@ -52,10 +52,14 @@
     fb.busy();
     TBS.readInputFromBridge().then(function (r) {
       if (!r || !r.ok) throw new Error((r && r.error) || 'bridge_timeout');
-      if (!r.slot) { fb.fail('포켓몬을 먼저 선택해 주세요'); return null; }
+      // 입력 누락 경고 = 사이트 계산기 '계산' 빈 입력 경고와 같은 네이티브 alert (2026-09-24 실측)
+      if (!r.slot) {
+        fb.idle();
+        window.alert('포켓몬을 먼저 선택해 주세요');
+        return null;
+      }
       var name = LIB.normName(r.slot.sample_name);
       if (!name) {
-        // 사이트 계산기 '계산' 빈 입력 경고와 같은 네이티브 alert (2026-09-24 실측)
         fb.idle();
         window.alert('샘플 이름을 입력해 주세요');
         if (inputEl) inputEl.focus();
@@ -138,10 +142,14 @@
   function buildDialogList(root, host) {
     root.innerHTML = '<style>' + TOKENS + '\n:host { all: initial; display: block; margin-top: 12px; }\n' +
       (g.nuoSampleCardCss || '') + '</style><div class="lib"></div>';
-    // 카드(사이트 336.67px)가 들어가도록 사이트 다이얼로그 폭 320 → 380 (인라인, 철거 시 원복)
+    // 카드(사이트 336.67px)가 들어가도록 사이트 다이얼로그 폭 320 → 380.
+    // 인라인 width 는 안 됨: URL 칸 입력마다 Dialog 가 re-render 되며 Vue 가 인라인 width:320px 를 다시 씀 (2026-09-24 실측).
+    // → 문서 stylesheet !important (인라인 일반 선언보다 우선) + 표시 속성. 철거 시 둘 다 제거.
     var dlg = host.closest('[role="dialog"]');
-    var prevW = dlg ? dlg.style.width : '';
-    if (dlg) dlg.style.width = '380px';
+    var wide = document.createElement('style');
+    wide.textContent = '[role="dialog"][data-nuo-sample-wide] { width: 380px !important; }';
+    document.head.appendChild(wide);
+    if (dlg) dlg.setAttribute('data-nuo-sample-wide', '');
     var off = LIB.mountList(root.querySelector('.lib'), {
       hint: '',
       onPick: function (item, setMsg) {
@@ -156,7 +164,8 @@
     });
     return function () {
       off();
-      if (dlg) dlg.style.width = prevW;
+      if (dlg) dlg.removeAttribute('data-nuo-sample-wide');
+      if (wide.parentNode) wide.parentNode.removeChild(wide);
     };
   }
 

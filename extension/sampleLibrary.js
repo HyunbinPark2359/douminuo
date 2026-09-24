@@ -204,7 +204,8 @@
     }
     return '<p class="count">저장한 샘플 · ' + items.length + (hint ? ' — ' + esc(hint) : '') + '</p>' +
       '<p class="msg" role="status"></p>' +
-      '<div class="list">' + items.map(renderCard).join('') + '</div>';
+      '<div class="shell"><div class="list">' + items.map(renderCard).join('') + '</div>' +
+      '<div class="sb"><div class="thumb"></div></div></div>';
   }
 
   /**
@@ -246,6 +247,48 @@
       if (!it) return;
       if (!isLoadable(it)) { setMsg(mapErr('sample_invalid')); return; }
       opts.onPick(it, setMsg);
+    });
+    // 커스텀 오버레이 스크롤바 — 스피드표 펼치기(speedOutspeedCalc.js updateInlineScrollbar 등)와 같은 모양·동작.
+    // 네이티브 바는 숨김(카드 폭 보존), 스크롤하는 동안만 thumb 가 보였다가 1.4s 뒤 fade.
+    var sbHideTimer = null;
+    var sbDragging = false;
+    function syncScrollbar(show) {
+      var list = box.querySelector('.list');
+      var sb = box.querySelector('.sb');
+      var thumb = sb && sb.firstChild;
+      if (!list || !thumb) return;
+      var sh = list.scrollHeight;
+      var ch = list.clientHeight;
+      if (sh <= ch + 1) { thumb.style.height = '0px'; return; }
+      var th = Math.max(24, Math.round((ch / sh) * sb.clientHeight));
+      var maxTop = sb.clientHeight - th;
+      thumb.style.height = th + 'px';
+      thumb.style.top = (maxTop > 0 ? Math.round((list.scrollTop / (sh - ch)) * maxTop) : 0) + 'px';
+      if (!show) return;
+      sb.classList.add('show');
+      clearTimeout(sbHideTimer);
+      sbHideTimer = setTimeout(function () { if (!sbDragging) sb.classList.remove('show'); }, 1400);
+    }
+    box.addEventListener('scroll', function () { syncScrollbar(true); }, true); // scroll 은 버블 안 함 → capture
+    box.addEventListener('mousedown', function (e) {
+      if (!e.target.classList || !e.target.classList.contains('thumb')) return;
+      e.preventDefault();
+      var list = box.querySelector('.list');
+      var sb = box.querySelector('.sb');
+      sbDragging = true;
+      var startY = e.clientY;
+      var startScroll = list.scrollTop;
+      var range = list.scrollHeight - list.clientHeight;
+      var maxTop = sb.clientHeight - e.target.offsetHeight;
+      function mm(ev) { list.scrollTop = startScroll + (maxTop > 0 ? ((ev.clientY - startY) / maxTop) * range : 0); }
+      function mu() {
+        sbDragging = false;
+        document.removeEventListener('mousemove', mm, true);
+        document.removeEventListener('mouseup', mu, true);
+        syncScrollbar(true);
+      }
+      document.addEventListener('mousemove', mm, true);
+      document.addEventListener('mouseup', mu, true);
     });
     box.addEventListener('keydown', function (e) {
       if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('card')) {

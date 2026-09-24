@@ -20,10 +20,15 @@
     '.empty { padding: 8px 0 2px; font-size: 11px; color: var(--nuo-text-muted); text-align: center; word-break: keep-all; }',
     '.msg { margin-bottom: 6px; font-size: 11px; color: var(--nuo-primary); }',
     '.msg:empty { display: none; }',
-    // 스크롤바 숨김 = 사이트 스크롤 영역 규칙(.p-scrollpanel-content 등 display:none)과 동일. Windows 기본 바가 카드 폭을 14px 깎음.
+    // 네이티브 스크롤바 숨김(Windows 기본 바가 카드 폭을 14px 깎음) + 오버레이 thumb — styles/speedPanel.js .inline-sb 와 같은 값.
+    '.shell { position: relative; }',
     '.list { max-height: 395px; overflow-y: auto; scrollbar-width: none; }',
-    '.list::-webkit-scrollbar { display: none; }',
+    '.list::-webkit-scrollbar { width: 0; height: 0; }',
     '.list > .card:last-child { margin-bottom: 0; }',
+    '.sb { position: absolute; top: 0; bottom: 0; right: 1px; width: 6px; opacity: 0; transition: opacity .35s ease; pointer-events: none; z-index: 20; }',
+    '.sb.show { opacity: 1; pointer-events: auto; }',
+    '.thumb { position: absolute; left: 1px; right: 1px; border-radius: 3px; background: rgba(148, 163, 184, 0.55); cursor: pointer; }',
+    '.thumb:hover { background: rgba(148, 163, 184, 0.8); }',
     '.head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 12px; color: #272727; }',
     '.head .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
     '.del { flex: none; width: 12px; height: 12px; padding: 0; border: 0; background: none; color: #808080; cursor: pointer; line-height: 0; }',
