@@ -55,7 +55,9 @@
       if (!r.slot) { fb.fail('포켓몬을 먼저 선택해 주세요'); return null; }
       var name = LIB.normName(r.slot.sample_name);
       if (!name) {
-        fb.fail('샘플 이름을 입력해 주세요');
+        // 사이트 계산기 '계산' 빈 입력 경고와 같은 네이티브 alert (2026-09-24 실측)
+        fb.idle();
+        window.alert('샘플 이름을 입력해 주세요');
         if (inputEl) inputEl.focus();
         return null;
       }
@@ -79,18 +81,15 @@
     var btn = root.querySelector('.sv');
     var tip = root.querySelector('.tip');
     var timer = null;
-    var holding = false; // 피드백 말풍선 표시 중엔 hover 말풍선이 덮지 않음
+    // 말풍선 = 결과 피드백 전용 (hover 안내는 사용자 요청으로 없음)
     function show(text, ms) {
       clearTimeout(timer);
       tip.textContent = text;
       tip.hidden = false;
-      holding = !!ms;
-      if (ms) timer = setTimeout(function () { tip.hidden = true; holding = false; }, ms);
+      timer = setTimeout(function () { tip.hidden = true; }, ms);
     }
-    btn.addEventListener('mouseenter', function () { if (!holding) show('샘플 저장', 0); });
-    btn.addEventListener('mouseleave', function () { if (!holding) tip.hidden = true; });
     var fb = {
-      busy: function () { btn.classList.add('busy'); tip.hidden = true; holding = false; },
+      busy: function () { btn.classList.add('busy'); tip.hidden = true; },
       idle: function () { btn.classList.remove('busy'); },
       done: function (t) { fb.idle(); show(t, 1500); },
       fail: function (t) { fb.idle(); show(t, 2500); }

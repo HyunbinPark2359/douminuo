@@ -200,7 +200,7 @@
   function renderList(items, hint) {
     if (!items.length) {
       return '<p class="msg" role="status"></p>' +
-        '<p class="empty">저장한 샘플이 없습니다 · 샘플 이름 칸의 저장 버튼으로 저장할 수 있어요</p>';
+        '<p class="empty">저장한 샘플이 없습니다</p>';
     }
     return '<p class="count">저장한 샘플 · ' + items.length + (hint ? ' — ' + esc(hint) : '') + '</p>' +
       '<p class="msg" role="status"></p>' +
