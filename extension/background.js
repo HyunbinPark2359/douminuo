@@ -729,33 +729,13 @@ importScripts('showdownPaste.js');
     return c[0] > p[0] || (c[0] === p[0] && c[1] > p[1]);
   }
 
-  // [BADGE] — 뱃지 abort 시: 아래 두 함수 본체 + 호출부 2곳(triggerUpdateNotice, CLEAR_UPDATE_BADGE 핸들러) 삭제
-  function showUpdateBadge() {
-    try {
-      chrome.action.setBadgeText({ text: 'NEW' });
-      chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
-    } catch (e) {}
-  }
-
-  function clearUpdateBadge() {
-    try {
-      chrome.action.setBadgeText({ text: '' });
-    } catch (e) {}
-  }
-
   /**
-   * 업데이트 알림 플래그를 storage에 기록하고 뱃지를 표시.
+   * 업데이트 알림 플래그를 storage에 기록 (페이지 토스트 updateToast.js 가 읽음).
    * patch 업데이트(minor·major 미변경)이면 아무것도 하지 않는다.
    */
   function triggerUpdateNotice(prev, curr) {
     if (!isMinorOrMajorUpdate(prev, curr)) return;
-    chrome.storage.local.set(
-      { nuo_fmt_pendingUpdateNotice: { version: curr, shownInPage: false } },
-      function () {
-        if (chrome.runtime.lastError) return;
-        showUpdateBadge(); // [BADGE] — abort 시 이 줄 삭제
-      }
-    );
+    chrome.storage.local.set({ nuo_fmt_pendingUpdateNotice: { version: curr, shownInPage: false } });
   }
 
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
@@ -955,14 +935,6 @@ importScripts('showdownPaste.js');
       loadJsonUrl('pokemonSlugToDex.json', { bySlug: {} }).then(function (doc) {
         sendResponse({ ok: true, doc: doc });
       });
-      return true;
-    }
-
-    // 토스트 dismiss 시 CS가 전송. 뱃지를 제거한다.
-    // [BADGE] abort 시: clearUpdateBadge() 호출 1줄만 삭제. 분기 자체는 무해하므로 유지 가능.
-    if (msg.type === 'CLEAR_UPDATE_BADGE') {
-      clearUpdateBadge(); // [BADGE] — abort 시 이 줄 삭제
-      sendResponse({ ok: true });
       return true;
     }
 
