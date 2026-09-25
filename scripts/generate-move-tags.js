@@ -1,8 +1,11 @@
 /**
- * Pokemon Showdown data/moves.ts → extension/moveTags.json
+ * Pokemon Showdown data/moves.ts + data/mods/champions/moves.ts → extension/moveTags.json
  * Node 18+ (fetch). Usage:
- *   node scripts/generate-move-tags.js [path/to/moves.ts]
- * Without arg, downloads master from GitHub raw.
+ *   node scripts/generate-move-tags.js [path/to/moves.ts] [path/to/champions/moves.ts]
+ * Without args, downloads master from GitHub raw.
+ *
+ * 스마트누오 = 포켓몬 챔피언스 전용 → champions mod 의 재분류가 본가보다 우선
+ * (예: 드래곤클로·섀도클로 slicing, 전광쌍격 punch, 프리즈드라이 부가효과 제거).
  */
 'use strict';
 
@@ -11,6 +14,8 @@ const path = require('path');
 
 const DEFAULT_URL =
   'https://raw.githubusercontent.com/smogon/pokemon-showdown/master/data/moves.ts';
+const CHAMPIONS_URL =
+  'https://raw.githubusercontent.com/smogon/pokemon-showdown/master/data/mods/champions/moves.ts';
 const OUT = path.join(__dirname, '..', 'extension', 'moveTags.json');
 
 function extractBalanced(s, openIdx) {
@@ -174,8 +179,10 @@ function hasRecoil(body) {
   return /\brecoil:\s*\[/.test(body);
 }
 
+/** 첫 `secondary:` 만 본다 — mod 본문이 앞에 붙으면 `secondary: undefined` 가 본가를 덮음. */
 function hasSecondaryBlock(body) {
-  return /\bsecondary:\s*\{/.test(body);
+  const m = body.match(/\bsecondary:\s*(\S)/);
+  return !!m && m[1] === '{';
 }
 
 /** 확정 급소 기술 (트릭플라워·스톰스로우·프로스트브레스 등). */
@@ -194,20 +201,25 @@ function buildTagsForMoveBody(body) {
   return tags;
 }
 
-async function loadSource() {
-  const arg = process.argv[2];
+async function loadSource(arg, url) {
   if (arg) {
     return fs.readFileSync(path.resolve(arg), 'utf8');
   }
-  const res = await fetch(DEFAULT_URL);
-  if (!res.ok) throw new Error('fetch moves.ts ' + res.status);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('fetch ' + url + ' ' + res.status);
   return res.text();
 }
 
 async function main() {
-  const ts = await loadSource();
-  const inner = extractMovesInner(ts);
-  const byKey = parseTopLevelKeys(inner);
+  const ts = await loadSource(process.argv[2], DEFAULT_URL);
+  const byKey = parseTopLevelKeys(extractMovesInner(ts));
+  // champions mod 항목(`inherit: true` + 바뀐 필드만)을 본가 본문 앞에 붙임 —
+  // 파서가 첫 매치(flags/category/secondary)를 쓰므로 mod 값이 우선.
+  const champTs = await loadSource(process.argv[3], CHAMPIONS_URL);
+  const champByKey = parseTopLevelKeys(extractMovesInner(champTs));
+  for (const k of Object.keys(champByKey)) {
+    if (byKey[k]) byKey[k] = champByKey[k] + '\n' + byKey[k];
+  }
   const moves = {};
   for (const k of Object.keys(byKey)) {
     const tags = buildTagsForMoveBody(byKey[k]);
@@ -215,8 +227,9 @@ async function main() {
   }
   const doc = {
     version: 3,
-    source: 'pokemon-showdown data/moves.ts',
+    source: 'pokemon-showdown data/moves.ts + data/mods/champions/moves.ts',
     sourceUrl: DEFAULT_URL,
+    modSourceUrl: CHAMPIONS_URL,
     generatedAt: new Date().toISOString(),
     moves,
   };

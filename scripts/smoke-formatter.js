@@ -221,4 +221,11 @@ var unresolved = formatSample(realRaw, {
 });
 assert(unresolved.includes('125-100-50-90-60-80'), 'all-null cells: all numeric: ' + unresolved);
 
+// 파동의방호: 조건부(접촉) 물리내구 ×2 — 인라인(excludeConditional)엔 미반영, 샘플 텍스트 경로엔 반영.
+const agReal = { H: 100, B: 100, D: 100 };
+const agAll = ctx.computeBulkPhysSpecBuffed(agReal, modifiersDocument, '', '파동의방호', '', []);
+assert(agAll.physBuffed === agAll.physBase * 2 && agAll.specBuffed === agAll.specBase, '파동의방호 물리 ×2: ' + JSON.stringify(agAll));
+const agInline = ctx.computeBulkPhysSpecBuffed(agReal, modifiersDocument, '', '파동의방호', '', [], { excludeConditionalAbilities: true });
+assert(agInline.physBuffed === agInline.physBase, '파동의방호 인라인 제외: ' + JSON.stringify(agInline));
+
 console.log('smoke-formatter: ok');

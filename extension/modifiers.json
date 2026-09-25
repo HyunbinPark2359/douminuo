@@ -1,5 +1,5 @@
 {
-  "version": 14,
+  "version": 15,
   "items": {
     "choice-band": {
       "atkMulPhysical": 1.5,
@@ -303,6 +303,11 @@
       "typedPowerMul": 1.5,
       "nameKo": "용의턱"
     },
+    "fire-mane": {
+      "boostType": "fire",
+      "typedPowerMul": 1.5,
+      "nameKo": "불꽃의갈기"
+    },
     "steelworker": {
       "boostType": "steel",
       "typedPowerMul": 1.5,
@@ -319,6 +324,7 @@
       "nameKo": "트랜지스터"
     },
     "sand-force": {
+      "impliesWeather": "sand",
       "sandForce": true,
       "sandForcePowerMul": 1.3,
       "nameKo": "모래의힘"
@@ -376,13 +382,39 @@
       "nameKo": "하드론엔진"
     },
     "solar-power": {
+      "impliesWeather": "sun",
       "spaBoostInSun": 1.5,
       "nameKo": "선파워"
+    },
+    "mega-sol": {
+      "selfWeather": "sun",
+      "nameKo": "메가솔라"
+    },
+    "chlorophyll": {
+      "impliesWeather": "sun",
+      "nameKo": "엽록소"
+    },
+    "swift-swim": {
+      "impliesWeather": "rain",
+      "nameKo": "쓱쓱"
+    },
+    "sand-rush": {
+      "impliesWeather": "sand",
+      "nameKo": "모래헤치기"
+    },
+    "slush-rush": {
+      "impliesWeather": "snow",
+      "nameKo": "눈치우기"
     },
     "aerilate": {
       "ateType": "flying",
       "atePowerMul": 1.2,
       "nameKo": "스카이스킨"
+    },
+    "dragonize": {
+      "ateType": "dragon",
+      "atePowerMul": 1.2,
+      "nameKo": "드래곤스킨"
     },
     "pixilate": {
       "ateType": "fairy",
@@ -449,6 +481,11 @@
       "bulkSpdMul": 2,
       "bulkConditional": true,
       "nameKo": "멀티스케일"
+    },
+    "aura-guard": {
+      "bulkDefMul": 2,
+      "bulkConditional": true,
+      "nameKo": "파동의방호"
     },
     "shadow-shield": {
       "bulkDefMul": 2,

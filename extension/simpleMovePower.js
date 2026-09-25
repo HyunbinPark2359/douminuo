@@ -140,6 +140,10 @@
     strongwinds: {},
   };
 
+  /** 웨더볼·대지의파동이 날씨/필드에서 바뀌는 타입 (strongwinds 는 변화 없음). */
+  var WEATHER_BALL_TYPE = { sun: 'fire', rain: 'water', sand: 'rock', snow: 'ice' };
+  var TERRAIN_PULSE_TYPE = { electric: 'electric', grassy: 'grass', misty: 'fairy', psychic: 'psychic' };
+
   /**
    * 지형: 해당 타입 위력(지면에 있다고 상정).
    * F52 (2026-05-24): 8세대 너프 후 모든 필드 보정 1.3 으로 통일. 옛 코드의 psychic 1.5 는 7세대까지의 값.
@@ -147,7 +151,7 @@
   var TERRAIN_TYPE_POWER_MUL = {
     electric: { electric: 1.3 },
     grassy: { grass: 1.3 },
-    misty: { fairy: 1.3 },
+    misty: {}, // 미스트필드 = 드래곤 피해 반감(방어측) — 공격 위력 보정 없음
     psychic: { psychic: 1.3 },
   };
 
@@ -218,6 +222,35 @@
 
     // === Step 2: stat 결정 — photongeyser(공특 최대치)·bodypress(방어)·일반 ===
     var moveId = arguments[9] != null ? arguments[9] : showdownMoveIdFromMove(mv, moveKoMap);
+
+    // 웨더볼·대지의파동: 특성의 날씨/필드를 따라감 — 조건부(깔기·날씨 의존 특성)라 base 는 원래 기술,
+    // buffed 는 날씨/필드 타입·위력 100 으로 다시 계산. 메가솔라(selfWeather)는 아래 Step 3 에서 base 까지.
+    var ar0 = abilityRule || {};
+    if (!mv.nuoResolved) {
+      var fixType = '';
+      var ar2 = ar0;
+      if (moveId === 'weatherball' && !ar0.selfWeather) {
+        var condW = ar0.setsWeather || ar0.impliesWeather;
+        fixType = WEATHER_BALL_TYPE[condW] || '';
+        // impliesWeather(엽록소 등)는 결정력 날씨 보정이 없으므로 웨더볼 계산에서만 깔린 것으로 둠.
+        if (fixType) ar2 = Object.assign({}, ar0, { setsWeather: condW });
+      } else if (moveId === 'terrainpulse') {
+        fixType = TERRAIN_PULSE_TYPE[ar0.setsTerrain] || '';
+      }
+      if (fixType) {
+        var plain = oneMovePowerInternalDual(
+          Object.assign({}, mv, { nuoResolved: true }),
+          atkReal, spaReal, defReal, speciesTypesEn, itemRule, ar0, moveTagsBundle, moveKoMap, moveId
+        );
+        var boosted = oneMovePowerInternalDual(
+          Object.assign({}, mv, { nuoResolved: true, power: 100, type: fixType }),
+          atkReal, spaReal, defReal, speciesTypesEn, itemRule, ar2, moveTagsBundle, moveKoMap, moveId
+        );
+        if (!plain || !boosted) return plain || boosted;
+        return { base: plain.base, buffed: boosted.buffed, cls: plain.cls };
+      }
+    }
+
     var stat;
     if (moveId === 'photongeyser') {
       var pa = atkReal != null && !isNaN(atkReal) ? atkReal : null;
@@ -253,6 +286,11 @@
     if (!moveTypeEn) return null;
 
     var ar = abilityRule || {};
+    // 메가솔라 웨더볼: 항상 쾌청 기준 (날씨 ×1.5 는 아래 selfWeather 단계).
+    if (moveId === 'weatherball' && WEATHER_BALL_TYPE[ar.selfWeather]) {
+      pnum = 100;
+      moveTypeEn = WEATHER_BALL_TYPE[ar.selfWeather];
+    }
     // pEff 를 (Base, Buffed) 두 갈래로 추적. 동일 round 시퀀스를 양쪽에 적용.
     var pBase = pnum;
     var pBuffed = pnum;
@@ -316,6 +354,17 @@
       var mul5 = num(ar.typedPowerMul, 1);
       pBase = Math.round(pBase * mul5);
       pBuffed = Math.round(pBuffed * mul5);
+    }
+
+    // 메가솔라: 자기 기술엔 필드 날씨와 무관하게 항상 쾌청 — 조건부 아님(base+buffed).
+    // setsWeather 와 분리: 필드 날씨가 아니라 계산기 날씨 칸에 넣으면 안 됨.
+    var selfWeatherKey = ar.selfWeather != null ? String(ar.selfWeather).toLowerCase().trim() : '';
+    if (selfWeatherKey && WEATHER_TYPE_POWER_MUL[selfWeatherKey]) {
+      var swm = WEATHER_TYPE_POWER_MUL[selfWeatherKey][moveTypeEn];
+      if (swm != null && !isNaN(swm)) {
+        pBase = Math.round(pBase * swm);
+        pBuffed = Math.round(pBuffed * swm);
+      }
     }
 
     // === Step 5: 특성 위력 보정 (조건부 Buffed-only) — 맹화·모래의힘·날씨·필드 ===

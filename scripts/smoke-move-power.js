@@ -248,4 +248,62 @@ assert(proteanRow[0].buffed === wantProteanBuffed, '변환자재 buffed(자속 �
 const proteanNaturalStab = cmp(proteanSlot, ['water']);
 assert(proteanNaturalStab[0].base === proteanNaturalStab[0].buffed, '변환자재 + 자연 STAB: base === buffed(중복 곱 없음)');
 
+// 챔피언스 재분류 (moveTags.json champions mod overlay) — 사이트 슬롯 기술 모양(name=영문 slug + name_kr).
+const stats100 = { attack: { real: 100 }, special_attack: { real: 100 } };
+const dragonClawKo = { name: 'dragon-claw', name_kr: '드래곤클로', power: '80', damage_class: 'physical', type: 'Dragon' };
+const sharpRow = cmp({ pokemon: { moves: [dragonClawKo], stats: stats100 }, ability: { name: 'Sharpness' } }, ['dragon']);
+const wantSharp = Math.round(Math.round(80 * 1.5) * 1.5) * 100;
+assert(sharpRow[0].buffed === wantSharp, '예리함 + 드래곤클로(챔스 slicing): got ' + sharpRow[0].buffed + ' want ' + wantSharp);
+
+const doubleShockKo = { name: 'double-shock', name_kr: '전광쌍격', power: '120', damage_class: 'physical', type: 'Electric' };
+const fistRow = cmp({ pokemon: { moves: [doubleShockKo], stats: stats100 }, ability: { name: 'Iron Fist' } }, ['electric']);
+const wantFist = Math.round(Math.round(120 * 1.2) * 1.5) * 100;
+assert(fistRow[0].buffed === wantFist, '철주먹 + 전광쌍격(챔스 punch): got ' + fistRow[0].buffed + ' want ' + wantFist);
+
+// 챔피언스 신규 메가 특성 (사이트 한글명으로 매칭).
+const ft2 = { name: 'flamethrower', power: '90', damage_class: 'special', type: 'Fire' };
+const megaSol = cmp({ pokemon: { moves: [ft2], stats: stats100 }, ability: '메가솔라' }, ['grass']);
+assert(megaSol[0].base === Math.round(90 * 1.5) * 100, '메가솔라 쾌청 base 반영: got ' + megaSol[0].base);
+assert(megaSol[0].base === megaSol[0].buffed, '메가솔라 조건부 아님');
+
+const weatherBall = { name: 'weather-ball', power: '50', damage_class: 'special', type: 'Normal' };
+const megaSolWb = cmp({ pokemon: { moves: [weatherBall], stats: stats100 }, ability: '메가솔라' }, ['grass']);
+assert(megaSolWb[0].base === Math.round(100 * 1.5) * 100, '메가솔라 웨더볼 = 불꽃 100 × 쾌청: got ' + megaSolWb[0].base);
+assert(megaSolWb[0].base === megaSolWb[0].buffed, '메가솔라 웨더볼 조건부 아님');
+
+// 웨더볼·대지의파동: 특성 날씨/필드 따라감 — base = 원래(노말 50), buffed = 날씨/필드 타입 100.
+const wbCase = (ab, types) => cmp({ pokemon: { moves: [weatherBall], stats: stats100 }, ability: ab }, types)[0];
+const wbDrizzle = wbCase('잔비', ['water']);
+assert(wbDrizzle.base === 50 * 100, '잔비 웨더볼 base 노말 50: got ' + wbDrizzle.base);
+assert(wbDrizzle.buffed === Math.round(Math.round(100 * 1.5) * 1.5) * 100, '잔비 웨더볼 buffed 물 100×비×자속: got ' + wbDrizzle.buffed);
+const wbChloro = wbCase('엽록소', ['grass']);
+assert(wbChloro.buffed === Math.round(100 * 1.5) * 100 && wbChloro.base === 5000, '엽록소 웨더볼 쾌청: ' + JSON.stringify(wbChloro));
+const wbSolar = wbCase('선파워', ['fire']);
+assert(wbSolar.buffed === Math.round(Math.round(Math.round(100 * 1.5) * 1.5) * 100 * 1.5), '선파워 웨더볼 쾌청+특공: ' + JSON.stringify(wbSolar));
+const wbSand = wbCase('모래날림', ['rock']);
+assert(wbSand.buffed === Math.round(100 * 1.5) * 100, '모래날림 웨더볼 바위 100 자속: ' + JSON.stringify(wbSand));
+const wbNone = wbCase('철주먹', ['normal']);
+assert(wbNone.base === wbNone.buffed && wbNone.base === Math.round(50 * 1.5) * 100, '무관 특성 웨더볼 노말: ' + JSON.stringify(wbNone));
+const wbDelta = wbCase('델타스트림', ['dragon']);
+assert(wbDelta.buffed === 50 * 100, '델타스트림 웨더볼 노말 그대로: ' + JSON.stringify(wbDelta));
+const ffOnly = cmp({ pokemon: { moves: [ft2], stats: stats100 }, ability: '엽록소' }, ['grass'])[0];
+assert(ffOnly.base === ffOnly.buffed, '엽록소는 웨더볼 외 기술 영향 없음');
+
+const terrainPulse = { name: 'terrain-pulse', power: '50', damage_class: 'special', type: 'Normal' };
+const tp = cmp({ pokemon: { moves: [terrainPulse], stats: stats100 }, ability: '일렉트릭메이커' }, ['electric'])[0];
+assert(tp.base === 50 * 100, '일렉트릭메이커 대지의파동 base 노말: ' + JSON.stringify(tp));
+assert(tp.buffed === Math.round(Math.round(100 * 1.3) * 1.5) * 100, '일렉트릭메이커 대지의파동 전기 100×필드×자속: ' + JSON.stringify(tp));
+
+const moonblast = { name: 'moonblast', power: '95', damage_class: 'special', type: 'Fairy' };
+const misty = cmp({ pokemon: { moves: [moonblast, terrainPulse], stats: stats100 }, ability: '미스트메이커' }, ['fairy']);
+assert(misty[0].base === misty[0].buffed, '미스트필드는 페어리 위력 보정 없음: ' + JSON.stringify(misty[0]));
+assert(misty[1].buffed === Math.round(100 * 1.5) * 100, '미스트메이커 대지의파동 = 페어리 100 자속, 필드 보정 없음: ' + JSON.stringify(misty[1]));
+
+const fireMane = cmp({ pokemon: { moves: [ft2], stats: stats100 }, ability: '불꽃의갈기' }, ['fire']);
+assert(fireMane[0].buffed === Math.round(Math.round(90 * 1.5) * 1.5) * 100, '불꽃의갈기: got ' + fireMane[0].buffed);
+
+const hyperVoice = { name: 'hyper-voice', power: '90', damage_class: 'special', type: 'Normal' };
+const dragonize = cmp({ pokemon: { moves: [hyperVoice], stats: stats100 }, ability: '드래곤스킨' }, ['water', 'dragon']);
+assert(dragonize[0].buffed === Math.round(Math.round(90 * 1.2) * 1.5) * 100, '드래곤스킨(드래곤 자속): got ' + dragonize[0].buffed);
+
 console.log('smoke-move-power: ok');
