@@ -11,6 +11,9 @@ const simplePath = path.join(root, 'extension', 'simpleMovePower.js');
 const modifiers = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'modifiers.json'), 'utf8'));
 const moveTags = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'moveTags.json'), 'utf8'));
 const moveKo = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'moveKoMap.json'), 'utf8'));
+// 런타임(background.js computeBlockPowersForSlot)과 같게 사이트 표기 fallback 병합.
+const moveKoFb = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'moveKoFallback.json'), 'utf8')).byKo;
+for (const k of Object.keys(moveKoFb)) if (moveKo.byKo[k] == null) moveKo.byKo[k] = moveKoFb[k];
 
 const ctx = { globalThis: {}, self: {}, console };
 ctx.globalThis = ctx.self = ctx;
@@ -73,6 +76,24 @@ const koRow = cmp(
   ['fire']
 );
 assert(koRow[0].buffed === wantTough, 'tough claws + Korean move name');
+
+// 스마트누오 표기 한글명만 있는 기술 (moveKoFallback) → moveTags 태그 적용.
+function koOnly(nameKr, power, dc, type, ability) {
+  return cmp(
+    {
+      pokemon: {
+        moves: [{ nameKr: nameKr, power: power, damage_class: dc, type: type }],
+        stats: { attack: { real: 100 }, special_attack: { real: 100 } },
+      },
+      ability: { name: ability },
+    },
+    ['normal']
+  )[0];
+}
+assert(koOnly('암석액스', '65', 'physical', 'Rock', 'Sharpness').buffed === Math.round(65 * 1.5) * 100, 'sharpness + 암석액스 (site ko)');
+assert(koOnly('에어커터', '60', 'special', 'Flying', 'Sharpness').buffed === Math.round(60 * 1.5) * 100, 'sharpness + 에어커터 (site ko)');
+assert(koOnly('맹독엄니', '50', 'physical', 'Poison', 'Strong Jaw').buffed === Math.round(50 * 1.5) * 100, 'strong jaw + 맹독엄니 (site ko)');
+assert(koOnly('드래곤클로', '80', 'physical', 'Dragon', 'Tough Claws').buffed === Math.round(80 * 1.3) * 100, 'tough claws + 드래곤클로 (site ko)');
 
 const bullet = {
   name: 'Bullet Punch',

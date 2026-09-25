@@ -387,10 +387,13 @@ importScripts('showdownPaste.js');
       resolveSpeciesTypesForSlot(slotData),
       loadJsonUrl('natureKoMap.json', { koToSlug: {} }),
       loadJsonUrl('natureStatMul.json', { bySlug: {} }),
+      loadJsonUrl('moveKoFallback.json', { version: 0, byKo: {} }),
     ]).then(function (arr) {
       var rules = arr[0];
       var moveTags = arr[1];
       var moveKo = arr[2];
+      // 사이트 표기(moveKoFallback) 도 한글명 lookup 에 포함 — 영문 name 없는 기술 대비. idempotent.
+      mergeByKoPaste(moveKo, arr[6]);
       var types = arr[3];
       var natureKoDoc = arr[4];
       var natureStatMulDoc = arr[5];

@@ -419,14 +419,6 @@
   }
 
   /**
-   * 스마트누오 UI 표기 ≠ PokéAPI 공식 한글명(예: 섀도클로 vs 섀도크루)일 때 PokéAPI 쪽 키로 우회.
-   * moveKoMap.byKo 의 키는 PokéAPI 공식 한글명이므로 사이트 표기를 정정한 뒤 lookup.
-   */
-  var MOVE_KO_SITE_TO_POKEAPI_KO = {
-    섀도클로: '섀도크루',
-  };
-
-  /**
    * Showdown식 하이픈 없는 id (예: shadowclaw) → PokéAPI meta.
    *
    * A. slugCanonicalMap 이 있으면 hyphenless → hyphenated 1회 lookup → 단일 fetch (일반 케이스).
@@ -470,7 +462,7 @@
    * F0: 한글/영문 기술명 → Showdown식 id (하이픈 없는 형태).
    * 빌드 타임 번들(moveKoMap, moveKoFallback)을 단일 출처로 사용 — 런타임 PokéAPI 호출 없음.
    * - 영문 slug 입력은 그대로 (소문자, 하이픈 제거).
-   * - 한글 입력은 moveKoMap.byKo → moveKoFallback.byKo → 사이트→PokéAPI 표기 정정 후 재시도.
+   * - 한글 입력은 moveKoMap.byKo → moveKoFallback.byKo (사이트 표기 ≠ PokéAPI ko 는 fallback 에 수록).
    */
   function showdownIdFromMoveLabel(label, moveKoDoc, moveKoFallbackDoc) {
     var t = normalizeMoveLabel(label);
@@ -482,11 +474,6 @@
     var byKoFb = (moveKoFallbackDoc && moveKoFallbackDoc.byKo) || null;
     if (byKo && Object.prototype.hasOwnProperty.call(byKo, t)) return byKo[t];
     if (byKoFb && Object.prototype.hasOwnProperty.call(byKoFb, t)) return byKoFb[t];
-    var canonKo = MOVE_KO_SITE_TO_POKEAPI_KO[t];
-    if (canonKo) {
-      if (byKo && Object.prototype.hasOwnProperty.call(byKo, canonKo)) return byKo[canonKo];
-      if (byKoFb && Object.prototype.hasOwnProperty.call(byKoFb, canonKo)) return byKoFb[canonKo];
-    }
     return null;
   }
 
