@@ -261,32 +261,47 @@
     return parties.save({ id: newId(), name: normName(name), savedAt: Date.now(), slots: slots, arts: arts });
   }
 
-  /* ===== 목록 ===== */
+  /* ===== 목록 — 샘플·파티 공용 (PARTY_PRESET_PLAN §4.3) ===== */
 
-  function renderList(items) {
-    if (!items.length) {
-      return '<p class="msg" role="status"></p>' +
-        '<p class="empty">저장한 샘플이 없습니다</p>';
-    }
-    // 개수 뱃지 = 파티 탭 우측 패널 "SP 66/66" 뱃지 실측(9px/300, padding 2px 8px, radius 5) + 회색(사용자 선택)
-    return '<p class="count"><span class="lbl">내 샘플</span><span class="badge">' + BOX_SVG + items.length + '/' + LIMIT + '</span></p>' +
-      '<p class="msg" role="status"></p>' +
-      '<div class="shell"><div class="list">' + items.map(renderCard).join('') + '</div>' +
+  var KINDS = {
+    sample: { store: samples, limit: LIMIT, render: renderCard, noun: '샘플', obj: '샘플을', empty: '저장한 샘플이 없습니다',
+      readErr: 'storage_read_failed', delErr: 'storage_delete_failed', loadable: isLoadable, invalid: 'sample_invalid', copied: '샘플 복사 완료' },
+    party: { store: parties, limit: PARTY_LIMIT, render: renderPartyCard, noun: '파티', obj: '파티를', empty: '저장한 파티가 없습니다',
+      readErr: 'party_read_failed', delErr: 'party_delete_failed', loadable: isPartyLoadable, invalid: 'party_invalid', copied: '파티 복사 완료' }
+  };
+
+  /** 목록 머리 가운데 — 종류 1개면 라벨, 2개면 사이트 상단 메뉴식 텍스트 탭 (세로 구분선). */
+  function headHtml(kinds, cur) {
+    if (kinds.length === 1) return '<span class="lbl">' + KINDS[cur].noun + '</span>';
+    return '<span class="lbl tabs">' + kinds.map(function (k) {
+      return '<button type="button" class="tab' + (k === cur ? ' on' : '') + '" data-kind="' + k + '" aria-pressed="' + (k === cur) + '">' +
+        KINDS[k].noun + '</button>';
+    }).join('<i></i>') + '</span>';
+  }
+
+  /** 머리 줄은 빈 상태에도 그림 (탭 전환). 개수 뱃지 = 파티 탭 "SP 66/66" 뱃지 실측 + 회색. */
+  function renderList(items, k, head) {
+    var top = '<div class="count">' + head + '<span class="badge">' + BOX_SVG + items.length + '/' + k.limit + '</span></div>' +
+      '<p class="msg" role="status"></p>';
+    if (!items.length) return top + '<p class="empty">' + k.empty + '</p>';
+    return top + '<div class="shell"><div class="list">' + items.map(k.render).join('') + '</div>' +
       '<div class="sb"><div class="thumb"></div></div><div class="tip" role="status" hidden></div></div>';
   }
 
   /**
-   * box(Shadow 안 요소)에 목록을 그리고 저장소 변경을 따라감. 카드 클릭 = onPick, 휴지통 = 확인 후 삭제,
-   * 복사 = 파티 탭 슬롯 복사와 같은 변환(teamBuilderFill.js nuoTeamCopy).
+   * box(Shadow 안 요소)에 목록을 그리고 저장소 변경을 따라감. 탭 = 종류 전환, 카드 클릭 = onPick(item, kind),
+   * 휴지통 = 확인 후 삭제, 복사 = 파티 탭 복사 아이콘과 같은 변환 (teamBuilderFill.js nuoTeamCopy).
    * box 가 속한 Shadow root 에 nuoSampleCardCss 가 있어야 함.
    * @param {Element} box
-   * @param {{ onPick: function(object) }} opts
+   * @param {{ kinds: string[], onPick: function(object, string) }} opts
    * @returns {function} teardown
    */
   function mountList(box, opts) {
+    var kinds = opts.kinds && opts.kinds.length ? opts.kinds : ['sample'];
+    var cur = kinds[0];
     var items = [];
     var tipTimer = null;
-    function draw() { box.innerHTML = renderList(items); }
+    function draw() { box.innerHTML = renderList(items, KINDS[cur], headHtml(kinds, cur)); }
     /** 결과 말풍선 — .list 가 overflow 로 자르므로 .shell 기준으로 버튼 위에 띄움. */
     function showTip(btn, text, ms) {
       var tip = box.querySelector('.shell > .tip');
@@ -311,19 +326,47 @@
       for (i = 0; i < items.length; i++) if (items[i].id === id) return items[i];
       return null;
     }
-    samples.readAll().then(function (it) { items = it; draw(); }, function () { items = []; draw(); setMsg(mapErr('storage_read_failed')); });
-    var off = samples.onChange(function (it) { items = it; draw(); });
+    function load() {
+      var k = cur;
+      KINDS[k].store.readAll().then(function (it) {
+        if (k !== cur) return; // 읽는 사이 탭이 바뀜
+        items = it;
+        draw();
+      }, function () {
+        if (k !== cur) return;
+        items = [];
+        draw();
+        setMsg(mapErr(KINDS[k].readErr));
+      });
+    }
+    load();
+    var offs = kinds.map(function (k) {
+      return KINDS[k].store.onChange(function (it) {
+        if (k !== cur) return;
+        items = it;
+        draw();
+      });
+    });
 
     box.addEventListener('click', function (e) {
+      var tab = e.target.closest('.tab');
+      if (tab) {
+        var nk = tab.getAttribute('data-kind');
+        if (nk !== cur && KINDS[nk]) { cur = nk; load(); }
+        return;
+      }
       var cp = e.target.closest('.cp');
       if (cp) {
         var c = itemOf(cp);
         var TC = g.nuoTeamCopy;
         if (!c || cp.classList.contains('busy') || !TC) return;
+        var kc = KINDS[cur];
+        var job = cur === 'party' ? TC.copyPartySlots && TC.copyPartySlots(c.slots) : TC.copySampleSlot(c.slot);
+        if (!job) return;
         cp.classList.add('busy');
-        TC.copySampleSlot(c.slot).then(function () {
+        job.then(function () {
           cp.classList.remove('busy');
-          showTip(cp, '샘플 복사 완료', 1500);
+          showTip(cp, kc.copied, 1500);
         }, function (err) {
           cp.classList.remove('busy');
           window.alert((err && err.message) || '변환 실패');
@@ -333,9 +376,10 @@
       var del = e.target.closest('.del');
       if (del) {
         var d = itemOf(del);
+        var kd = KINDS[cur];
         if (!d) return;
-        confirmDialog('\'' + d.name + '\' 샘플을 삭제할까요?', '삭제하기', '삭제하면 복구할 수 없습니다.').then(function (yes) {
-          if (yes) samples.remove(d.id).catch(function () { window.alert(mapErr('storage_delete_failed')); });
+        confirmDialog('\'' + d.name + '\' ' + kd.obj + ' 삭제할까요?', '삭제하기', '삭제하면 복구할 수 없습니다.').then(function (yes) {
+          if (yes) kd.store.remove(d.id).catch(function () { window.alert(mapErr(kd.delErr)); });
         });
         return;
       }
@@ -343,8 +387,8 @@
       if (!card) return;
       var it = itemOf(card);
       if (!it) return;
-      if (!isLoadable(it)) { window.alert(mapErr('sample_invalid')); return; }
-      opts.onPick(it);
+      if (!KINDS[cur].loadable(it)) { window.alert(mapErr(KINDS[cur].invalid)); return; }
+      opts.onPick(it, cur);
     });
     // 커스텀 오버레이 스크롤바 — 스피드표 펼치기(speedOutspeedCalc.js updateInlineScrollbar 등)와 같은 모양·동작.
     // 네이티브 바는 숨김(카드 폭 보존), 스크롤하는 동안만 thumb 가 보였다가 1.4s 뒤 fade.
@@ -404,7 +448,7 @@
     }, true);
     return function () {
       clearTimeout(tipTimer);
-      off();
+      offs.forEach(function (f) { f(); });
     };
   }
 
@@ -490,32 +534,101 @@
     });
   }
 
-  /**
-   * 목록 창 제목 — 기본 = 포켓볼 + '샘플 불러오기' (사이트 창), 계산기 = 칼/방패 + 공격측/수비측
-   * (사이트 '계산' 결과 모달 제목과 같은 아이콘·색, 2026-09-24 실측).
-   * @param {{ title?: string, icon?: string, color?: string }} o
-   */
-  function listTitleHtml(o) {
-    var icon = safeUrl(o.icon) || A.pokeball;
-    var color = /^#[0-9a-fA-F]{3,8}$/.test(o.color || '') ? ' style="color:' + o.color + '"' : '';
-    return '<span class="ttl"' + color + '>' + (icon ? '<img src="' + esc(icon) + '" alt="">' : '') +
-      esc(o.title || '샘플 불러오기') + '</span>';
+  // Material "settings" (사이트 아이콘 세트와 같은 계열), 16px 회색 — 박스 헤더 X 왼쪽.
+  var GEAR_SVG = '<svg viewBox="0 -960 960 960" aria-hidden="true"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm112-260q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Z"/></svg>';
+
+  function titleHtml(text) {
+    return '<span class="ttl">' + (A.pokeball ? '<img src="' + esc(A.pokeball) + '" alt="">' : '') + esc(text) + '</span>';
   }
 
   /**
-   * 계산기·스피드 "내 파티" 줄 불러오기 버튼용 목록 다이얼로그.
-   * @param {{ title?: string, icon?: string, color?: string, onPick: function(object) }} opts
+   * 박스 — 중앙 열 `박스` 버튼(prefsEntry)의 모달 (PARTY_PRESET_PLAN §4.3). 톱니 = 박스 닫고 환경설정.
+   * 카드 클릭은 닫지 않음 — 호출자가 확인 후 box.close().
+   * @param {{ kinds: string[], onPick: function(object, string, object) }} opts
+   * @returns {{ close: function() }}
    */
-  function openListDialog(opts) {
+  function openBox(opts) {
     var sh = openShell('list-box',
-      '<div class="hd">' + listTitleHtml(opts) +
-      '<button type="button" class="x" aria-label="닫기">' + X_SVG + '</button></div><div class="lib"></div>');
+      '<div class="hd">' + titleHtml('박스') + '<span class="hacts">' +
+      '<button type="button" class="gear" aria-label="환경설정">' + GEAR_SVG + '</button>' +
+      '<button type="button" class="x" aria-label="닫기">' + X_SVG + '</button></span></div><div class="lib"></div>');
     sh.root.querySelector('.x').addEventListener('click', function () { dismiss(sh); });
+    sh.root.querySelector('.gear').addEventListener('click', function () {
+      dismiss(sh);
+      if (g.nuoPrefsModal && typeof g.nuoPrefsModal.open === 'function') g.nuoPrefsModal.open();
+    });
     sh.teardown = mountList(sh.root.querySelector('.lib'), {
-      onPick: function (item) {
+      kinds: opts.kinds,
+      onPick: function (item, kind) { opts.onPick(item, kind, sh); }
+    });
+    return sh;
+  }
+
+  /**
+   * 이름 입력 창 — 사이트 '샘플 불러오기' 창 복제 (제목 + 라벨 필드 + [취소][저장]). Enter = 저장.
+   * @param {string} title '파티 저장' / '샘플 저장'
+   * @param {string} label '파티 이름' / '샘플 이름'
+   * @returns {Promise<string|null>} trim 한 이름, 취소면 null
+   */
+  function nameDialog(title, label) {
+    return new Promise(function (resolve) {
+      var sh = openShell('name-box',
+        '<div class="hd">' + titleHtml(title) + '<button type="button" class="x" aria-label="닫기">' + X_SVG + '</button></div>' +
+        '<label class="nf"><span class="nl">' + esc(label) + '</span>' +
+        '<input type="text" maxlength="16" placeholder="이름을 입력해주세요" spellcheck="false" autocomplete="off"></label>' +
+        '<div class="row"><button type="button" class="btn plain" data-a="no">취소</button>' +
+        '<button type="button" class="btn ok" data-a="yes">저장</button></div>',
+        function () { resolve(null); });
+      var inp = sh.root.querySelector('input');
+      function submit() {
+        var v = normName(inp.value);
+        if (!v) { inp.focus(); return; } // 빈 이름 = 창 유지 (§4.5)
         sh.close();
-        opts.onPick(item);
+        resolve(v);
       }
+      sh.root.querySelector('.x').addEventListener('click', function () { dismiss(sh); });
+      sh.root.querySelector('.row').addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        if (b.getAttribute('data-a') === 'yes') submit();
+        else dismiss(sh);
+      });
+      inp.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return; // 한글 조합 중 Enter 무시 (Review Focus 2)
+        e.preventDefault();
+        submit();
+      });
+      inp.focus();
+    });
+  }
+
+  /**
+   * 계산기·스피드 — 샘플을 공격/수비 어느 쪽에 넣을지 (확인창 틀, 설명 줄 자리에 버튼 2개).
+   * 색 = 사이트 '계산' 결과창 공격측 #E9C46A / 수비측 #8FC31F.
+   * @param {string} question
+   * @param {{ attacker: string, defender: string }} icons 사이트 칼/방패 img src ('' 이면 글자만)
+   * @returns {Promise<'attacker'|'defender'|null>}
+   */
+  function sideDialog(question, icons) {
+    function ic(src) {
+      var u = safeUrl(src);
+      return u ? '<img src="' + esc(u) + '" alt="">' : '';
+    }
+    return new Promise(function (resolve) {
+      var sh = openShell('confirm',
+        '<p class="q">' + esc(question) + '</p>' +
+        '<div class="sides"><button type="button" class="side atk" data-a="attacker">' + ic(icons && icons.attacker) + '공격측</button>' +
+        '<button type="button" class="side def" data-a="defender">' + ic(icons && icons.defender) + '수비측</button></div>' +
+        '<div class="acts"><button type="button" class="btn ghost" data-a="no">취소</button></div>',
+        function () { resolve(null); });
+      sh.root.querySelector('.box').addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        var a = b.getAttribute('data-a');
+        sh.close();
+        resolve(a === 'attacker' || a === 'defender' ? a : null);
+      });
+      sh.root.querySelector('.side.atk').focus();
     });
   }
 
@@ -537,12 +650,14 @@
     renderPartyCard: renderPartyCard,
     mountList: mountList,
     confirmDialog: function (q, ok, sub) { return confirmDialog(q, ok, sub); },
-    openListDialog: function (o) { return openListDialog(o); },
+    openBox: function (o) { return openBox(o); },
+    nameDialog: function (t, l) { return nameDialog(t, l); },
+    sideDialog: function (q, i) { return sideDialog(q, i); },
     _pure: {
       normName: normName, findByName: findByName, withSaved: withSaved, withoutId: withoutId,
       isLoadable: isLoadable, isPartyLoadable: isPartyLoadable, spColor: spColor, natureDot: natureDot, typeBg: typeBg,
       esc: esc, renderCard: renderCard, renderPartyCard: renderPartyCard,
-      renderList: renderList, canAdd: canAdd, LIMIT: LIMIT, listTitleHtml: listTitleHtml
+      renderList: renderList, canAdd: canAdd, LIMIT: LIMIT, headHtml: headHtml, KINDS: KINDS
     }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

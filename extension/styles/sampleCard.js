@@ -20,6 +20,13 @@
     '.count { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 6px; font-size: 11px; color: var(--nuo-text-muted); }',
     // 제목 스타일 = 사이트 섹션 제목('공격 수치' 등) 14px/500, 자간 -0.35 (옛 "내 파티" 제목과 같은 값).
     '.count .lbl { grid-column: 2; font-size: 14px; font-weight: 500; letter-spacing: -0.35px; color: var(--nuo-text-strong); }',
+    // 박스 파티 탭 — 사이트 상단 메뉴("계산기 | 스피드 | 도감")식 텍스트 탭 + 세로 구분선 (목업 합의 2026-09-26).
+    '.tabs { display: flex; align-items: center; }',
+    '.tab { padding: 0; border: 0; background: none; font: inherit; letter-spacing: inherit; color: #b5b5b5; cursor: pointer; transition: color 0.15s; }',
+    '.tab:hover { color: var(--nuo-text-muted); }',
+    '.tab.on { color: var(--nuo-text-strong); cursor: default; }',
+    '.tabs i { display: block; width: 1px; height: 12px; margin: 0 10px; background: #d0d0d0; }',
+    '.tab:focus-visible { outline: 2px solid var(--nuo-primary-focus); outline-offset: 2px; }',
     // 개수 뱃지 = 사이트 파티 탭 "SP 66/66" 뱃지 실측(2026-09-24: 9px/300 lh13.5, padding 2px 8px, radius 5) — 색만 회색.
     '.badge { grid-column: 3; justify-self: end; display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 5px; background: var(--nuo-neutral-btn); font-size: 9px; font-weight: 300; line-height: 13.5px; color: #fff; }',
     '.badge svg { width: 10px; height: 10px; fill: #fff; }',
@@ -95,6 +102,25 @@
     '.ttl { display: flex; align-items: center; font-size: 15px; font-weight: 500; color: #E4007F; }',
     '.ttl img { width: 24px; height: 24px; margin-right: 6px; }',
     '.x { width: 18px; height: 18px; padding: 0; border: 0; background: none; color: #000; cursor: pointer; line-height: 0; }',
+    '.hacts { display: flex; align-items: center; gap: 10px; }',
+    '.gear { width: 16px; height: 16px; padding: 0; border: 0; background: none; color: var(--nuo-text-muted); cursor: pointer; line-height: 0; transition: color 0.15s; }',
+    '.gear:hover { color: var(--nuo-primary); }',
+    '.gear svg { width: 16px; height: 16px; fill: currentColor; }',
+    // 이름 창 = 사이트 '샘플 불러오기' 창(폭 320) + 사이트 라벨 필드(높이 50, #d8d8d8, radius 8, 라벨 9px).
+    '.box.name-box { width: 320px; padding-top: 20px; }',
+    '.nf { position: relative; display: block; margin-bottom: 12px; }',
+    '.nl { position: absolute; top: -6px; left: 12px; padding: 0 4px; background: #fff; font-size: 9px; line-height: 1; color: var(--nuo-text-muted); white-space: nowrap; }',
+    '.nf input { display: block; width: 100%; height: 50px; padding: 8px 12px; border: 1px solid var(--nuo-field-border); border-radius: 8px; background: #fff; font: 400 14px var(--nuo-font); color: var(--nuo-text-strong); outline: none; box-sizing: border-box; }',
+    '.nf input::placeholder { color: #9e9e9e; }',
+    '.nf input:focus { border-color: var(--nuo-primary); }',
+    '.row { display: flex; justify-content: flex-end; gap: 6px; }',
+    '.btn.plain { background: transparent; color: #272727; }',
+    // 공격/수비 창 버튼 — 확인창 설명 줄 자리, 96×32 (사용자 요청: 보기 쉽게 크게).
+    '.sides { display: flex; justify-content: center; gap: 8px; margin: 12px 0; }',
+    '.side { display: flex; align-items: center; justify-content: center; gap: 6px; width: 96px; height: 32px; padding: 0; border: 0; border-radius: 8px; font: 400 14px var(--nuo-font); color: #fff; cursor: pointer; }',
+    '.side.atk { background: #E9C46A; }',
+    '.side.def { background: #8FC31F; }',
+    '.side img { width: 16px; height: 16px; filter: brightness(0) invert(1); }',
     '.box.confirm { width: 360px; padding: 16px 36px 36px; text-align: center; }',
     '.q { margin: 0 0 4px; font-size: 16px; font-weight: 600; line-height: 24px; color: #334155; word-break: keep-all; }',
     '.sub { margin: 0 0 12px; font-size: 11px; line-height: 16.5px; color: #334155; word-break: keep-all; }',
@@ -102,7 +128,7 @@
     '.btn { width: 50px; height: 20px; padding: 0; border: 0; border-radius: 5px; font: 300 10px var(--nuo-font); cursor: pointer; }',
     '.btn.ghost { background: #EBEBED; color: #272727; }',
     '.btn.ok { background: #E9C46A; color: #fff; }',
-    '.x:focus-visible, .btn:focus-visible { outline: 2px solid var(--nuo-primary-focus); outline-offset: 1px; }',
+    '.x:focus-visible, .btn:focus-visible, .gear:focus-visible, .side:focus-visible { outline: 2px solid var(--nuo-primary-focus); outline-offset: 1px; }',
     '@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }'
   ].join('\n');
 
