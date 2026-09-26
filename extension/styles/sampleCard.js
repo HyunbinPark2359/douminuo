@@ -69,11 +69,15 @@
     '.st .r { color: #272727; }',
     '.st .v { font-weight: 500; }',
     // 파티 카드 (PARTY_PRESET_PLAN §4.4) — .card 의 hover·클릭·키보드 규칙 재사용, 높이·여백만 덮음.
-    '.card.pt { height: auto; padding: 4px; gap: 4px; align-items: stretch; }',
-    '.tl { flex: 1; min-width: 0; height: 60px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }',
+    // 3×2 (사용자 요청 2026-09-26) — 옛 1열 6칸은 git 태그 party-card-1row.
+    '.card.pt { display: grid; grid-template-columns: repeat(3, 1fr); height: auto; padding: 4px; gap: 4px; }',
+    '.tl { min-width: 0; height: 74px; padding: 5px 6px 0; border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; }',
+    // 이름 = 샘플 카드 종 이름(.line b 14px/500 #000)을 타일 폭(≈106px)에 맞춰 11px — "메가한카리아스Z" 가 한 줄에 들어가는 크기.
+    // 왼쪽 정렬 = 샘플 카드 최소화판 (사용자 요청 2026-09-26). 일러는 가운데 유지.
+    '.tl .pn { align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 500; line-height: 14px; color: #000; }',
     '.tl.e { background: #fff; border: 1px dashed #e0e0e0; }',
     // 물건 = 일러 상자 오른쪽 아래 겹침 — 사이트 카드(일러 75 · 물건 30)와 같은 0.4 비율·위치.
-    '.tl .ab { position: relative; width: 50px; height: 50px; }',
+    '.tl .ab { position: relative; flex: none; width: 50px; height: 50px; }',
     '.tl .a { display: block; width: 50px; height: 50px; object-fit: contain; }',
     '.tl .it { position: absolute; right: 0; bottom: 0; width: 20px; height: 20px; }'
   ].join('\n');
@@ -89,6 +93,8 @@
     '.backdrop.on .box { opacity: 1; scale: 1; transition-timing-function: cubic-bezier(0, 0, 0.2, 1); }',
     // 사이트 원본은 위 여백 0(제목이 윗변에 붙음) — 우리 계산기 창만 사방 20 으로 보정 (사용자 요청 2026-09-24).
     '.box.list-box { width: 380px; padding-top: 20px; }',
+    // 박스 높이 고정 (사용자 요청 2026-09-26) — 탭 전환·빈 목록에도 창이 안 움직이게. 머리 19 + 6 + 목록 최대 395 (2026-09-26 실측).
+    '.box.list-box .lib { height: 420px; }',
     '.hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }',
     '.ttl { display: flex; align-items: center; font-size: 15px; font-weight: 500; color: #E4007F; }',
     '.ttl img { width: 24px; height: 24px; margin-right: 6px; }',
