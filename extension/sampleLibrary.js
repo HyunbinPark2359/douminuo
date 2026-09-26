@@ -166,7 +166,8 @@
   /**
    * 파티 항목 → 카드 마크업 (PARTY_PRESET_PLAN §4.4, 목업 3안 → 3×2 + 이름, 사용자 요청 2026-09-26.
    * 옛 1열 6칸은 git 태그 party-card-1row). 머리 줄은 샘플 카드와 같은 부품.
-   * 타일 = 타입색 + 이름 + 일러 50 + 지닌 물건 20 (사이트 카드 75/30 비율·위치), 빈 칸 = 흰 점선.
+   * 타일 = 타입색 + 이름 + 일러 50 + 지닌 물건 20 (사이트 카드 75/30 비율·위치), 빈 칸 = 연회색 + 슬롯 번호.
+   * 여섯 칸 사이 여백 없음 — 한 장 카드, 칸 구분은 배경색 (사용자 선택 2026-09-26).
    * @param {{ id: string, name: string, slots: Array, arts: Array }} item
    * @returns {string}
    */
@@ -181,7 +182,7 @@
     var k;
     for (k = 0; k < 6; k++) {
       var p = slots[k] && slots[k].pokemon;
-      if (!p || !p.name) { h += '<div class="tl e"></div>'; continue; }
+      if (!p || !p.name) { h += '<div class="tl e"><span class="no">' + (k + 1) + '</span></div>'; continue; }
       var equip = textOf(p.equipment);
       var art = safeUrl(arts[k]) || safeUrl(p.sprite);
       h += '<div class="tl" style="background:' + typeBg(p.first_type) + '">' +

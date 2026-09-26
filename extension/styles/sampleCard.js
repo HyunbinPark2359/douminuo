@@ -71,12 +71,15 @@
     // 파티 카드 (PARTY_PRESET_PLAN §4.4) — .card 의 hover·클릭·키보드 규칙 재사용, 높이·여백만 덮음.
     // 3×2 (사용자 요청 2026-09-26) — 옛 1열 6칸은 git 태그 party-card-1row.
     // 여백 0 = hover 핑크 테두리가 타일 바깥에 딱 붙음 (사용자 요청). radius 7 = 테두리 1 + 타일 6 → 모서리 곡선 일치.
-    '.card.pt { display: grid; grid-template-columns: repeat(3, 1fr); height: auto; padding: 0; gap: 4px; border-radius: 7px; }',
-    '.tl { min-width: 0; height: 74px; padding: 5px 6px 0; border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; }',
+    // 한 장 카드 (사용자 선택 2026-09-26) — 칸 사이 여백 0·칸 모서리 0, 바깥 모서리는 카드 overflow 로 둥글게. 칸 구분 = 배경색.
+    '.card.pt { display: grid; grid-template-columns: repeat(3, 1fr); height: auto; padding: 0; gap: 0; border-radius: 7px; overflow: hidden; }',
+    '.tl { min-width: 0; height: 74px; padding: 5px 6px 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }',
     // 이름 = 샘플 카드 종 이름(.line b 14px/500 #000)을 타일 폭(≈106px)에 맞춰 11px — "메가한카리아스Z" 가 한 줄에 들어가는 크기.
     // 왼쪽 정렬 = 샘플 카드 최소화판 (사용자 요청 2026-09-26). 일러는 가운데 유지.
     '.tl .pn { align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 500; line-height: 14px; color: #000; }',
-    '.tl.e { background: #fff; border: 1px dashed #e0e0e0; }',
+    // 빈 칸 = 연회색 + 가운데 슬롯 번호 (사용자 선택). 번호 색 = 박스 비활성 탭 #b5b5b5, 노말 타입(#E3E3E3)보다 옅은 배경.
+    '.tl.e { justify-content: center; padding: 0; background: #f5f5f5; }',
+    '.tl .no { font-size: 14px; font-weight: 500; color: #b5b5b5; }',
     // 물건 = 일러 상자 오른쪽 아래 겹침 — 사이트 카드(일러 75 · 물건 30)와 같은 0.4 비율·위치.
     '.tl .ab { position: relative; flex: none; width: 50px; height: 50px; }',
     '.tl .a { display: block; width: 50px; height: 50px; object-fit: contain; }',

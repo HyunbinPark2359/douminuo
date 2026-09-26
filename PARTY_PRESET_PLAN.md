@@ -136,6 +136,7 @@ teamBuilderBridge.js (MAIN, V9→V10)  + NUO_TEAM_WRITE_PARTY
 
 ### 4.4 파티 카드 (`renderPartyCard`, 3안 → 3×2 + 이름)
 > **Checkpoint B 개편 (2026-09-26, 사용자 요청, `2782def`)**: 3칸 × 2줄 grid, 타일 높이 74, 타일 위에 종 이름 11px/500 `#000` **왼쪽 정렬** (샘플 카드 최소화판 — "메가한카리아스Z" 한 줄), 긴 이름 말줄임, 일러 가운데. 옛 1열 6칸 = git 태그 `party-card-1row`. 아래 줄은 옛 1열 기준 기록.
+> **BP-B 후 추가 다듬기 (2026-09-26, 사용자 요청)**: 카드 여백 0 (hover 테두리가 칸에 붙음, radius 7), **한 장 카드** — 칸 사이 여백·칸 모서리 0, 바깥만 카드 `overflow:hidden` 로 둥글게, 칸 구분 = 배경색. 빈 칸 = 연회색 `#f5f5f5` + 가운데 슬롯 번호 14px/500 `#b5b5b5`. 저장 아이콘 = 외곽선 북마크, 복사·저장 아이콘 선 1.5/16.
 - 카드 `display:flex; gap:4px; padding:4px; border:1px solid transparent; radius 8; cursor:pointer`, hover·focus = `#E4007F` 테두리. `role=button tabindex=0` (Enter/Space = 클릭, 기존 키 처리 재사용).
 - 타일 6개 `flex:1; height:60px; radius 6; 가운데 정렬`, 배경 = 기존 `typeBg(first_type)`.
   - 일러 상자 `relative 50×50` → `img.a 50×50 contain` + 물건 `img.it absolute right:0 bottom:0 20×20` (사이트 카드 75/30 = 0.4 비율·위치).
