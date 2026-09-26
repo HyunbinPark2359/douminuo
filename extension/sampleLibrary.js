@@ -355,7 +355,8 @@
       var tab = e.target.closest('.tab');
       if (tab) {
         var nk = tab.getAttribute('data-kind');
-        if (nk !== cur && KINDS[nk]) { cur = nk; load(); }
+        // items 비움 — 읽는 몇 ms 사이 남아 있는 옛 종류 카드 클릭은 itemOf 가 null → 무시 (빈 문구 깜빡임 없이)
+        if (nk !== cur && KINDS[nk]) { cur = nk; items = []; load(); }
         return;
       }
       var cp = e.target.closest('.cp');
@@ -470,8 +471,10 @@
     document.body.appendChild(host);
     var root = host.attachShadow({ mode: 'open' });
     root.innerHTML = '<style>' + DIALOG_CSS + '</style>' +
-      '<div class="backdrop" role="dialog" aria-modal="true"><div class="box ' + boxClass + '">' + html + '</div></div>';
+      '<div class="backdrop" role="dialog" aria-modal="true"><div class="box ' + boxClass + '" tabindex="-1">' + html + '</div></div>';
     var bd = root.querySelector('.backdrop');
+    // 포커스를 창 안으로 — 페이지 버튼(`박스`·아이콘)에 남으면 Enter/Space 가 같은 창을 또 엶. 입력칸 있는 창은 호출자가 다시 focus.
+    root.querySelector('.box').focus({ preventScroll: true });
     var sh = { root: root, closed: false, onDismiss: onDismiss || null, teardown: null };
     sh.close = function () {
       if (sh.closed) return;

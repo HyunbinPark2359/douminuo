@@ -95,6 +95,8 @@
     '.backdrop.on { background: rgba(0, 0, 0, 0.5); }',
     '.box { position: relative; padding: 0 20px 20px; background: #fff; border: 1px solid var(--p-surface-200, #e2e8f0); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); opacity: 0; scale: 0.75; transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), scale 0.15s cubic-bezier(0.4, 0, 0.2, 1); }',
     '.backdrop.on .box { opacity: 1; scale: 1; transition-timing-function: cubic-bezier(0, 0, 0.2, 1); }',
+    '.box:focus { outline: none; }', // 열 때 포커스만 받아 둠 (openShell) — 표시용 테두리 없음
+
     // 사이트 원본은 위 여백 0(제목이 윗변에 붙음) — 우리 계산기 창만 사방 20 으로 보정 (사용자 요청 2026-09-24).
     '.box.list-box { width: 380px; padding-top: 20px; }',
     // 박스 높이 고정 (사용자 요청 2026-09-26) — 탭 전환·빈 목록에도 창이 안 움직이게. 머리 19 + 6 + 목록 최대 395 (2026-09-26 실측).
