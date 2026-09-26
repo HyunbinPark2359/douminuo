@@ -13,6 +13,7 @@
     '.ic.slot { width: 12px; height: 12px; color: #808080; }',
     '.ic.slot:hover { color: var(--nuo-primary); }',
     '.ic.party { width: 14px; height: 14px; color: #fff; }',
+    '.ic + .ic { margin-left: 4px; }', // [복사][저장] 사이 = 사이트 아이콘 간격 (슬롯 ml-1 · 초록 그룹 mr-1)
     '.ic.busy { opacity: 0.5; cursor: default; }',
     '.ic:focus-visible { outline: 2px solid var(--nuo-primary-focus); outline-offset: 1px; }',
     '.tip {',

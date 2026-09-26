@@ -1,6 +1,6 @@
 /**
  * 스마트누오 파티(팀빌더) 페이지 복사 아이콘 — 사이트 슬롯 `#N` 아이콘 줄 · `파티 리스트` 초록
- * 그룹에 합류 (REDESIGN §4.1 B). 슬롯 요약 복사 / 파티 복사. 서버·포맷 로직은 기존과 동일.
+ * 그룹에 합류 (REDESIGN §4.1 B). 슬롯 요약 복사·샘플 저장 / 파티 복사·파티 저장 (저장 흐름은 sampleParty.js). 서버·포맷 로직은 기존과 동일.
  * 복사 옵션 UI 는 환경설정(popup)으로 이관 — 여기선 chrome.storage.local 값만 읽음.
  * 피드백 = 사이트 아이콘 줄 방식 — hover 툴팁 없음, 성공은 클릭 후 아이콘 위 말풍선
  * ("샘플 복사 완료" 1.5s — 사이트 실측), 오류는 사이트처럼 네이티브 alert.
@@ -144,11 +144,13 @@
   /* ===== 사이트 아이콘 줄 합류 (REDESIGN §4.1 B) ===== */
 
   var SUM_SVG = '<svg class="base" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>';
+  // 샘플·파티 저장 = 북마크 (옛 샘플 이름 칸 저장 버튼과 같은 아이콘, PARTY_PRESET_PLAN §5.1).
+  var SAVE_SVG = '<svg viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M200-120v-640q0-33 23.5-56.5T280-840h400q33 0 56.5 23.5T760-760v640L480-240 200-120Z"/></svg>';
+  var EMPTY_MSG = '포켓몬을 먼저 선택해 주세요';
   var ICON_CSS = (globalThis.nuoTokensCss || '') + '\n' + (globalThis.nuoTeamCopyIconsCss || '');
   // 간격은 host 인라인 — .ic 에 두면 host 폭에 섞여 말풍선 중앙이 어긋남. 인라인이라 사이트 preflight 도 이김.
   var HOST_INLINE = 'display:inline-flex;vertical-align:middle;';
 
-  var filled = [false, false, false, false, false, false];
   var bridgeReady = false;
   var injectors = [];
 
@@ -177,46 +179,53 @@
   }
 
   /**
-   * 아이콘 1개 렌더 + 피드백 핸들 fb = { busy(), done(), fail(msg) }.
+   * host 1개 = [복사][저장] 두 버튼 (순서 결정적 — PARTY_PRESET_PLAN §5.1). 버튼마다 피드백 핸들
+   * fb = { busy(), idle(), done(text), fail(msg) }. 말풍선은 누른 버튼 위 가운데.
+   * @param {string} kind 'slot' | 'party'
+   * @param {{ copy: string, save: string }} labels aria-label
+   * @param {{ copy: function(object), save: function(object) }} handlers
    * @returns {function} teardown (타이머 정리)
    */
-  function buildIcon(root, kind, label, onClick) {
+  function buildIcons(root, kind, labels, handlers) {
     root.innerHTML = '<style>' + ICON_CSS + '</style>' +
-      '<button type="button" class="ic ' + kind + '"></button><div class="tip" role="status" hidden></div>';
-    var btn = root.querySelector('.ic');
+      '<button type="button" class="ic ' + kind + '" data-a="copy">' + SUM_SVG + '</button>' +
+      '<button type="button" class="ic ' + kind + '" data-a="save">' + SAVE_SVG + '</button>' +
+      '<div class="tip" role="status" hidden></div>';
     var tip = root.querySelector('.tip');
-    btn.innerHTML = SUM_SVG;
-    btn.setAttribute('aria-label', label);
     var timers = [];
     function clearTimers() { timers.forEach(clearTimeout); timers = []; }
-    function showTip(text, ms) {
-      tip.textContent = text;
-      tip.hidden = false;
-      timers.push(setTimeout(function () { tip.hidden = true; }, ms));
-    }
-    var fb = {
-      busy: function () {
-        clearTimers();
-        tip.hidden = true;
-        btn.classList.add('busy');
-        btn.setAttribute('aria-busy', 'true');
-      },
-      done: function () {
-        btn.classList.remove('busy');
-        btn.removeAttribute('aria-busy');
-        showTip('샘플 복사 완료', 1500);
-      },
-      fail: function (msg) {
-        btn.classList.remove('busy');
-        btn.removeAttribute('aria-busy');
-        window.alert(msg ? String(msg) : mapErr(''));
-      }
-    };
-    btn.addEventListener('click', function (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (btn.classList.contains('busy')) return;
-      onClick(fb);
+    [].slice.call(root.querySelectorAll('.ic')).forEach(function (btn) {
+      var a = btn.getAttribute('data-a');
+      btn.setAttribute('aria-label', labels[a]);
+      var fb = {
+        busy: function () {
+          clearTimers();
+          tip.hidden = true;
+          btn.classList.add('busy');
+          btn.setAttribute('aria-busy', 'true');
+        },
+        idle: function () {
+          btn.classList.remove('busy');
+          btn.removeAttribute('aria-busy');
+        },
+        done: function (text) {
+          fb.idle();
+          tip.textContent = text || '샘플 복사 완료';
+          tip.style.left = (btn.offsetLeft + btn.offsetWidth / 2) + 'px';
+          tip.hidden = false;
+          timers.push(setTimeout(function () { tip.hidden = true; }, 1500));
+        },
+        fail: function (msg) {
+          fb.idle();
+          window.alert(msg ? String(msg) : mapErr(''));
+        }
+      };
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (btn.classList.contains('busy')) return;
+        handlers[a](fb);
+      });
     });
     return clearTimers;
   }
@@ -229,6 +238,10 @@
 
     getSlotsFromBridge().then(function (r) {
       var partySlots = r && r.ok && r.slots && r.slots.length === 6 ? r.slots : null;
+      if (!partySlots || !Array.isArray(r.filled) || r.filled.indexOf(true) < 0) {
+        fb.fail(EMPTY_MSG);
+        return;
+      }
 
       readFormatOptions(function (fo) {
         chrome.runtime.sendMessage(
@@ -271,7 +284,7 @@
         return;
       }
       if (!r.filled || !r.filled[idx1 - 1]) {
-        fb.fail('빈 슬롯입니다.');
+        fb.fail(EMPTY_MSG);
         return;
       }
       var slotData = r.slots[idx1 - 1];
@@ -338,7 +351,36 @@
       });
     });
   }
-  globalThis.nuoTeamCopy = { copySampleSlot: copySampleSlot };
+  /**
+   * 저장한 파티 복사 (박스 파티 카드 복사 버튼) — runCopyPartyShareUrl 과 같은 변환·환경설정.
+   * 빈 칸 null → {} (bridge GET_SLOTS 가 주는 빈 슬롯 모양과 같게). pathname '/party' 고정.
+   * @param {Array} slots 저장된 6칸
+   * @returns {Promise<void>} 실패 시 reject(Error(한국어 문구))
+   */
+  function copyPartySlots(slots) {
+    return new Promise(function (resolve, reject) {
+      readFormatOptions(function (fo) {
+        chrome.runtime.sendMessage(
+          {
+            type: 'COPY_PARTY_SHARE_URL',
+            origin: location.origin,
+            pathname: '/party',
+            partySlots: slots.map(function (s) { return s || {}; }),
+            formatOptions: fo,
+          },
+          function (bg) {
+            if (chrome.runtime.lastError || !bg) { reject(new Error('변환 실패')); return; }
+            if (!bg.ok) { reject(new Error(bg.error || '변환 실패')); return; }
+            var t = bg.text != null ? String(bg.text) : '';
+            if (!t) { reject(new Error('출력이 비었습니다.')); return; }
+            copyTextBestEffort(t);
+            resolve();
+          }
+        );
+      });
+    });
+  }
+  globalThis.nuoTeamCopy = { copySampleSlot: copySampleSlot, copyPartySlots: copyPartySlots };
 
   /* ===== 삽입 등록 · 슬롯 갱신 ===== */
 
@@ -349,11 +391,13 @@
         injectors.push(CS.keepInjected({
           key: 'tb-slot-copy-' + idx1,
           hostStyle: HOST_INLINE + 'margin-left:4px;',
-          enabled: function () { return bridgeReady && isTeamBuilderRoute() && filled[idx1 - 1] === true; },
+          // 빈 슬롯에도 보임 — 누르면 alert (처음 쓰는 사람이 기능을 알아보게, PARTY_PRESET_PLAN §2)
+          enabled: function () { return bridgeReady && isTeamBuilderRoute(); },
           find: function () { return findSlotIconRow(idx1); },
           build: function (root) {
-            return buildIcon(root, 'slot', '요약 샘플 복사', function (fb) {
-              runCopySlot(idx1, fb);
+            return buildIcons(root, 'slot', { copy: '요약 샘플 복사', save: '샘플 저장' }, {
+              copy: function (fb) { runCopySlot(idx1, fb); },
+              save: function (fb) { if (globalThis.nuoPartyBox) globalThis.nuoPartyBox.saveSlot(idx1, fb); }
             });
           }
         }));
@@ -362,10 +406,13 @@
     injectors.push(CS.keepInjected({
       key: 'tb-party-copy',
       hostStyle: HOST_INLINE + 'margin-right:4px;',
-      enabled: function () { return bridgeReady && isTeamBuilderRoute() && filled.indexOf(true) >= 0; },
+      enabled: function () { return bridgeReady && isTeamBuilderRoute(); },
       find: findPartyIconGroup,
       build: function (root) {
-        return buildIcon(root, 'party', '파티 샘플 복사', function (fb) { runCopyPartyShareUrl(fb); });
+        return buildIcons(root, 'party', { copy: '파티 샘플 복사', save: '파티 저장' }, {
+          copy: function (fb) { runCopyPartyShareUrl(fb); },
+          save: function (fb) { if (globalThis.nuoPartyBox) globalThis.nuoPartyBox.saveParty(fb); }
+        });
       }
     }));
   }
@@ -374,28 +421,18 @@
     injectors.forEach(function (h) { h.refresh(); });
   }
 
-  function clearFilled() {
-    filled = [false, false, false, false, false, false];
-    refreshInjectors();
-  }
-
   function refreshSlots() {
     if (!bridgeReady) return;
     if (!isTeamBuilderRoute()) {
-      clearFilled();
+      refreshInjectors();
       return;
     }
     getSlotsFromBridge().then(function (r) {
-      if (!isTeamBuilderRoute() || !r || !r.ok || !r.slots || !Array.isArray(r.filled)) {
-        clearFilled();
-        return;
-      }
       // C-5a/b: 슬롯 hot snapshot + 영속 캐시 갱신. 계산기 페이지가 같은 탭 내에서
       // (또는 다음 부팅 후) 이 데이터를 읽어 "내 파티" 줄에 사용.
-      if (typeof TBS.setSlotSnapshot === 'function') {
+      if (isTeamBuilderRoute() && r && r.ok && r.slots && typeof TBS.setSlotSnapshot === 'function') {
         TBS.setSlotSnapshot({ slots: r.slots, slotArt: r.slotArt });
       }
-      filled = r.filled.slice(0, 6);
       refreshInjectors();
     });
   }
