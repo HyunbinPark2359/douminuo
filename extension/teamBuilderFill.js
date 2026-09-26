@@ -244,7 +244,11 @@
 
     getSlotsFromBridge().then(function (r) {
       var partySlots = r && r.ok && r.slots && r.slots.length === 6 ? r.slots : null;
-      if (!partySlots || !Array.isArray(r.filled) || r.filled.indexOf(true) < 0) {
+      if (!partySlots) {
+        fb.fail('슬롯을 읽지 못했습니다.'); // runCopySlot 과 같은 문구 — 읽기 실패를 빈 파티로 안내하지 않게
+        return;
+      }
+      if (!Array.isArray(r.filled) || r.filled.indexOf(true) < 0) {
         fb.fail(EMPTY_MSG);
         return;
       }
