@@ -5,15 +5,6 @@
  */
 (function (g) {
   'use strict';
-  g.nuoSampleTipCss = [
-    '.tip {',
-    '  position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); z-index: 9999;',
-    '  white-space: nowrap; pointer-events: none; padding: 4px 8px; border-radius: 4px;',
-    '  background: #333; font: 400 11px/1.5 var(--nuo-font); color: #fff;',
-    '}',
-    '.tip[hidden] { display: none; }'
-  ].join('\n');
-
   g.nuoSampleCardCss = [
     '* { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--nuo-font); }',
     // 라벨 가운데 · 뱃지 오른쪽 — 3칸 grid(양옆 1fr 동일)라 뱃지 폭과 무관하게 라벨이 정확히 중앙.
@@ -50,7 +41,7 @@
     '.cp:hover { color: var(--nuo-primary); }',
     '.cp svg { width: 12px; height: 12px; display: block; }',
     '.cp.busy { opacity: 0.5; cursor: default; }',
-    // 복사 결과 말풍선 — .list 가 overflow 로 자르므로 .shell 에 두고 JS 가 버튼 위치(left/top)를 줌. 모양은 nuoSampleTipCss 와 같음.
+    // 복사 결과 말풍선 — .list 가 overflow 로 자르므로 .shell 에 두고 JS 가 버튼 위치(left/top)를 줌. 모양은 styles/teamCopyIcons.js .tip 과 같음.
     '.shell > .tip { position: absolute; transform: translate(-50%, calc(-100% - 4px)); z-index: 30; white-space: nowrap; pointer-events: none; padding: 4px 8px; border-radius: 4px; background: #333; font: 400 11px/1.5 var(--nuo-font); color: #fff; }',
     '.shell > .tip[hidden] { display: none; }',
     '.del { flex: none; width: 12px; height: 12px; padding: 0; border: 0; background: none; color: #808080; cursor: pointer; line-height: 0; }',
@@ -130,14 +121,5 @@
     '.btn.ok { background: #E9C46A; color: #fff; }',
     '.x:focus-visible, .btn:focus-visible, .gear:focus-visible, .side:focus-visible { outline: 2px solid var(--nuo-primary-focus); outline-offset: 1px; }',
     '@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }'
-  ].join('\n');
-
-  // 파티 탭 샘플 이름 칸 저장 버튼 — 사이트 업로드 버튼(20×20, #a1a4ba, radius 5, 흰 14px 아이콘) 복제.
-  g.nuoSampleSaveCss = [
-    ':host { all: initial; }',
-    '.sv { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 5px; background: var(--nuo-neutral-btn); cursor: pointer; }',
-    '.sv svg { width: 14px; height: 14px; fill: #fff; }',
-    '.sv.busy { opacity: 0.5; cursor: default; }',
-    '.sv:focus-visible { outline: 2px solid var(--nuo-primary-focus); outline-offset: 1px; }'
   ].join('\n');
 })(typeof globalThis !== 'undefined' ? globalThis : self);

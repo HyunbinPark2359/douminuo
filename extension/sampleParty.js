@@ -1,7 +1,8 @@
 /**
- * 파티 탭 샘플 저장·불러오기 주입 (SAMPLE_LIBRARY_PLAN §5.1·§5.2).
- * 저장 = 우측 패널 `샘플 이름` 칸 안, 사이트 업로드 버튼 왼쪽 버튼.
- * 불러오기 = 사이트 '샘플 불러오기' 다이얼로그 안 목록 (Task 6).
+ * 파티 탭 저장·불러오기 (PARTY_PRESET_PLAN §5.2·§5.3).
+ * 저장 = teamBuilderFill 아이콘 줄 저장 버튼 → nuoPartyBox.saveSlot(n) / saveParty().
+ * 불러오기 = 중앙 열 `박스` (prefsEntry) → nuoBoxHandlers.team → 박스 [샘플 | 파티].
+ * 사이트 '샘플 불러오기' 창·샘플 이름 칸은 건드리지 않음 (사이트 원래 동작).
  */
 (function (g) {
   'use strict';
@@ -9,35 +10,26 @@
   var CS = g.nuoCsCommon || {};
   var TBS = g.nuoTeamBuilderShared || {};
   var LIB = g.nuoSampleLibrary;
-  if (typeof CS.keepInjected !== 'function' || !LIB) return;
+  if (!LIB || typeof TBS.getSlotsFromBridge !== 'function' || typeof CS.findTextLeaves !== 'function') return;
 
-  var TOKENS = g.nuoTokensCss || '';
-  var SAVE_SVG = '<svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M200-120v-640q0-33 23.5-56.5T280-840h400q33 0 56.5 23.5T760-760v640L480-240 200-120Z"/></svg>';
+  var EMPTY_MSG = '포켓몬을 먼저 선택해 주세요';
+  var STOP = {}; // 사용자가 멈춘 흐름(취소·빈 슬롯) — catch 에서 조용히 끝냄
+  var SAMPLE_O = { limit: LIB.LIMIT, limitCode: 'sample_limit', subj: '샘플이', what: '샘플' };
+  var PARTY_O = { limit: LIB.PARTY_LIMIT, limitCode: 'party_limit', subj: '파티가', what: '파티' };
 
   function mapErr(code) {
     return typeof g.mapCalcFillError === 'function' ? g.mapCalcFillError(code) : String(code || '');
   }
 
-  function isTeamRoute() {
-    return typeof CS.isTeamBuilderRoute === 'function' && CS.isTeamBuilderRoute();
+  function stop() { throw STOP; }
+
+  function hasMon(slot) {
+    return !!(slot && slot.pokemon && slot.pokemon.name);
   }
 
-  /** `샘플 이름` 라벨 leaf → 부모(relative 래퍼: 라벨 + 입력칸 + 사이트 업로드 버튼). 사이트 버튼 앞에 삽입. */
-  function findSaveAnchor() {
-    var labs = CS.findTextLeaves(/^샘플 이름$/);
-    var i;
-    for (i = 0; i < labs.length; i++) {
-      var wrap = labs[i].parentElement;
-      var inp = wrap && wrap.querySelector('input');
-      var btn = wrap && wrap.querySelector('button');
-      if (inp && btn) return { parent: wrap, before: btn };
-    }
-    return null;
-  }
-
-  /** 활성 슬롯 좌측 카드의 공식 일러스트 URL (§4.1 art). 헤더 `#N` leaf → 헤더 줄 → 다음 형제 = 카드. */
-  function findActiveArt(active) {
-    var leaves = CS.findTextLeaves(new RegExp('^#' + active + '$'));
+  /** 슬롯 #n 좌측 카드의 공식 일러스트 URL (§4.1 arts). 헤더 `#n` leaf → 헤더 줄 → 다음 형제 = 카드. */
+  function findArt(n) {
+    var leaves = CS.findTextLeaves(new RegExp('^#' + n + '$'));
     var i;
     for (i = 0; i < leaves.length; i++) {
       var row = leaves[i].parentElement && leaves[i].parentElement.parentElement;
@@ -48,144 +40,105 @@
     return '';
   }
 
-  function onSave(fb, inputEl) {
-    fb.busy();
-    TBS.readInputFromBridge().then(function (r) {
-      if (!r || !r.ok) throw new Error((r && r.error) || 'bridge_timeout');
-      // 입력 누락 경고 = 사이트 계산기 '계산' 빈 입력 경고와 같은 네이티브 alert (2026-09-24 실측)
-      if (!r.slot) {
-        fb.idle();
-        window.alert('포켓몬을 먼저 선택해 주세요');
-        return null;
-      }
-      var name = LIB.normName(r.slot.sample_name);
-      if (!name) {
-        fb.idle();
-        window.alert('샘플 이름을 입력해 주세요');
-        if (inputEl) inputEl.focus();
-        return null;
-      }
-      var art = findActiveArt(r.active) || String(r.slot.pokemon.sprite || '');
-      return LIB.readAll().then(function (items) {
-        if (!LIB.canAdd(items, name)) {
-          fb.idle();
-          window.alert(mapErr('sample_limit'));
-          return false;
-        }
-        if (!LIB.findByName(items, name)) return true;
-        return LIB.confirmDialog('\'' + name + '\' 샘플이 이미 있어요. 덮어쓸까요?', '덮어쓰기', '기존 샘플 내용은 복구할 수 없습니다.');
-      }).then(function (go) {
-        if (!go) { fb.idle(); return null; }
-        return LIB.saveEntry(r.slot, art).then(function () { fb.done('샘플 저장 완료'); });
-      });
-    }).catch(function (err) {
+  /** bridge 보강 슬롯 6칸 (GET_SLOTS). 실패 코드는 매퍼에 있는 것으로 통일. */
+  function readSlots() {
+    return TBS.getSlotsFromBridge().then(function (r) {
+      if (!r || !r.ok || !Array.isArray(r.slots) || r.slots.length !== 6) throw new Error('bridge_state_missing');
+      return r.slots;
+    });
+  }
+
+  /** 상한·같은 이름 확인. @returns {Promise<boolean>} */
+  function okToSave(items, name, o) {
+    if (!LIB.canAdd(items, name, o.limit)) {
+      window.alert(mapErr(o.limitCode));
+      return Promise.resolve(false);
+    }
+    if (!LIB.findByName(items, name)) return Promise.resolve(true);
+    return LIB.confirmDialog('\'' + name + '\' ' + o.subj + ' 이미 있어요. 덮어쓸까요?', '덮어쓰기', '기존 ' + o.what + ' 내용은 복구할 수 없습니다.');
+  }
+
+  function endFlow(fb) {
+    return function (err) {
       fb.idle();
-      window.alert(mapErr(err && err.message));
-    });
-  }
-
-  function buildSave(root, host) {
-    root.innerHTML = '<style>' + TOKENS + '\n' + (g.nuoSampleSaveCss || '') + '\n' + (g.nuoSampleTipCss || '') + '</style>' +
-      '<button type="button" class="sv" aria-label="샘플 저장">' + SAVE_SVG + '</button>' +
-      '<div class="tip" role="status" hidden></div>';
-    var btn = root.querySelector('.sv');
-    var tip = root.querySelector('.tip');
-    var timer = null;
-    // 말풍선 = 성공 피드백 전용, 오류는 alert (hover 안내는 사용자 요청으로 없음)
-    function show(text, ms) {
-      clearTimeout(timer);
-      tip.textContent = text;
-      tip.hidden = false;
-      timer = setTimeout(function () { tip.hidden = true; }, ms);
-    }
-    var fb = {
-      busy: function () { btn.classList.add('busy'); tip.hidden = true; },
-      idle: function () { btn.classList.remove('busy'); },
-      done: function (t) { fb.idle(); show(t, 1500); }
-    };
-    var inp = host.parentElement ? host.parentElement.querySelector('input') : null;
-    btn.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (btn.classList.contains('busy')) return;
-      onSave(fb, inp);
-    });
-    // 버튼 2개 → 긴 이름이 버튼 밑으로 안 들어가게 입력칸 오른쪽 여백 +24px. 철거 시 원복.
-    var prevPad = inp ? inp.style.paddingRight : '';
-    if (inp) inp.style.paddingRight = (parseFloat(getComputedStyle(inp).paddingRight) + 24) + 'px';
-    return function () {
-      clearTimeout(timer);
-      if (inp) inp.style.paddingRight = prevPad;
+      if (err !== STOP) window.alert(mapErr(err && err.message));
     };
   }
 
-  CS.keepInjected({
-    key: 'sample-save',
-    enabled: isTeamRoute,
-    find: findSaveAnchor,
-    // 사이트 업로드 버튼(right 10px, 20px)과 4px 간격. 위치는 inline 이라 사이트 preflight 영향 없음.
-    hostStyle: 'position:absolute;right:34px;top:50%;transform:translateY(-50%);width:20px;height:20px;z-index:1;',
-    build: buildSave
-  });
-
-  /** 사이트 '샘플 불러오기' 다이얼로그: URL 입력칸 다음 = 취소/불러오기 줄 → 그 다음 자리. */
-  function findDialogAnchor() {
-    var f = document.querySelector('[role="dialog"] input.preset-url-field');
-    var actions = f && f.nextElementSibling;
-    if (!actions || !actions.parentElement) return null;
-    return { parent: actions.parentElement, before: actions.nextSibling };
+  /** 슬롯 #n → 샘플 저장. 이름 없으면 이름 창 → 저장본 sample_name 에도 (사이트 슬롯 이름은 그대로). */
+  function saveSlot(n, fb) {
+    var slot;
+    fb.busy();
+    readSlots().then(function (slots) {
+      slot = slots[n - 1];
+      if (!hasMon(slot)) { fb.idle(); window.alert(EMPTY_MSG); stop(); }
+      return LIB.normName(slot.sample_name) || LIB.nameDialog('샘플 저장', '샘플 이름');
+    }).then(function (name) {
+      if (!name) stop();
+      slot.sample_name = name;
+      return LIB.readAll().then(function (items) { return okToSave(items, name, SAMPLE_O); });
+    }).then(function (go) {
+      if (!go) stop();
+      return LIB.saveEntry(slot, findArt(n) || String(slot.pokemon.sprite || ''));
+    }).then(function () {
+      fb.done('샘플 저장 완료');
+    }).catch(endFlow(fb));
   }
 
-  function closeSiteDialog() {
-    var list = document.querySelectorAll('[role="dialog"] button');
-    var i;
-    for (i = 0; i < list.length; i++) {
-      if (list[i].textContent.trim() === '취소') { list[i].click(); return; }
-    }
-  }
-
-  function buildDialogList(root, host) {
-    // 버튼 줄과의 간격은 Shadow 안 .lib 에 — host 의 margin 은 사이트 preflight(* { margin:0 })가 이김.
-    root.innerHTML = '<style>' + TOKENS + '\n:host { all: initial; display: block; }\n' +
-      (g.nuoSampleCardCss || '') + '\n.lib { margin-top: 12px; }</style><div class="lib"></div>';
-    // 카드(사이트 336.67px)가 들어가도록 사이트 다이얼로그 폭 320 → 380.
-    // 인라인 width 는 안 됨: URL 칸 입력마다 Dialog 가 re-render 되며 Vue 가 인라인 width:320px 를 다시 씀 (2026-09-24 실측).
-    // → 문서 stylesheet !important (인라인 일반 선언보다 우선) + 표시 속성. 철거 시 둘 다 제거.
-    var dlg = host.closest('[role="dialog"]');
-    var wide = document.createElement('style');
-    wide.textContent = '[role="dialog"][data-nuo-sample-wide] { width: 380px !important; }';
-    document.head.appendChild(wide);
-    if (dlg) dlg.setAttribute('data-nuo-sample-wide', '');
-    var off = LIB.mountList(root.querySelector('.lib'), {
-      onPick: function (item) {
-        TBS.writeInputToBridge(item.slot).then(function (r) {
-          if (!r || !r.ok) throw new Error((r && r.error) || 'bridge_timeout');
-          closeSiteDialog();
-        }).catch(function (err) {
-          window.alert(mapErr(err && err.message));
+  /** 파티 6칸 저장 — 이름 창 필수 (사이트에 파티 이름 칸 없음). */
+  function saveParty(fb) {
+    var slots, arts;
+    fb.busy();
+    readSlots().then(function (all) {
+      slots = all.map(function (s) { return hasMon(s) ? s : null; });
+      if (!slots.some(Boolean)) { fb.idle(); window.alert(EMPTY_MSG); stop(); }
+      arts = slots.map(function (s, i) { return s ? (findArt(i + 1) || String(s.pokemon.sprite || '')) : ''; });
+      return LIB.nameDialog('파티 저장', '파티 이름');
+    }).then(function (name) {
+      if (!name) stop();
+      return LIB.readParties().then(function (items) {
+        return okToSave(items, name, PARTY_O).then(function (go) {
+          if (!go) stop();
+          return LIB.savePartyEntry(name, slots, arts);
         });
+      });
+    }).then(function () {
+      fb.done('파티 저장 완료');
+    }).catch(endFlow(fb));
+  }
+
+  function alertErr(err) {
+    window.alert(mapErr(err && err.message));
+  }
+
+  function checkWrite(r) {
+    if (!r || !r.ok) throw new Error((r && r.error) || 'bridge_timeout');
+  }
+
+  /** 박스 [샘플 | 파티] — 카드마다 확인창 후 쓰기, 성공 시 박스 닫힘. 취소 = 박스로 돌아감. */
+  function openTeamBox() {
+    LIB.openBox({
+      kinds: ['sample', 'party'],
+      onPick: function (item, kind, box) {
+        if (kind === 'party') {
+          LIB.confirmDialog('\'' + item.name + '\' 파티를 불러올까요?', '불러오기', '저장되지 않은 파티 내용은 사라집니다.').then(function (yes) {
+            if (!yes) return null;
+            return TBS.writePartyToBridge(item.slots).then(function (r) { checkWrite(r); box.close(); });
+          }).catch(alertErr);
+          return;
+        }
+        TBS.readInputFromBridge().then(function (r) {
+          checkWrite(r);
+          return LIB.confirmDialog('\'' + item.name + '\' 샘플을 #' + r.active + ' 슬롯에 불러올까요?', '불러오기', '저장되지 않은 샘플 내용은 사라집니다.');
+        }).then(function (yes) {
+          if (!yes) return null;
+          return TBS.writeInputToBridge(item.slot).then(function (r) { checkWrite(r); box.close(); });
+        }).catch(alertErr);
       }
     });
-    return function () {
-      off();
-      if (dlg) dlg.removeAttribute('data-nuo-sample-wide');
-      if (wide.parentNode) wide.parentNode.removeChild(wide);
-    };
   }
 
-  var listHandle = CS.keepInjected({
-    key: 'sample-party-list',
-    enabled: isTeamRoute,
-    find: findDialogAnchor,
-    build: buildDialogList
-  });
-
-  // 다이얼로그가 뜨는 즉시 삽입 (400ms 폴링 대기로 목록이 늦게 튀어나오는 것 방지).
-  // PrimeVue 가 마스크를 body 직계로 teleport → body childList 만 관찰 (비용 거의 0).
-  try {
-    new MutationObserver(function () {
-      var h = listHandle.getHost();
-      if (!h || !h.isConnected) listHandle.refresh();
-    }).observe(document.body, { childList: true });
-  } catch (eMo) {}
+  g.nuoPartyBox = { saveSlot: saveSlot, saveParty: saveParty };
+  g.nuoBoxHandlers = g.nuoBoxHandlers || {};
+  g.nuoBoxHandlers.team = openTeamBox;
 })(typeof globalThis !== 'undefined' ? globalThis : self);

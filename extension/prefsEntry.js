@@ -1,6 +1,6 @@
 /**
- * 중앙 버튼 열 `도우미` 버튼 + 환경설정 모달(popup.html?embed=1 iframe). REDESIGN §4.1 C.
- * 옛 계산기/팀빌더 FAB gear 의 중복 openPrefsModal 을 대체하는 단일 소유자.
+ * 중앙 버튼 열 `박스` 버튼 (옛 `도우미`, PARTY_PRESET_PLAN §5.6) + 환경설정 모달(popup.html?embed=1 iframe).
+ * 박스 클릭 = 라우트별 nuoBoxHandlers.team (sampleParty.js) / .calc (calcFill.js). 환경설정은 박스 헤더 톱니가 nuoPrefsModal.open().
  */
 (function () {
   'use strict';
@@ -98,8 +98,12 @@
     find: findCenterColumn,
     build: function (root) {
       root.innerHTML = '<style>:host{all:initial;display:block}\n' + css + '</style>' +
-        '<button type="button" class="entry" aria-label="도우미누오 환경설정">도우미</button>';
-      root.querySelector('.entry').addEventListener('click', open);
+        '<button type="button" class="entry" aria-label="박스 — 저장한 샘플·파티">박스</button>';
+      root.querySelector('.entry').addEventListener('click', function () {
+        var h = globalThis.nuoBoxHandlers || {};
+        var fn = CS.getRoute && CS.getRoute() === 'team' ? h.team : h.calc;
+        if (typeof fn === 'function') fn();
+      });
     }
   });
 
