@@ -1,6 +1,6 @@
 # PARTY_PRESET_PLAN — 파티 저장·불러오기 + 박스
 
-> 브랜치: `feat/party-preset` (main 에서) · 작성 2026-09-26 · 상태: **스펙·플랜 작성 완료 (BP-A, 2026-09-26) — 세션 2 = Task 1 부터**
+> 브랜치: `feat/party-preset` (main 에서) · 작성 2026-09-26 · 상태: **스펙·플랜 승인 (BP-A, 2026-09-26), 실행 = Native (superpowers:executing-plans) — 세션 2 = Task 1 부터**
 > 목업 원본: `.superpowers/brainstorm/*/content/` (gitignore, 참고용) — `party-card.html`(3안 선택), `overview-v2.html`(최종 부품).
 > 선행: [SAMPLE_LIBRARY_PLAN.md](./SAMPLE_LIBRARY_PLAN.md) (샘플 저장소·카드·다이얼로그 셸 — 본 PR 이 재사용·재배치).
 
