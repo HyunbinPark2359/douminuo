@@ -144,8 +144,9 @@
   /* ===== 사이트 아이콘 줄 합류 (REDESIGN §4.1 B) ===== */
 
   var SUM_SVG = '<svg class="base" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>';
-  // 샘플·파티 저장 = 북마크 (옛 샘플 이름 칸 저장 버튼과 같은 아이콘, PARTY_PRESET_PLAN §5.1).
-  var SAVE_SVG = '<svg viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M200-120v-640q0-33 23.5-56.5T280-840h400q33 0 56.5 23.5T760-760v640L480-240 200-120Z"/></svg>';
+  // 샘플·파티 저장 = 북마크 외곽선 (PARTY_PRESET_PLAN §5.1). 사이트 아이콘 = 30px PNG 에 선 ≈2px 외곽선형
+  // (2026-09-26 실측) → 16 단위 선 1.2 로 맞춤.
+  var SAVE_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h8v11L8 11l-4 2.5z"/></svg>';
   var EMPTY_MSG = '포켓몬을 먼저 선택해 주세요';
   var ICON_CSS = (globalThis.nuoTokensCss || '') + '\n' + (globalThis.nuoTeamCopyIconsCss || '');
   // 간격은 host 인라인 — .ic 에 두면 host 폭에 섞여 말풍선 중앙이 어긋남. 인라인이라 사이트 preflight 도 이김.

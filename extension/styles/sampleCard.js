@@ -70,7 +70,8 @@
     '.st .v { font-weight: 500; }',
     // 파티 카드 (PARTY_PRESET_PLAN §4.4) — .card 의 hover·클릭·키보드 규칙 재사용, 높이·여백만 덮음.
     // 3×2 (사용자 요청 2026-09-26) — 옛 1열 6칸은 git 태그 party-card-1row.
-    '.card.pt { display: grid; grid-template-columns: repeat(3, 1fr); height: auto; padding: 4px; gap: 4px; }',
+    // 여백 0 = hover 핑크 테두리가 타일 바깥에 딱 붙음 (사용자 요청). radius 7 = 테두리 1 + 타일 6 → 모서리 곡선 일치.
+    '.card.pt { display: grid; grid-template-columns: repeat(3, 1fr); height: auto; padding: 0; gap: 4px; border-radius: 7px; }',
     '.tl { min-width: 0; height: 74px; padding: 5px 6px 0; border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; }',
     // 이름 = 샘플 카드 종 이름(.line b 14px/500 #000)을 타일 폭(≈106px)에 맞춰 11px — "메가한카리아스Z" 가 한 줄에 들어가는 크기.
     // 왼쪽 정렬 = 샘플 카드 최소화판 (사용자 요청 2026-09-26). 일러는 가운데 유지.
