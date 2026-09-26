@@ -115,7 +115,7 @@
     if (!r || !r.ok) throw new Error((r && r.error) || 'bridge_timeout');
   }
 
-  /** 박스 [샘플 | 파티] — 카드마다 확인창 후 쓰기, 성공 시 박스 닫힘. 취소 = 박스로 돌아감. */
+  /** 박스 [샘플 | 파티] — 카드마다 확인창 후 쓰기 (샘플은 편집 슬롯이 비었으면 바로), 성공 시 박스 닫힘. 취소 = 박스로 돌아감. */
   function openTeamBox() {
     LIB.openBox({
       kinds: ['sample', 'party'],
@@ -129,6 +129,7 @@
         }
         TBS.readInputFromBridge().then(function (r) {
           checkWrite(r);
+          if (!r.slot) return true; // 편집 슬롯에 포켓몬 없음 = 잃을 내용 없음 → 확인창 생략
           return LIB.confirmDialog('\'' + item.name + '\' 샘플을 #' + r.active + ' 슬롯에 불러올까요?', '불러오기', '저장되지 않은 샘플 내용은 사라집니다.');
         }).then(function (yes) {
           if (!yes) return null;
