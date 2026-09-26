@@ -1,6 +1,6 @@
 # PARTY_PRESET_PLAN — 파티 저장·불러오기 + 박스
 
-> 브랜치: `feat/party-preset` (main 에서) · 작성 2026-09-26 · 상태: **세션 2 완료 (BP-B, 2026-09-26) — Task 1~6 + Checkpoint B 통과. 실행 = Native (superpowers:executing-plans) — 세션 3 = Task 7 부터**
+> 브랜치: `feat/party-preset` (main 에서) · 작성 2026-09-26 · 상태: **구현 완료 (세션 3, 2026-09-26) — Task 1~9 + 최종 리뷰 통과 (Critical 0). 병합 방식 결정 대기. 보류 Minor = §12 끝**
 > 목업 원본: `.superpowers/brainstorm/*/content/` (gitignore, 참고용) — `party-card.html`(3안 선택), `overview-v2.html`(최종 부품).
 > 선행: [SAMPLE_LIBRARY_PLAN.md](./SAMPLE_LIBRARY_PLAN.md) (샘플 저장소·카드·다이얼로그 셸 — 본 PR 이 재사용·재배치).
 
@@ -1488,7 +1488,7 @@ git commit -m "docs: party preset plan — session 2 done (BP-B)"
 - Consumes: `LIB.openBox`, `LIB.sideDialog` (Task 3), 기존 `orchestrateCalcFillFromSlot(slot, side)`.
 - Produces: `globalThis.nuoBoxHandlers.calc = function ()` (prefsEntry 가 계산기·스피드 라우트에서 호출).
 
-- [ ] **Step 1: 줄 마크업** — `buildPartyRow` 의 `root.innerHTML = ...` 를:
+- [x] **Step 1: 줄 마크업** — `buildPartyRow` 의 `root.innerHTML = ...` 를:
 
 ```js
     root.innerHTML = '<style>' + ROW_CSS + '</style>' +
@@ -1498,7 +1498,7 @@ git commit -m "docs: party preset plan — session 2 done (BP-B)"
 
 그리고 `// 저장한 샘플 불러오기 (SAMPLE_LIBRARY_PLAN §5.3·§5.4) ...` 주석부터 `root.querySelector('.load').addEventListener(...)` 블록 끝(`});`)까지 삭제. `var UPLOAD_SVG = ...;` 줄 삭제.
 
-- [ ] **Step 2: 박스 핸들러** — `rowSpec` 함수 앞에:
+- [x] **Step 2: 박스 핸들러** — `rowSpec` 함수 앞에:
 
 ```js
   /* ===== 박스 (PARTY_PRESET_PLAN §5.4) — 중앙 열 `박스` 버튼(prefsEntry)이 계산기·스피드에서 호출 ===== */
@@ -1532,7 +1532,7 @@ git commit -m "docs: party preset plan — session 2 done (BP-B)"
   globalThis.nuoBoxHandlers.calc = openCalcBox;
 ```
 
-- [ ] **Step 3: 줄 CSS** — `styles/calcPartyRow.js` 에서:
+- [x] **Step 3: 줄 CSS** — `styles/calcPartyRow.js` 에서:
   - 14~15행 주석(불러오기 버튼 중심·구분선) 삭제, 18행 주석 → `// 칸 안 간격 12 (테두리↔첫 칩, 마지막 칩↔테두리) — 칩 사이는 space-between (불러오기 버튼·구분선은 박스로 이관, PARTY_PRESET_PLAN §5.5).`
   - `.fld` 의 `padding: 0 0 0 12px;` → `padding: 0 12px;`
   - `.chips` 줄 → `'.chips { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; }',`
@@ -1542,7 +1542,7 @@ git commit -m "docs: party preset plan — session 2 done (BP-B)"
 Run: `node --check extension/calcFill.js && node --check extension/styles/calcPartyRow.js && echo OK`
 Expected: `OK`. Grep `openListDialog|UPLOAD_SVG|\.load|\.bar` 를 `extension/` 에서 → Expected: 0건.
 
-- [ ] **Step 4: 사용자 확인** — 확장 새로고침 + 계산기·스피드 탭 새로고침 후:
+- [x] **Step 4: 사용자 확인** — 확장 새로고침 + 계산기·스피드 탭 새로고침 후:
   1. 계산기 중앙 열 `교체 / 초기화 / 계산 / 박스`, 스피드 탭 중앙 열에도 박스.
   2. 좌·우 "내 파티" 칸: 칩 6개가 칸 폭 전체, 오른쪽 버튼·구분선 없음.
   3. 박스 → 제목 `박스` + 톱니·X, 머리 `샘플` (탭 없음) + `N/100`.
@@ -1550,7 +1550,7 @@ Expected: `OK`. Grep `openListDialog|UPLOAD_SVG|\.load|\.bar` 를 `extension/` �
   5. 스피드 탭 패널 명칭이 공격/수비와 맞는지 (§10) — 다르면 사용자에게 문의.
   6. 톱니 → 환경설정 모달.
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add extension/calcFill.js extension/styles/calcPartyRow.js
@@ -1564,26 +1564,26 @@ git commit -m "feat(ext): calculator/speed box with attacker/defender picker; dr
 **Files:**
 - Modify: `PRIVACY.md`, `CHANGELOG.md`, `README.md`, `TEMPLATES.md`, `CLAUDE.md`, `SAMPLE_LIBRARY_PLAN.md`
 
-- [ ] **Step 1: 각 문서 해당 구간 Read** (README·PRIVACY·CHANGELOG 는 100줄 이하 → Read, TEMPLATES 는 §5 머리·§9·§12 구간만).
+- [x] **Step 1: 각 문서 해당 구간 Read** (README·PRIVACY·CHANGELOG 는 100줄 이하 → Read, TEMPLATES 는 §5 머리·§9·§12 구간만).
 
-- [ ] **Step 2: PRIVACY.md** — 샘플 로컬 저장 문장이 있는 곳에 "저장한 파티(6마리 슬롯 데이터)도 같은 방식으로 이 브라우저(`chrome.storage.local`)에만 보관하며 외부로 보내지 않습니다." 한 줄.
+- [x] **Step 2: PRIVACY.md** — 샘플 로컬 저장 문장이 있는 곳에 "저장한 파티(6마리 슬롯 데이터)도 같은 방식으로 이 브라우저(`chrome.storage.local`)에만 보관하며 외부로 보내지 않습니다." 한 줄.
 
-- [ ] **Step 3: CHANGELOG.md** — 작업 트리의 사용자 미커밋 수정을 그대로 둔 채 `[2.0.0]` 목록에 추가:
+- [x] **Step 3: CHANGELOG.md** — 작업 트리의 사용자 미커밋 수정을 그대로 둔 채 `[2.0.0]` 목록에 추가:
   - `파티 저장·불러오기 — 파티 리스트 아이콘 줄의 저장 버튼으로 파티를 이름 붙여 보관(최대 20개), 가운데 [박스] 버튼에서 불러오기.`
   - `[도우미] 버튼이 [박스]로 바뀜 — 저장한 샘플·파티를 한곳에서 불러오고, 환경설정은 박스 오른쪽 위 톱니.`
   - `샘플 저장은 슬롯마다 있는 저장 아이콘으로, 계산기에서는 [박스]에서 샘플을 골라 공격측/수비측 선택.`
 
-- [ ] **Step 4: README.md** — 기능 소개·FAQ 의 `도우미` 버튼 언급을 `박스`(환경설정 = 박스 톱니 또는 툴바 아이콘)로, 샘플 저장 위치(슬롯 저장 아이콘)·파티 저장·불러오기 한 단락.
+- [x] **Step 4: README.md** — 기능 소개·FAQ 의 `도우미` 버튼 언급을 `박스`(환경설정 = 박스 톱니 또는 툴바 아이콘)로, 샘플 저장 위치(슬롯 저장 아이콘)·파티 저장·불러오기 한 단락.
 
-- [ ] **Step 5: TEMPLATES.md** — §5 파일 목록 설명: `prefsEntry.js(중앙 버튼 열 `박스` + 환경설정 모달)`, `sampleLibrary.js(샘플·파티 저장소·카드 렌더·박스/이름/확인/공격수비 다이얼로그)`, `sampleParty.js(파티 탭 저장·불러오기 흐름)`. §12 맨 위에 v13:
+- [x] **Step 5: TEMPLATES.md** — §5 파일 목록 설명: `prefsEntry.js(중앙 버튼 열 `박스` + 환경설정 모달)`, `sampleLibrary.js(샘플·파티 저장소·카드 렌더·박스/이름/확인/공격수비 다이얼로그)`, `sampleParty.js(파티 탭 저장·불러오기 흐름)`. §12 맨 위에 v13:
 
 ```
 - **2026-09-26 v13** — 파티 저장·불러오기 + 박스 (PARTY_PRESET_PLAN). (1) **사이트 파티 6칸 쓰기** = `state['$sparty.slots'] = 새 배열` 재대입 (사이트 store set_slot 과 같은 경로 → persist watcher 가 localStorage 저장) + 활성 슬롯은 `$sparty.input` 동기화. 제자리 `slots[i]` 변경은 watcher 안 깨움. (2) 사이트 아이콘 줄에 우리 버튼 여러 개 = **host 1개에 버튼 여러 개** (별도 host 를 같은 앵커 "첫 자식 앞"에 넣으면 삽입 시점에 따라 순서가 바뀜). (3) 라우트별 동작이 다른 공용 버튼 = `globalThis.nuoBoxHandlers.{team,calc}` 등록 + 버튼 소유 모듈이 클릭 시점에 조회 (manifest 순서 무관). (작성: Claude)
 ```
 
-- [ ] **Step 6: CLAUDE.md** — §3 파티 프리셋 줄을 "완료 — PARTY_PRESET_PLAN" 으로, §1 의 플랜 등록은 병합 후 §2 로 내림 (병합 전이면 §1 유지). **SAMPLE_LIBRARY_PLAN.md** §13 끝에 `- 진입점 재배치(저장 = 아이콘 줄, 불러오기 = 박스, 사이트 창 롤백) = PARTY_PRESET_PLAN.` 한 줄.
+- [x] **Step 6: CLAUDE.md** — §3 파티 프리셋 줄을 "완료 — PARTY_PRESET_PLAN" 으로, §1 의 플랜 등록은 병합 후 §2 로 내림 (병합 전이면 §1 유지). **SAMPLE_LIBRARY_PLAN.md** §13 끝에 `- 진입점 재배치(저장 = 아이콘 줄, 불러오기 = 박스, 사이트 창 롤백) = PARTY_PRESET_PLAN.` 한 줄.
 
-- [ ] **Step 7: 커밋**
+- [x] **Step 7: 커밋**
 
 ```bash
 git add PRIVACY.md CHANGELOG.md README.md TEMPLATES.md CLAUDE.md SAMPLE_LIBRARY_PLAN.md
@@ -1596,7 +1596,17 @@ git commit -m "docs: party preset and box button in readme, privacy, changelog, 
 
 ### Task 9: 리뷰·체크리스트·마무리
 
-- [ ] **Step 1: `security-review` 스킬** — 초점: `NUO_TEAM_WRITE_PARTY` 출처 가드·입력 검증, 저장 데이터 → innerHTML 경로(`esc`/`safeUrl`), 새 외부 호출 없음.
-- [ ] **Step 2: TEMPLATES §9 체크리스트** — manifest 순서(새 파일 없음 → 변화 없음 확인), bridge 가드 V10, 새 메시지 3곳(bridge·RPC·매퍼), 새 storage 키 onChanged 반영, lastError 폴백, CHANGELOG·TEMPLATES 갱신.
-- [ ] **Step 3: 최종 리뷰** — `superpowers:requesting-code-review` (main...HEAD 전체), 지적 반영 커밋.
-- [ ] **Step 4: 본 문서 머리 상태 줄·§12 체크박스 갱신 + 커밋, `superpowers:finishing-a-development-branch` 로 병합 방식 결정 (사용자).
+- [x] **Step 1: `security-review` 스킬** — 초점: `NUO_TEAM_WRITE_PARTY` 출처 가드·입력 검증, 저장 데이터 → innerHTML 경로(`esc`/`safeUrl`), 새 외부 호출 없음.
+- [x] **Step 2: TEMPLATES §9 체크리스트** — manifest 순서(새 파일 없음 → 변화 없음 확인), bridge 가드 V10, 새 메시지 3곳(bridge·RPC·매퍼), 새 storage 키 onChanged 반영, lastError 폴백, CHANGELOG·TEMPLATES 갱신.
+- [x] **Step 3: 최종 리뷰** — `superpowers:requesting-code-review` (main...HEAD 전체), 지적 반영 커밋.
+- [x] **Step 4: 본 문서 머리 상태 줄·§12 체크박스 갱신 + 커밋, `superpowers:finishing-a-development-branch` 로 병합 방식 결정 (사용자).
+
+### 세션 3 결과 (2026-09-26)
+
+- Task 7 `43d27cf` (Claude in Chrome 실측: 계산기·스피드 박스, 공격/수비 입력, 취소, 톱니), Task 8 `ef9deab`. security-review 0건. 최종 리뷰(Opus) = Critical 0, Important 1 → CHANGELOG 줄 삭제는 사용자 수정·동의로 유지.
+- **보류 Minor** (사용자 판단):
+  1. `teamBuilderFill` `runCopyPartyShareUrl` — 브리지 읽기 실패에도 "포켓몬을 먼저 선택해 주세요" (슬롯 복사는 "슬롯을 읽지 못했습니다.").
+  2. `sampleLibrary` `mountList` 탭 전환 — 저장소 읽는 몇 ms 사이 옛 카드 클릭 시 새 종류 검사 → 잘못된 "불러올 수 없습니다" alert (전환 시 `items = []; draw()` 먼저).
+  3. `openBox` 가 포커스를 옮기지 않음 — `박스` 버튼에 포커스 남아 Enter/Space 로 박스가 겹쳐 열림.
+  4. 이름 있는 슬롯 두 개를 몇 ms 안에 저장 → read-modify-write 경합으로 하나 유실 (기존 샘플 패턴).
+  5. `removePartyEntry` export 호출자 0.
