@@ -176,7 +176,6 @@
   /* ===== "내 파티" 줄 (REDESIGN §4.1 A) ===== */
 
   var ROW_CSS = (globalThis.nuoTokensCss || '') + '\n' + (globalThis.nuoCalcPartyRowCss || '');
-  var UPLOAD_SVG = '<svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M264-192q-30 0-51-21t-21-51v-36q0-15 10-25.5t26-10.5q15 0 25.5 10.5T264-300v36h432v-36q0-15 10.5-25.5T732-336q15 0 25.5 10.5T768-300v36q0 30-21 51t-51 21H264Zm180-486-80 80q-11 11-25.5 11T313-598q-11-11-11-25.5t11-25.5l142-142q5-5 11.5-7.5T480-801q7 0 13.5 2.5T505-791l142 142q11 11 11 25t-10.5 25Q636-588 621.5-588T596-599l-80-79v306q0 15-10.5 25.5T480-336q-15 0-25.5-10.5T444-372v-306Z"/></svg>';
   var snap = { slots: null, art: [], filled: [], msg: '' };
   var renderers = [];                // 붙어 있는 줄들의 render
 
@@ -244,9 +243,7 @@
     }
     root.innerHTML = '<style>' + ROW_CSS + '</style>' +
       '<div class="sec"><div class="fld"><p class="ttl">내 파티</p>' +
-      '<div class="chips">' + chipsHtml + '<span class="empty" hidden></span></div>' +
-      '<span class="bar"></span>' +
-      '<button type="button" class="load" aria-label="저장한 샘플 불러오기">' + UPLOAD_SVG + '</button></div></div>';
+      '<div class="chips">' + chipsHtml + '<span class="empty" hidden></span></div></div></div>';
 
     var chips = [].slice.call(root.querySelectorAll('.chip'));
     var emptyEl = root.querySelector('.empty');
@@ -297,23 +294,6 @@
       });
     });
 
-    // 저장한 샘플 불러오기 (SAMPLE_LIBRARY_PLAN §5.3·§5.4) — 슬롯 스냅샷과 무관하게 항상 보임.
-    var LIB = globalThis.nuoSampleLibrary;
-    root.querySelector('.load').addEventListener('click', function () {
-      if (!LIB || typeof LIB.openListDialog !== 'function') return;
-      // 제목 = 사이트 '계산' 결과 모달의 공격측/수비측 제목 (색 실측 2026-09-24).
-      // 칼/방패 아이콘은 해시 파일명(/_nuxt/attacker.<해시>.png)이라 패널 헤더에 떠 있는 사이트 이미지 주소를 그대로 씀.
-      var sideIcon = document.querySelector('img[src*="/_nuxt/' + side + '."]');
-      LIB.openListDialog({
-        title: side === 'defender' ? '수비측' : '공격측',
-        color: side === 'defender' ? '#8FC31F' : '#E9C46A',
-        icon: sideIcon ? sideIcon.src : '',
-        onPick: function (item) {
-          orchestrateCalcFillFromSlot(item.slot, side).catch(alertErr);
-        }
-      });
-    });
-
     renderers.push(render);
     render();
     return function teardown() {
@@ -321,6 +301,36 @@
       if (ix >= 0) renderers.splice(ix, 1);
     };
   }
+
+  /* ===== 박스 (PARTY_PRESET_PLAN §5.4) — 중앙 열 `박스` 버튼(prefsEntry)이 계산기·스피드에서 호출 ===== */
+
+  /** 사이트 칼/방패 아이콘 — 해시 파일명(/_nuxt/attacker.<해시>.png)이라 패널 헤더에 떠 있는 src 를 그대로 씀. */
+  function siteSideIcon(side) {
+    var img = document.querySelector('img[src*="/_nuxt/' + side + '."]');
+    return img ? img.src : '';
+  }
+
+  function openCalcBox() {
+    var LIB = globalThis.nuoSampleLibrary;
+    if (!LIB || typeof LIB.openBox !== 'function') return;
+    LIB.openBox({
+      kinds: ['sample'],
+      onPick: function (item, kind, box) {
+        LIB.sideDialog('\'' + item.name + '\' 샘플을 어디에 입력할까요?', {
+          attacker: siteSideIcon('attacker'),
+          defender: siteSideIcon('defender')
+        }).then(function (side) {
+          if (!side) return; // 취소 = 박스로 돌아감
+          box.close();
+          orchestrateCalcFillFromSlot(item.slot, side).catch(function (err) {
+            window.alert((err && err.message) || mapErr(''));
+          });
+        });
+      }
+    });
+  }
+  globalThis.nuoBoxHandlers = globalThis.nuoBoxHandlers || {};
+  globalThis.nuoBoxHandlers.calc = openCalcBox;
 
   function rowSpec(side, idx) {
     return {
