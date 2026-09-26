@@ -199,6 +199,13 @@
     });
   }
 
+  /** 파티 불러오기 — 6칸 통째 쓰기 (PARTY_PRESET_PLAN §4.2). */
+  function writePartyToBridge(slots) {
+    return injectTeamBridgeOnce().then(function () {
+      return bridgeRpc('NUO_TEAM_WRITE_PARTY', 'NUO_TEAM_WRITE_REPLY', { slots: slots });
+    });
+  }
+
   /**
    * 슬롯 스냅샷 — 계산기 자동입력의 “팀 슬롯 원클릭” 흐름을 위한 두 층 mirror.
    *
@@ -348,6 +355,7 @@
     getSlotsFromBridge: getSlotsFromBridge,
     readInputFromBridge: readInputFromBridge,
     writeInputToBridge: writeInputToBridge,
+    writePartyToBridge: writePartyToBridge,
     setSlotSnapshot: setSlotSnapshot,
     getHotSnapshot: getHotSnapshot,
     getCacheSnapshot: getCacheSnapshot,

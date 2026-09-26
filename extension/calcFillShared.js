@@ -156,6 +156,11 @@
     storage_delete_failed: '샘플을 삭제하지 못했습니다.',
     sample_invalid: '이 샘플은 불러올 수 없습니다.',
     sample_limit: '샘플은 최대 100개까지 저장할 수 있습니다.',
+    party_save_failed: '파티를 저장하지 못했습니다.',
+    party_read_failed: '저장한 파티를 불러오지 못했습니다.',
+    party_delete_failed: '파티를 삭제하지 못했습니다.',
+    party_invalid: '이 파티는 불러올 수 없습니다.',
+    party_limit: '파티는 최대 20개까지 저장할 수 있습니다.',
   };
 
   function mapCalcFillError(code) {

@@ -3,8 +3,8 @@
  * NUO_TEAM_SLOTS_REPLY.slotArt: pokemon.sprite 우선(검증 통과 시 정규화 URL, 아니면 원문).
  */
 (function () {
-  if (window.__NUO_TEAM_BUILDER_BRIDGE_V9__) return;
-  window.__NUO_TEAM_BUILDER_BRIDGE_V9__ = true;
+  if (window.__NUO_TEAM_BUILDER_BRIDGE_V10__) return;
+  window.__NUO_TEAM_BUILDER_BRIDGE_V10__ = true;
 
   var MSG_EXT = 'nuo-team-ext';
   var MSG_BRIDGE = 'nuo-team-bridge';
@@ -425,6 +425,54 @@
         return;
       }
       postInputReply(replyType, rid, { ok: true });
+    });
+  });
+
+  /**
+   * 파티 불러오기 (PARTY_PRESET_PLAN §4.2). 6칸 배열 통째 재대입 = 사이트 store set_slot 과 같은 경로
+   * → persist watcher 가 localStorage `smartnuo.party` 저장. 활성 슬롯은 편집 패널에도 반영
+   * (사이트 load_active_slot_to_input 과 같음). 활성 슬롯이 빈 칸이면 사이트 watcher 가 빈 입력으로 되돌림.
+   */
+  function isPartySlotsShape(slots) {
+    if (!Array.isArray(slots) || slots.length !== 6) return false;
+    var i;
+    for (i = 0; i < 6; i++) {
+      var x = slots[i];
+      if (x === null) continue;
+      if (!x || typeof x !== 'object' || !x.pokemon || !x.pokemon.name) return false;
+    }
+    return true;
+  }
+
+  window.addEventListener('message', function (ev) {
+    if (ev.source !== window) return; // READ/WRITE_INPUT 과 같은 출처 가드
+    var d = ev.data;
+    if (!d || d.source !== MSG_EXT || d.type !== 'NUO_TEAM_WRITE_PARTY') return;
+    var rid = d.requestId != null ? String(d.requestId) : '';
+    waitForPokeListReady(2000, 100).then(function () {
+      var s = getNuxtState();
+      var active = s && Number(s['$sparty.active_slot']);
+      if (!s || !Array.isArray(s['$sparty.slots']) || !(active >= 1 && active <= 6)) {
+        postInputReply('NUO_TEAM_WRITE_REPLY', rid, { ok: false, error: 'bridge_state_missing' });
+        return;
+      }
+      var next = cloneSlots(d.slots);
+      if (!isPartySlotsShape(next)) {
+        postInputReply('NUO_TEAM_WRITE_REPLY', rid, { ok: false, error: 'party_invalid' });
+        return;
+      }
+      try {
+        s['$sparty.slots'] = next;
+        var cur = cloneSlots(next[active - 1]);
+        if (cur) {
+          cur.slot_display = '#' + active;
+          s['$sparty.input'] = cur;
+        }
+      } catch (eW) {
+        postInputReply('NUO_TEAM_WRITE_REPLY', rid, { ok: false, error: 'bridge_state_missing' });
+        return;
+      }
+      postInputReply('NUO_TEAM_WRITE_REPLY', rid, { ok: true });
     });
   });
 })();
