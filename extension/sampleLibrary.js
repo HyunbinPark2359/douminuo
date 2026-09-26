@@ -112,9 +112,10 @@
   }
 
   // 파티 탭 슬롯 아이콘 줄 요약 복사 아이콘과 같은 모양 (teamBuilderFill.js SUM_SVG).
-  var COPY_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>';
+  var COPY_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>';
   var BOX_SVG = '<svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M200-80q-33 0-56.5-23.5T120-160v-451q-18-11-29-28.5T80-680v-120q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v120q0 23-11 40.5T840-611v451q0 33-23.5 56.5T760-80H200Zm0-520v440h560v-440H200Zm-40-80h640v-120H160v120Zm200 280h240v-80H360v80Zm120 20Z"/></svg>';
-  var TRASH_SVG = '<svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Z"/></svg>';
+  // 사이트 슬롯 줄 삭제 아이콘(30px PNG) 픽셀 그대로 옮긴 외곽선 휴지통 (2026-09-26 실측) — 30칸 격자 rect.
+  var TRASH_SVG = '<svg viewBox="0 0 30 30" aria-hidden="true"><path d="M11 4h8v1h-8zM5 5h20v2H5zM6 7h3v17H6zM21 7h3v17h-3zM6 24h18v1H6zM7 25h16v1H7zM11 10h3v11h-3zM16 10h3v11h-3z"/></svg>';
 
   /**
    * 저장 항목 → 카드 마크업 (헤더 줄 + 사이트 카드). 어노테이션 없음 (§2).

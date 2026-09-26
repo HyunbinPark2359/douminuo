@@ -143,14 +143,19 @@
 
   /* ===== 사이트 아이콘 줄 합류 (REDESIGN §4.1 B) ===== */
 
-  var SUM_SVG = '<svg class="base" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>';
+  var SUM_SVG = '<svg class="base" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>';
   // 샘플·파티 저장 = 북마크 외곽선 (PARTY_PRESET_PLAN §5.1). 사이트 아이콘 = 30px PNG 에 선 ≈2px 외곽선형
-  // (2026-09-26 실측) → 16 단위 선 1.5 (1.2 는 사용자 보기에 얇음 — 요약 복사 아이콘과 같은 굵기).
-  var SAVE_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h8v11L8 11l-4 2.5z"/></svg>';
+  // (2026-09-26 실측) → 16 단위 선 1.3 (1.2 얇음·1.5 두꺼움 — 사용자 조정, 요약 복사 아이콘과 같은 굵기).
+  var SAVE_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h8v11L8 11l-4 2.5z"/></svg>';
   var EMPTY_MSG = '포켓몬을 먼저 선택해 주세요';
   var ICON_CSS = (globalThis.nuoTokensCss || '') + '\n' + (globalThis.nuoTeamCopyIconsCss || '');
   // 간격은 host 인라인 — .ic 에 두면 host 폭에 섞여 말풍선 중앙이 어긋남. 인라인이라 사이트 preflight 도 이김.
   var HOST_INLINE = 'display:inline-flex;vertical-align:middle;';
+  // 우리 두 아이콘만 옅은 배경으로 사이트 아이콘과 구분 (구분선은 초록 그룹이 길어져 `파티 리스트` 라벨에 붙음 — 2026-09-26 사용자 선택).
+  // 음수 margin = 배경 padding 만큼 되돌려 줄 높이·그룹 폭을 거의 그대로.
+  // 슬롯 줄 = 연회색 칸. 초록 그룹 = 칸 안의 칸이 아니라 그룹 왼쪽 끝까지 채운 연한 구역 (그룹 padding 4px 8px·radius 5 상쇄, 라벨 간격 10 → 8px).
+  var SLOT_TINT = 'border-radius:4px;padding:2px 3px;background:#ececec;margin:-2px 2px -2px -3px;';
+  var PARTY_TINT = 'border-radius:5px 0 0 5px;padding:4px 4px 4px 6px;background:rgba(255,255,255,.28);margin:-4px 4px -4px -8px;';
 
   var bridgeReady = false;
   var injectors = [];
@@ -391,7 +396,7 @@
       (function (idx1) {
         injectors.push(CS.keepInjected({
           key: 'tb-slot-copy-' + idx1,
-          hostStyle: HOST_INLINE + 'margin-left:4px;',
+          hostStyle: HOST_INLINE + SLOT_TINT,
           // 빈 슬롯에도 보임 — 누르면 alert (처음 쓰는 사람이 기능을 알아보게, PARTY_PRESET_PLAN §2)
           enabled: function () { return bridgeReady && isTeamBuilderRoute(); },
           find: function () { return findSlotIconRow(idx1); },
@@ -406,7 +411,7 @@
     }
     injectors.push(CS.keepInjected({
       key: 'tb-party-copy',
-      hostStyle: HOST_INLINE + 'margin-right:4px;',
+      hostStyle: HOST_INLINE + PARTY_TINT,
       enabled: function () { return bridgeReady && isTeamBuilderRoute(); },
       find: findPartyIconGroup,
       build: function (root) {
