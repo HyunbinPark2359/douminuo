@@ -9,9 +9,11 @@
   var CS = g.nuoCsCommon || {};
   var A = g.NUO_SAMPLE_CARD_ASSETS || { stat: [], move: {}, tera: {}, pokeball: '' };
   var KEY = 'nuo_fmt_sampleLibrary';
+  var PARTY_KEY = 'nuo_fmt_partyLibrary';
   var SCHEMA = 1;
   // 2026-09-24 실측: 카드 1장 HTML ≈ 18KB(아이콘 data URI 반복) → 100장 그리기 44~72ms. 넘기려면 아이콘을 CSS 로 한 번만 두고 올릴 것.
   var LIMIT = 100;
+  var PARTY_LIMIT = 20; // 사용자 결정 (PARTY_PRESET_PLAN §2)
 
   function mapErr(code) {
     return typeof g.mapCalcFillError === 'function' ? g.mapCalcFillError(code) : String(code || '');
@@ -38,9 +40,9 @@
     return [entry].concat(items.filter(function (it) { return normName(it.name) !== n; }));
   }
 
-  /** 새 이름은 LIMIT 미만일 때만, 같은 이름 덮어쓰기는 항상 가능. */
-  function canAdd(items, name) {
-    return items.length < LIMIT || !!findByName(items, name);
+  /** 새 이름은 limit 미만일 때만, 같은 이름 덮어쓰기는 항상 가능. limit 기본 = 샘플 LIMIT. */
+  function canAdd(items, name, limit) {
+    return items.length < (limit || LIMIT) || !!findByName(items, name);
   }
 
   function withoutId(items, id) {
@@ -49,6 +51,19 @@
 
   function isLoadable(item) {
     return !!(item && item.slot && item.slot.pokemon && item.slot.pokemon.name);
+  }
+
+  /** 파티 = 6칸, 칸마다 null 또는 포켓몬 이름 있는 슬롯, 최소 1마리. */
+  function isPartyLoadable(item) {
+    var s = item && item.slots;
+    if (!Array.isArray(s) || s.length !== 6) return false;
+    var i, n = 0;
+    for (i = 0; i < 6; i++) {
+      if (s[i] === null) continue;
+      if (!s[i] || !s[i].pokemon || !s[i].pokemon.name) return false;
+      n++;
+    }
+    return n > 0;
   }
 
   /* 사이트 번들 list 컴포넌트 규칙 (§3.3) — 수치·조건 그대로. */
@@ -148,62 +163,102 @@
     return h + '</div></div>';
   }
 
-  /* ===== 저장소 ===== */
-
-  function readAll() {
-    return new Promise(function (resolve, reject) {
-      try {
-        chrome.storage.local.get([KEY], function (got) {
-          if (chrome.runtime.lastError) { reject(new Error('storage_failed')); return; }
-          var doc = got && got[KEY];
-          resolve(doc && doc.version === SCHEMA && Array.isArray(doc.items) ? doc.items : []);
-        });
-      } catch (e) {
-        reject(new Error('storage_failed'));
-      }
-    });
+  /**
+   * 파티 항목 → 카드 마크업 (PARTY_PRESET_PLAN §4.4, 목업 3안). 머리 줄은 샘플 카드와 같은 부품.
+   * 타일 = 타입색 + 일러 50 + 지닌 물건 20 (사이트 카드 75/30 비율·위치), 빈 칸 = 흰 점선.
+   * @param {{ id: string, name: string, slots: Array, arts: Array }} item
+   * @returns {string}
+   */
+  function renderPartyCard(item) {
+    var id = esc(item.id);
+    var slots = Array.isArray(item.slots) ? item.slots : [];
+    var arts = Array.isArray(item.arts) ? item.arts : [];
+    var h = '<div class="head"><span class="nm">' + esc(item.name) + '</span><span class="acts">' +
+      '<button type="button" class="cp" data-id="' + id + '" aria-label="파티 복사">' + COPY_SVG + '</button>' +
+      '<button type="button" class="del" data-id="' + id + '" aria-label="삭제">' + TRASH_SVG + '</button></span></div>' +
+      '<div class="card pt" role="button" tabindex="0" data-id="' + id + '">';
+    var k;
+    for (k = 0; k < 6; k++) {
+      var p = slots[k] && slots[k].pokemon;
+      if (!p || !p.name) { h += '<div class="tl e"></div>'; continue; }
+      var equip = textOf(p.equipment);
+      var art = safeUrl(arts[k]) || safeUrl(p.sprite);
+      h += '<div class="tl" style="background:' + typeBg(p.first_type) + '"><span class="ab">' +
+        (art ? '<img class="a" src="' + esc(art) + '" alt="">' : '') +
+        (equip ? '<img class="it" src="/data/party/equipment/' + encodeURIComponent(equip) + '.png" alt="">' : '') +
+        '</span></div>';
+    }
+    return h + '</div>';
   }
 
-  function writeAll(items) {
-    return new Promise(function (resolve, reject) {
-      try {
-        var obj = {};
-        obj[KEY] = { version: SCHEMA, items: items };
-        chrome.storage.local.set(obj, function () {
-          if (chrome.runtime.lastError) { reject(new Error('storage_failed')); return; }
-          resolve();
-        });
-      } catch (e) {
-        reject(new Error('storage_failed'));
-      }
-    });
+  /* ===== 저장소 — 샘플·파티 같은 모양 문서 { version, items } (PARTY_PRESET_PLAN §4.1) ===== */
+
+  function newId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
+
+  /**
+   * @param {string} key chrome.storage.local 키
+   * @param {string} failCode 읽기·쓰기 실패 reject 코드
+   */
+  function makeStore(key, failCode) {
+    function readAll() {
+      return new Promise(function (resolve, reject) {
+        try {
+          chrome.storage.local.get([key], function (got) {
+            if (chrome.runtime.lastError) { reject(new Error(failCode)); return; }
+            var doc = got && got[key];
+            resolve(doc && doc.version === SCHEMA && Array.isArray(doc.items) ? doc.items : []);
+          });
+        } catch (e) {
+          reject(new Error(failCode));
+        }
+      });
+    }
+    function writeAll(items) {
+      return new Promise(function (resolve, reject) {
+        try {
+          var obj = {};
+          obj[key] = { version: SCHEMA, items: items };
+          chrome.storage.local.set(obj, function () {
+            if (chrome.runtime.lastError) { reject(new Error(failCode)); return; }
+            resolve();
+          });
+        } catch (e) {
+          reject(new Error(failCode));
+        }
+      });
+    }
+    return {
+      readAll: readAll,
+      save: function (entry) { return readAll().then(function (items) { return writeAll(withSaved(items, entry)); }); },
+      remove: function (id) { return readAll().then(function (items) { return writeAll(withoutId(items, id)); }); },
+      /** 다른 탭 저장·삭제 즉시 반영. @returns {function} teardown */
+      onChange: function (cb) {
+        if (typeof CS.onLocalPrefChange !== 'function') return function () {};
+        return CS.onLocalPrefChange([key], function () { readAll().then(cb, function () {}); });
+      }
+    };
+  }
+
+  var samples = makeStore(KEY, 'storage_failed');
+  var parties = makeStore(PARTY_KEY, 'party_save_failed');
 
   /**
    * @param {object} slot bridge 가 읽은 보강 슬롯 (sample_name 포함)
    * @param {string} art 일러스트 URL
    */
   function saveEntry(slot, art) {
-    var entry = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-      name: normName(slot.sample_name),
-      savedAt: Date.now(),
-      slot: slot,
-      art: art || ''
-    };
-    return readAll().then(function (items) { return writeAll(withSaved(items, entry)); });
+    return samples.save({ id: newId(), name: normName(slot.sample_name), savedAt: Date.now(), slot: slot, art: art || '' });
   }
 
-  function removeEntry(id) {
-    return readAll().then(function (items) { return writeAll(withoutId(items, id)); });
-  }
-
-  /** 다른 탭 저장·삭제 즉시 반영. @returns {function} teardown */
-  function onItemsChange(cb) {
-    if (typeof CS.onLocalPrefChange !== 'function') return function () {};
-    return CS.onLocalPrefChange([KEY], function () {
-      readAll().then(cb, function () {});
-    });
+  /**
+   * @param {string} name 파티 이름
+   * @param {Array} slots 6칸 (빈 칸 null)
+   * @param {Array} arts 6칸 일러 URL
+   */
+  function savePartyEntry(name, slots, arts) {
+    return parties.save({ id: newId(), name: normName(name), savedAt: Date.now(), slots: slots, arts: arts });
   }
 
   /* ===== 목록 ===== */
@@ -256,8 +311,8 @@
       for (i = 0; i < items.length; i++) if (items[i].id === id) return items[i];
       return null;
     }
-    readAll().then(function (it) { items = it; draw(); }, function () { items = []; draw(); setMsg(mapErr('storage_read_failed')); });
-    var off = onItemsChange(function (it) { items = it; draw(); });
+    samples.readAll().then(function (it) { items = it; draw(); }, function () { items = []; draw(); setMsg(mapErr('storage_read_failed')); });
+    var off = samples.onChange(function (it) { items = it; draw(); });
 
     box.addEventListener('click', function (e) {
       var cp = e.target.closest('.cp');
@@ -280,7 +335,7 @@
         var d = itemOf(del);
         if (!d) return;
         confirmDialog('\'' + d.name + '\' 샘플을 삭제할까요?', '삭제하기', '삭제하면 복구할 수 없습니다.').then(function (yes) {
-          if (yes) removeEntry(d.id).catch(function () { window.alert(mapErr('storage_delete_failed')); });
+          if (yes) samples.remove(d.id).catch(function () { window.alert(mapErr('storage_delete_failed')); });
         });
         return;
       }
@@ -466,20 +521,27 @@
 
   g.nuoSampleLibrary = {
     LIMIT: LIMIT,
+    PARTY_LIMIT: PARTY_LIMIT,
     normName: normName,
     findByName: findByName,
     canAdd: canAdd,
     isLoadable: isLoadable,
-    readAll: readAll,
+    isPartyLoadable: isPartyLoadable,
+    readAll: samples.readAll,
     saveEntry: saveEntry,
-    removeEntry: removeEntry,
+    removeEntry: samples.remove,
+    readParties: parties.readAll,
+    savePartyEntry: savePartyEntry,
+    removePartyEntry: parties.remove,
     renderCard: renderCard,
+    renderPartyCard: renderPartyCard,
     mountList: mountList,
     confirmDialog: function (q, ok, sub) { return confirmDialog(q, ok, sub); },
     openListDialog: function (o) { return openListDialog(o); },
     _pure: {
       normName: normName, findByName: findByName, withSaved: withSaved, withoutId: withoutId,
-      isLoadable: isLoadable, spColor: spColor, natureDot: natureDot, typeBg: typeBg, esc: esc, renderCard: renderCard,
+      isLoadable: isLoadable, isPartyLoadable: isPartyLoadable, spColor: spColor, natureDot: natureDot, typeBg: typeBg,
+      esc: esc, renderCard: renderCard, renderPartyCard: renderPartyCard,
       renderList: renderList, canAdd: canAdd, LIMIT: LIMIT, listTitleHtml: listTitleHtml
     }
   };

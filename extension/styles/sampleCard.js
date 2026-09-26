@@ -69,7 +69,15 @@
     '.st img { width: 12px; height: 11px; margin-right: 4px; }',
     '.st .r, .st .v { display: inline-block; width: 20px; text-align: right; }',
     '.st .r { color: #272727; }',
-    '.st .v { font-weight: 500; }'
+    '.st .v { font-weight: 500; }',
+    // 파티 카드 (PARTY_PRESET_PLAN §4.4) — .card 의 hover·클릭·키보드 규칙 재사용, 높이·여백만 덮음.
+    '.card.pt { height: auto; padding: 4px; gap: 4px; align-items: stretch; }',
+    '.tl { flex: 1; min-width: 0; height: 60px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }',
+    '.tl.e { background: #fff; border: 1px dashed #e0e0e0; }',
+    // 물건 = 일러 상자 오른쪽 아래 겹침 — 사이트 카드(일러 75 · 물건 30)와 같은 0.4 비율·위치.
+    '.tl .ab { position: relative; width: 50px; height: 50px; }',
+    '.tl .a { display: block; width: 50px; height: 50px; object-fit: contain; }',
+    '.tl .it { position: absolute; right: 0; bottom: 0; width: 20px; height: 20px; }'
   ].join('\n');
 
   // 사이트 PrimeVue Dialog 복제 — 모션·마스크는 styles/prefsModalCss.js 실측값 계승.
