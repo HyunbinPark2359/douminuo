@@ -3,8 +3,8 @@
  * NUO_TEAM_SLOTS_REPLY.slotArt: pokemon.sprite 우선(검증 통과 시 정규화 URL, 아니면 원문).
  */
 (function () {
-  if (window.__NUO_TEAM_BUILDER_BRIDGE_V10__) return;
-  window.__NUO_TEAM_BUILDER_BRIDGE_V10__ = true;
+  if (window.__NUO_TEAM_BUILDER_BRIDGE_V11__) return;
+  window.__NUO_TEAM_BUILDER_BRIDGE_V11__ = true;
 
   var MSG_EXT = 'nuo-team-ext';
   var MSG_BRIDGE = 'nuo-team-bridge';
@@ -474,5 +474,41 @@
       }
       postInputReply('NUO_TEAM_WRITE_REPLY', rid, { ok: true });
     });
+  });
+
+  /**
+   * 슬롯 #index 의 샘플 이름만 바꿈 — 이름 없는 슬롯을 저장하며 입력한 이름을 사이트에도 (2026-09-26 실측):
+   * 편집 중 슬롯 = input.sample_name (편집 패널 제목 칸·카드·localStorage 가 따라감),
+   * 다른 슬롯 = 그 칸만 복제해 slots 배열 재대입 (WRITE_PARTY 와 같은 경로).
+   */
+  window.addEventListener('message', function (ev) {
+    if (ev.source !== window) return;
+    var d = ev.data;
+    if (!d || d.source !== MSG_EXT || d.type !== 'NUO_TEAM_SET_SLOT_NAME') return;
+    var rid = d.requestId != null ? String(d.requestId) : '';
+    var idx = Number(d.index);
+    var name = typeof d.name === 'string' ? d.name.slice(0, 16) : '';
+    var s = getNuxtState();
+    var active = s && Number(s['$sparty.active_slot']);
+    var slots = s && s['$sparty.slots'];
+    if (!Array.isArray(slots) || !(idx >= 1 && idx <= 6) || !name || !slots[idx - 1]) {
+      postInputReply('NUO_TEAM_WRITE_REPLY', rid, { ok: false, error: 'bridge_state_missing' });
+      return;
+    }
+    try {
+      if (idx === active && s['$sparty.input']) {
+        s['$sparty.input'].sample_name = name;
+      } else {
+        var next = slots.slice();
+        var cur = cloneSlots(next[idx - 1]);
+        cur.sample_name = name;
+        next[idx - 1] = cur;
+        s['$sparty.slots'] = next;
+      }
+    } catch (eN) {
+      postInputReply('NUO_TEAM_WRITE_REPLY', rid, { ok: false, error: 'bridge_state_missing' });
+      return;
+    }
+    postInputReply('NUO_TEAM_WRITE_REPLY', rid, { ok: true });
   });
 })();

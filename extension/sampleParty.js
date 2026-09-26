@@ -65,14 +65,16 @@
     };
   }
 
-  /** 슬롯 #n → 샘플 저장. 이름 없으면 이름 창 → 저장본 sample_name 에도 (사이트 슬롯 이름은 그대로). */
+  /** 슬롯 #n → 샘플 저장. 이름 없으면 이름 창 → 저장본 sample_name + 저장 성공 시 사이트 슬롯 이름에도. */
   function saveSlot(n, fb) {
-    var slot;
+    var slot, asked;
     fb.busy();
     readSlots().then(function (slots) {
       slot = slots[n - 1];
       if (!hasMon(slot)) { fb.idle(); window.alert(EMPTY_MSG); stop(); }
-      return LIB.normName(slot.sample_name) || LIB.nameDialog('샘플 저장', '샘플 이름');
+      var has = LIB.normName(slot.sample_name);
+      asked = !has;
+      return has || LIB.nameDialog('샘플 저장', '샘플 이름');
     }).then(function (name) {
       if (!name) stop();
       slot.sample_name = name;
@@ -80,6 +82,10 @@
     }).then(function (go) {
       if (!go) stop();
       return LIB.saveEntry(slot, findArt(n) || String(slot.pokemon.sprite || ''));
+    }).then(function () {
+      if (!asked) return null;
+      // 사이트 이름 반영 실패는 조용히 — 샘플 저장은 이미 끝남 (사용자는 사이트 칸에서 다시 입력 가능)
+      return TBS.setSlotNameToBridge(n, slot.sample_name).then(null, function () {});
     }).then(function () {
       fb.done('샘플 저장 완료');
     }).catch(endFlow(fb));

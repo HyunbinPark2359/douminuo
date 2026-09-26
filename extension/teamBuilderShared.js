@@ -206,6 +206,13 @@
     });
   }
 
+  /** 슬롯 #index(1~6) 샘플 이름만 사이트에 씀 (이름 창에서 입력한 이름 반영). */
+  function setSlotNameToBridge(index, name) {
+    return injectTeamBridgeOnce().then(function () {
+      return bridgeRpc('NUO_TEAM_SET_SLOT_NAME', 'NUO_TEAM_WRITE_REPLY', { index: index, name: name });
+    });
+  }
+
   /**
    * 슬롯 스냅샷 — 계산기 자동입력의 “팀 슬롯 원클릭” 흐름을 위한 두 층 mirror.
    *
@@ -356,6 +363,7 @@
     readInputFromBridge: readInputFromBridge,
     writeInputToBridge: writeInputToBridge,
     writePartyToBridge: writePartyToBridge,
+    setSlotNameToBridge: setSlotNameToBridge,
     setSlotSnapshot: setSlotSnapshot,
     getHotSnapshot: getHotSnapshot,
     getCacheSnapshot: getCacheSnapshot,
