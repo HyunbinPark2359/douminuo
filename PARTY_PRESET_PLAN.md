@@ -1,6 +1,6 @@
 # PARTY_PRESET_PLAN — 파티 저장·불러오기 + 박스
 
-> 브랜치: `feat/party-preset` (main 에서) · 작성 2026-09-26 · 상태: **스펙·플랜 승인 (BP-A, 2026-09-26), 실행 = Native (superpowers:executing-plans) — 세션 2 = Task 1 부터**
+> 브랜치: `feat/party-preset` (main 에서) · 작성 2026-09-26 · 상태: **세션 2 완료 (BP-B, 2026-09-26) — Task 1~6 + Checkpoint B 통과. 실행 = Native (superpowers:executing-plans) — 세션 3 = Task 7 부터**
 > 목업 원본: `.superpowers/brainstorm/*/content/` (gitignore, 참고용) — `party-card.html`(3안 선택), `overview-v2.html`(최종 부품).
 > 선행: [SAMPLE_LIBRARY_PLAN.md](./SAMPLE_LIBRARY_PLAN.md) (샘플 저장소·카드·다이얼로그 셸 — 본 PR 이 재사용·재배치).
 
@@ -43,7 +43,8 @@
 | 슬롯 저장 이름 | 슬롯 `sample_name` 있으면 바로 저장, 없으면 같은 이름 창("샘플 저장") → 입력값을 저장본 `sample_name` 에도 넣음 (사이트 슬롯 이름은 안 바꿈) | 편집 중이 아닌 슬롯일 수 있어 이름 칸 포커스 불가 |
 | 같은 이름 | 덮어쓰기 확인창 (샘플 규칙 그대로) | |
 | 불러오기 확인 | **항상** 확인창 — 파티 `'X' 파티를 불러올까요?` / 샘플 `'X' 샘플을 #N 슬롯에 불러올까요?`, 설명 `저장되지 않은 파티/샘플 내용은 사라집니다.` | 카드 오클릭 = 6슬롯 유실 방지. 조사 고정("파티를/샘플을")으로 받침 문제 회피 |
-| 파티 카드 | **3안** — 한 줄 6칸 타입색 타일, 이름 없음, 일러 50 + 지닌 물건 20 (사이트 카드 비율 0.4, 일러 상자 오른쪽 아래 겹침), 빈 슬롯 = 흰 점선 칸 | 목업 선택 |
+| 파티 카드 | **3안** — 한 줄 6칸 타입색 타일, 이름 없음, 일러 50 + 지닌 물건 20 (사이트 카드 비율 0.4, 일러 상자 오른쪽 아래 겹침), 빈 슬롯 = 흰 점선 칸 → **Checkpoint B 에서 3×2 + 왼쪽 정렬 이름으로 개편** (§4.4) | 목업 선택 → 실물 보고 사용자 변경 |
+| 박스 높이 | 목록 영역 **420px 고정** (탭 전환·빈 목록에도 창 안 움직임) | Checkpoint B 사용자 요청 |
 | 파티 상한 | **20개** (샘플 100 유지) | 사용자 결정 |
 | 저장 방식 | 슬롯 원본 JSON 로컬 저장 (샘플과 동일, SAMPLE_LIBRARY §2 "저장 방식 A") | 서버 트래픽 0 |
 
@@ -133,7 +134,8 @@ teamBuilderBridge.js (MAIN, V9→V10)  + NUO_TEAM_WRITE_PARTY
 - 카드 머리: 이름 + [복사][삭제] (기존). 파티 복사 = `nuoTeamCopy.copyPartySlots(item.slots)` — 초록 그룹 우리 파티 복사와 같은 변환·환경설정. 결과 말풍선 `파티 복사 완료`.
 - 삭제 확인: `'X' 파티를 삭제할까요?` / `삭제하면 복구할 수 없습니다.` [취소][삭제하기].
 
-### 4.4 파티 카드 (`renderPartyCard`, 3안)
+### 4.4 파티 카드 (`renderPartyCard`, 3안 → 3×2 + 이름)
+> **Checkpoint B 개편 (2026-09-26, 사용자 요청, `2782def`)**: 3칸 × 2줄 grid, 타일 높이 74, 타일 위에 종 이름 11px/500 `#000` **왼쪽 정렬** (샘플 카드 최소화판 — "메가한카리아스Z" 한 줄), 긴 이름 말줄임, 일러 가운데. 옛 1열 6칸 = git 태그 `party-card-1row`. 아래 줄은 옛 1열 기준 기록.
 - 카드 `display:flex; gap:4px; padding:4px; border:1px solid transparent; radius 8; cursor:pointer`, hover·focus = `#E4007F` 테두리. `role=button tabindex=0` (Enter/Space = 클릭, 기존 키 처리 재사용).
 - 타일 6개 `flex:1; height:60px; radius 6; 가운데 정렬`, 배경 = 기존 `typeBg(first_type)`.
   - 일러 상자 `relative 50×50` → `img.a 50×50 contain` + 물건 `img.it absolute right:0 bottom:0 20×20` (사이트 카드 75/30 = 0.4 비율·위치).
@@ -297,14 +299,14 @@ teamBuilderBridge.js (MAIN, V9→V10)  + NUO_TEAM_WRITE_PARTY
 **Interfaces:**
 - Produces: `nuoTeamBuilderShared.writePartyToBridge(slots: Array<object|null>(6)) → Promise<{ ok: boolean, error?: string }>`; 매퍼 코드 5개.
 
-- [ ] **Step 1: 가드 버전 올림** — `teamBuilderBridge.js` 6~7행:
+- [x] **Step 1: 가드 버전 올림** — `teamBuilderBridge.js` 6~7행:
 
 ```js
   if (window.__NUO_TEAM_BUILDER_BRIDGE_V10__) return;
   window.__NUO_TEAM_BUILDER_BRIDGE_V10__ = true;
 ```
 
-- [ ] **Step 2: 파티 쓰기 리스너** — `teamBuilderBridge.js` 마지막 `})();` 바로 앞 (READ/WRITE_INPUT 리스너 뒤)에 추가:
+- [x] **Step 2: 파티 쓰기 리스너** — `teamBuilderBridge.js` 마지막 `})();` 바로 앞 (READ/WRITE_INPUT 리스너 뒤)에 추가:
 
 ```js
 
@@ -357,7 +359,7 @@ teamBuilderBridge.js (MAIN, V9→V10)  + NUO_TEAM_WRITE_PARTY
   });
 ```
 
-- [ ] **Step 3: 콘텐츠 RPC** — `teamBuilderShared.js` `writeInputToBridge` 함수 뒤:
+- [x] **Step 3: 콘텐츠 RPC** — `teamBuilderShared.js` `writeInputToBridge` 함수 뒤:
 
 ```js
 
@@ -371,7 +373,7 @@ teamBuilderBridge.js (MAIN, V9→V10)  + NUO_TEAM_WRITE_PARTY
 
 export 객체의 `writeInputToBridge: writeInputToBridge,` 다음 줄에 `writePartyToBridge: writePartyToBridge,`.
 
-- [ ] **Step 4: 매퍼** — `calcFillShared.js` `sample_limit: ...,` 다음 줄에:
+- [x] **Step 4: 매퍼** — `calcFillShared.js` `sample_limit: ...,` 다음 줄에:
 
 ```js
     party_save_failed: '파티를 저장하지 못했습니다.',
@@ -384,7 +386,7 @@ export 객체의 `writeInputToBridge: writeInputToBridge,` 다음 줄에 `writeP
 Run: `node --check extension/teamBuilderBridge.js && node --check extension/teamBuilderShared.js && node --check extension/calcFillShared.js && echo OK`
 Expected: `OK`
 
-- [ ] **Step 5: 실측 게이트 (§10 — 통과 전 Task 2 이후 착수 금지)** — 사용자에게 "확장 새로고침 + 파티 탭 새로고침, 파티에 포켓몬 2마리 이상, 원본은 스크립트가 백업·복원함" 요청 후 동의 받고 Claude in Chrome `javascript_tool` (MAIN world, 파티 탭)에서:
+- [x] **Step 5: 실측 게이트 (§10 — 통과 전 Task 2 이후 착수 금지)** — 사용자에게 "확장 새로고침 + 파티 탭 새로고침, 파티에 포켓몬 2마리 이상, 원본은 스크립트가 백업·복원함" 요청 후 동의 받고 Claude in Chrome `javascript_tool` (MAIN world, 파티 탭)에서:
 
 ```js
 // A: 활성 슬롯이 차 있는 새 파티 (칸 순서 뒤집기)
@@ -429,7 +431,7 @@ location.reload();
 
 복원 후 파티가 원래대로인지 사용자 확인. **A·B 중 하나라도 기대와 다르면 멈추고 사용자와 §10 대안(`#party=` 경로) 논의.**
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add extension/teamBuilderBridge.js extension/teamBuilderShared.js extension/calcFillShared.js
@@ -450,7 +452,7 @@ git commit -m "feat(ext): bridge party write (NUO_TEAM_WRITE_PARTY) + party erro
 - Produces (내부): `makeStore(key, failCode) → { readAll(): Promise<items>, save(entry): Promise, remove(id): Promise, onChange(cb): teardown }`, `samples`, `parties`, `newId()`.
 - Produces (export `nuoSampleLibrary`): `PARTY_LIMIT` (20), `canAdd(items, name, limit?)`, `readParties()`, `savePartyEntry(name, slots, arts)`, `removePartyEntry(id)`, `isPartyLoadable(item)`, `renderPartyCard(item)`. 기존 `readAll`/`saveEntry`/`removeEntry` 이름·동작 유지 (샘플).
 
-- [ ] **Step 1: 실패하는 검사 작성** — `<scratchpad>/check-party-lib.js`:
+- [x] **Step 1: 실패하는 검사 작성** — `<scratchpad>/check-party-lib.js`:
 
 ```js
 // 1회용 검사 (커밋 안 함). 실행: node <이 파일> <repo 경로>
@@ -503,12 +505,12 @@ assert.ok(!bare.includes('class="it"'));
 console.log('party lib OK');
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `node <scratchpad>/check-party-lib.js "C:/Users/qkrgu/Documents/nuo-formatter"`
 Expected: FAIL — `AssertionError` (`PARTY_LIMIT` undefined) 또는 `P.isPartyLoadable is not a function`.
 
-- [ ] **Step 3: 상수** — `sampleLibrary.js` 11~14행을:
+- [x] **Step 3: 상수** — `sampleLibrary.js` 11~14행을:
 
 ```js
   var KEY = 'nuo_fmt_sampleLibrary';
@@ -519,7 +521,7 @@ Expected: FAIL — `AssertionError` (`PARTY_LIMIT` undefined) 또는 `P.isPartyL
   var PARTY_LIMIT = 20; // 사용자 결정 (PARTY_PRESET_PLAN §2)
 ```
 
-- [ ] **Step 4: 순수 로직** — 기존 `canAdd` 를 교체하고 `isLoadable` 뒤에 `isPartyLoadable` 추가:
+- [x] **Step 4: 순수 로직** — 기존 `canAdd` 를 교체하고 `isLoadable` 뒤에 `isPartyLoadable` 추가:
 
 ```js
   /** 새 이름은 limit 미만일 때만, 같은 이름 덮어쓰기는 항상 가능. limit 기본 = 샘플 LIMIT. */
@@ -543,7 +545,7 @@ Expected: FAIL — `AssertionError` (`PARTY_LIMIT` undefined) 또는 `P.isPartyL
   }
 ```
 
-- [ ] **Step 5: 파티 카드 렌더러** — `renderCard` 함수 끝(`return h + '</div></div>';` 다음 `}`) 뒤에:
+- [x] **Step 5: 파티 카드 렌더러** — `renderCard` 함수 끝(`return h + '</div></div>';` 다음 `}`) 뒤에:
 
 ```js
 
@@ -576,7 +578,7 @@ Expected: FAIL — `AssertionError` (`PARTY_LIMIT` undefined) 또는 `P.isPartyL
   }
 ```
 
-- [ ] **Step 6: 저장소 일반화** — `/* ===== 저장소 ===== */` 부터 `onItemsChange` 함수 끝까지(151~207행)를 교체:
+- [x] **Step 6: 저장소 일반화** — `/* ===== 저장소 ===== */` 부터 `onItemsChange` 함수 끝까지(151~207행)를 교체:
 
 ```js
   /* ===== 저장소 — 샘플·파티 같은 모양 문서 { version, items } (PARTY_PRESET_PLAN §4.1) ===== */
@@ -652,7 +654,7 @@ Expected: FAIL — `AssertionError` (`PARTY_LIMIT` undefined) 또는 `P.isPartyL
 
 그리고 `mountList` 안 `readAll().then(...)` 과 `onItemsChange(...)` 두 줄은 Task 3 에서 교체되므로 이 Task 에선 임시로 `samples.readAll()` / `samples.onChange(...)` 로 이름만 바꿔 문법·동작 유지. `mountList` 삭제 버튼의 `removeEntry(d.id)` 도 `samples.remove(d.id)` 로.
 
-- [ ] **Step 7: export** — `g.nuoSampleLibrary = { ... }` 를:
+- [x] **Step 7: export** — `g.nuoSampleLibrary = { ... }` 를:
 
 ```js
   g.nuoSampleLibrary = {
@@ -685,7 +687,7 @@ Expected: FAIL — `AssertionError` (`PARTY_LIMIT` undefined) 또는 `P.isPartyL
 
 (`openListDialog`/`listTitleHtml` 은 Task 3 에서 제거.)
 
-- [ ] **Step 8: 파티 카드 CSS** — `styles/sampleCard.js` `nuoSampleCardCss` 배열의 마지막 항목(`'.st .v { font-weight: 500; }'`) 뒤에 `,` 붙이고:
+- [x] **Step 8: 파티 카드 CSS** — `styles/sampleCard.js` `nuoSampleCardCss` 배열의 마지막 항목(`'.st .v { font-weight: 500; }'`) 뒤에 `,` 붙이고:
 
 ```js
     // 파티 카드 (PARTY_PRESET_PLAN §4.4) — .card 의 hover·클릭·키보드 규칙 재사용, 높이·여백만 덮음.
@@ -698,12 +700,12 @@ Expected: FAIL — `AssertionError` (`PARTY_LIMIT` undefined) 또는 `P.isPartyL
     '.tl .it { position: absolute; right: 0; bottom: 0; width: 20px; height: 20px; }'
 ```
 
-- [ ] **Step 9: 통과 확인**
+- [x] **Step 9: 통과 확인**
 
 Run: `node --check extension/sampleLibrary.js && node --check extension/styles/sampleCard.js && node <scratchpad>/check-party-lib.js "C:/Users/qkrgu/Documents/nuo-formatter"`
 Expected: `party lib OK`
 
-- [ ] **Step 10: 커밋**
+- [x] **Step 10: 커밋**
 
 ```bash
 git add extension/sampleLibrary.js extension/styles/sampleCard.js
@@ -724,7 +726,7 @@ git commit -m "feat(ext): party library store and party card renderer"
 - Consumes (클릭 시점): `g.nuoTeamCopy.copySampleSlot(slot)` (기존), `g.nuoTeamCopy.copyPartySlots(slots)` (Task 5), `g.nuoPrefsModal.open()` (기존 prefsEntry).
 - Produces (export): `openBox({ kinds: string[], onPick: function(item, kind, box) }) → box` (`box.close()` 로 닫음), `nameDialog(title, label) → Promise<string|null>`, `sideDialog(question, { attacker, defender }) → Promise<'attacker'|'defender'|null>`, `mountList(box, { kinds, onPick(item, kind) }) → teardown`. `openListDialog` 제거.
 
-- [ ] **Step 1: 실패하는 검사 추가** — `check-party-lib.js` 의 `console.log` 앞에:
+- [x] **Step 1: 실패하는 검사 추가** — `check-party-lib.js` 의 `console.log` 앞에:
 
 ```js
 // 목록 머리: 탭 / 단일 라벨, 개수 뱃지는 종류별 상한, 빈 상태에도 머리 줄 (탭 전환 가능해야 함)
@@ -745,7 +747,7 @@ assert.ok(oneSample.includes('class="list"'));
 Run: `node <scratchpad>/check-party-lib.js "C:/Users/qkrgu/Documents/nuo-formatter"`
 Expected: FAIL — `P.headHtml is not a function`.
 
-- [ ] **Step 2: 종류 표 + 목록 렌더** — `/* ===== 목록 ===== */` 아래 기존 `renderList` 함수를 교체:
+- [x] **Step 2: 종류 표 + 목록 렌더** — `/* ===== 목록 ===== */` 아래 기존 `renderList` 함수를 교체:
 
 ```js
   /* ===== 목록 — 샘플·파티 공용 (PARTY_PRESET_PLAN §4.3) ===== */
@@ -776,7 +778,7 @@ Expected: FAIL — `P.headHtml is not a function`.
   }
 ```
 
-- [ ] **Step 3: `mountList` 일반화** — 기존 `mountList` 의 JSDoc~`box.addEventListener('click', ...)` 핸들러 끝까지(스크롤바 코드 앞)를 교체. 스크롤바·키보드·이미지 error 핸들러·return teardown 은 그대로 두되 teardown 의 `off()` 를 `offs.forEach(function (f) { f(); })` 로:
+- [x] **Step 3: `mountList` 일반화** — 기존 `mountList` 의 JSDoc~`box.addEventListener('click', ...)` 핸들러 끝까지(스크롤바 코드 앞)를 교체. 스크롤바·키보드·이미지 error 핸들러·return teardown 은 그대로 두되 teardown 의 `off()` 를 `offs.forEach(function (f) { f(); })` 로:
 
 ```js
   /**
@@ -883,7 +885,7 @@ Expected: FAIL — `P.headHtml is not a function`.
     });
 ```
 
-- [ ] **Step 4: 박스·이름 창·공격/수비 창** — `listTitleHtml` 과 `openListDialog` (JSDoc 포함)를 삭제하고 그 자리에:
+- [x] **Step 4: 박스·이름 창·공격/수비 창** — `listTitleHtml` 과 `openListDialog` (JSDoc 포함)를 삭제하고 그 자리에:
 
 ```js
   // Material "settings" (사이트 아이콘 세트와 같은 계열), 16px 회색 — 박스 헤더 X 왼쪽.
@@ -985,9 +987,9 @@ Expected: FAIL — `P.headHtml is not a function`.
   }
 ```
 
-- [ ] **Step 5: export 갱신** — `nuoSampleLibrary` 에서 `openListDialog` 줄 삭제, 다음 추가: `openBox: function (o) { return openBox(o); }, nameDialog: function (t, l) { return nameDialog(t, l); }, sideDialog: function (q, i) { return sideDialog(q, i); },`. `_pure` 에서 `listTitleHtml` 삭제, `headHtml: headHtml, KINDS: KINDS` 추가.
+- [x] **Step 5: export 갱신** — `nuoSampleLibrary` 에서 `openListDialog` 줄 삭제, 다음 추가: `openBox: function (o) { return openBox(o); }, nameDialog: function (t, l) { return nameDialog(t, l); }, sideDialog: function (q, i) { return sideDialog(q, i); },`. `_pure` 에서 `listTitleHtml` 삭제, `headHtml: headHtml, KINDS: KINDS` 추가.
 
-- [ ] **Step 6: CSS** — `styles/sampleCard.js`:
+- [x] **Step 6: CSS** — `styles/sampleCard.js`:
   - `nuoSampleCardCss` 의 `.count .lbl` 줄 다음에:
 
 ```js
@@ -1027,12 +1029,12 @@ Expected: FAIL — `P.headHtml is not a function`.
   - 같은 배열의 focus 규칙 `'.x:focus-visible, .btn:focus-visible { ... }'` 을 `'.x:focus-visible, .btn:focus-visible, .gear:focus-visible, .side:focus-visible { outline: 2px solid var(--nuo-primary-focus); outline-offset: 1px; }'` 로.
   - `.count` 규칙은 `<p>` → `<div>` 로 바뀌어도 클래스 선택자라 그대로.
 
-- [ ] **Step 7: 통과 확인**
+- [x] **Step 7: 통과 확인**
 
 Run: `node --check extension/sampleLibrary.js && node --check extension/styles/sampleCard.js && node <scratchpad>/check-party-lib.js "C:/Users/qkrgu/Documents/nuo-formatter"`
 Expected: `party lib OK`. (`calcFill.js` 는 아직 `openListDialog` 를 부르지만 `typeof ... !== 'function'` 가드로 조용히 무시 — Task 7 에서 정리.)
 
-- [ ] **Step 8: 커밋**
+- [x] **Step 8: 커밋**
 
 ```bash
 git add extension/sampleLibrary.js extension/styles/sampleCard.js
@@ -1052,7 +1054,7 @@ git commit -m "feat(ext): box dialog with sample/party tabs, name and side dialo
 - Consumes: Task 1 `TBS.writePartyToBridge`; Task 2·3 `LIB.readAll/readParties/saveEntry/savePartyEntry/canAdd/findByName/normName/confirmDialog/nameDialog/openBox/LIMIT/PARTY_LIMIT`; 기존 `TBS.getSlotsFromBridge/readInputFromBridge/writeInputToBridge`.
 - Produces: `globalThis.nuoPartyBox = { saveSlot(n: 1..6, fb), saveParty(fb) }` (fb = `{ busy(), idle(), done(text), fail(msg) }`, Task 5 가 호출), `globalThis.nuoBoxHandlers.team = function ()`; `prefsEntry` 가 `nuoBoxHandlers.team|calc` 호출.
 
-- [ ] **Step 1: `박스` 버튼** — `prefsEntry.js` 머리 주석 1~3행을:
+- [x] **Step 1: `박스` 버튼** — `prefsEntry.js` 머리 주석 1~3행을:
 
 ```js
 /**
@@ -1075,7 +1077,7 @@ git commit -m "feat(ext): box dialog with sample/party tabs, name and side dialo
     }
 ```
 
-- [ ] **Step 2: `sampleParty.js` 전체 교체**:
+- [x] **Step 2: `sampleParty.js` 전체 교체**:
 
 ```js
 /**
@@ -1224,14 +1226,14 @@ git commit -m "feat(ext): box dialog with sample/party tabs, name and side dialo
 })(typeof globalThis !== 'undefined' ? globalThis : self);
 ```
 
-- [ ] **Step 3: 고아 CSS 정리** — `styles/sampleCard.js` 에서 `g.nuoSampleTipCss = [...].join('\n');` 블록과 `// 파티 탭 샘플 이름 칸 저장 버튼 ...` 주석 + `g.nuoSampleSaveCss = [...].join('\n');` 블록 삭제. 46행 주석의 `모양은 nuoSampleTipCss 와 같음.` → `모양은 styles/teamCopyIcons.js .tip 과 같음.`. 파일 머리 주석의 `말풍선 = styles/teamCopyIcons.js .tip 과 같은 실측값 — 한쪽 바꾸면 다른 쪽도.` 는 유지.
+- [x] **Step 3: 고아 CSS 정리** — `styles/sampleCard.js` 에서 `g.nuoSampleTipCss = [...].join('\n');` 블록과 `// 파티 탭 샘플 이름 칸 저장 버튼 ...` 주석 + `g.nuoSampleSaveCss = [...].join('\n');` 블록 삭제. 46행 주석의 `모양은 nuoSampleTipCss 와 같음.` → `모양은 styles/teamCopyIcons.js .tip 과 같음.`. 파일 머리 주석의 `말풍선 = styles/teamCopyIcons.js .tip 과 같은 실측값 — 한쪽 바꾸면 다른 쪽도.` 는 유지.
 
 Run: `node --check extension/prefsEntry.js && node --check extension/sampleParty.js && node --check extension/styles/sampleCard.js && echo OK`
 Expected: `OK`
 
 그리고 Grep 도구로 `nuoSampleTipCss|nuoSampleSaveCss|findSaveAnchor|buildDialogList|data-nuo-sample-wide` 를 `extension/` 에서 검색 → Expected: 0건.
 
-- [ ] **Step 4: 커밋**
+- [x] **Step 4: 커밋**
 
 ```bash
 git add extension/prefsEntry.js extension/sampleParty.js extension/styles/sampleCard.js
@@ -1250,7 +1252,7 @@ git commit -m "feat(ext): box button replaces helper; party-tab save/load flows;
 - Consumes (클릭 시점): `globalThis.nuoPartyBox.saveSlot(n, fb)` / `.saveParty(fb)` (Task 4).
 - Produces: `globalThis.nuoTeamCopy = { copySampleSlot, copyPartySlots(slots: Array(6)) → Promise<void> }` (Task 3 목록 복사 버튼이 호출).
 
-- [ ] **Step 1: 상수** — `SUM_SVG` 줄 다음에:
+- [x] **Step 1: 상수** — `SUM_SVG` 줄 다음에:
 
 ```js
   // 샘플·파티 저장 = 북마크 (옛 샘플 이름 칸 저장 버튼과 같은 아이콘, PARTY_PRESET_PLAN §5.1).
@@ -1258,7 +1260,7 @@ git commit -m "feat(ext): box button replaces helper; party-tab save/load flows;
   var EMPTY_MSG = '포켓몬을 먼저 선택해 주세요';
 ```
 
-- [ ] **Step 2: `buildIcon` → `buildIcons`** — JSDoc 포함 `buildIcon` 함수 전체를 교체:
+- [x] **Step 2: `buildIcon` → `buildIcons`** — JSDoc 포함 `buildIcon` 함수 전체를 교체:
 
 ```js
   /**
@@ -1314,7 +1316,7 @@ git commit -m "feat(ext): box button replaces helper; party-tab save/load flows;
   }
 ```
 
-- [ ] **Step 3: 빈 검사 문구** — `runCopySlot` 의 `fb.fail('빈 슬롯입니다.');` → `fb.fail(EMPTY_MSG);`. `runCopyPartyShareUrl` 의 `var partySlots = ...;` 다음 줄에:
+- [x] **Step 3: 빈 검사 문구** — `runCopySlot` 의 `fb.fail('빈 슬롯입니다.');` → `fb.fail(EMPTY_MSG);`. `runCopyPartyShareUrl` 의 `var partySlots = ...;` 다음 줄에:
 
 ```js
       if (!partySlots || !Array.isArray(r.filled) || r.filled.indexOf(true) < 0) {
@@ -1323,7 +1325,7 @@ git commit -m "feat(ext): box button replaces helper; party-tab save/load flows;
       }
 ```
 
-- [ ] **Step 4: 파티 카드 복사** — `copySampleSlot` 함수 뒤, `globalThis.nuoTeamCopy = ...` 줄을 교체:
+- [x] **Step 4: 파티 카드 복사** — `copySampleSlot` 함수 뒤, `globalThis.nuoTeamCopy = ...` 줄을 교체:
 
 ```js
   /**
@@ -1358,7 +1360,7 @@ git commit -m "feat(ext): box button replaces helper; party-tab save/load flows;
   globalThis.nuoTeamCopy = { copySampleSlot: copySampleSlot, copyPartySlots: copyPartySlots };
 ```
 
-- [ ] **Step 5: 등록 — 항상 보임** — `registerInjectors` 전체를:
+- [x] **Step 5: 등록 — 항상 보임** — `registerInjectors` 전체를:
 
 ```js
   function registerInjectors() {
@@ -1395,7 +1397,7 @@ git commit -m "feat(ext): box button replaces helper; party-tab save/load flows;
   }
 ```
 
-- [ ] **Step 6: `filled` 고아 정리** — `var filled = [false, ...];` 줄 삭제, `clearFilled` 함수 삭제, `refreshSlots` 를:
+- [x] **Step 6: `filled` 고아 정리** — `var filled = [false, ...];` 줄 삭제, `clearFilled` 함수 삭제, `refreshSlots` 를:
 
 ```js
   function refreshSlots() {
@@ -1417,7 +1419,7 @@ git commit -m "feat(ext): box button replaces helper; party-tab save/load flows;
 
 그리고 파일 머리 주석 2~3행 `슬롯 요약 복사 / 파티 복사.` → `슬롯 요약 복사·샘플 저장 / 파티 복사·파티 저장 (저장 흐름은 sampleParty.js).`.
 
-- [ ] **Step 7: 아이콘 CSS** — `styles/teamCopyIcons.js` `.ic.busy` 줄 앞에:
+- [x] **Step 7: 아이콘 CSS** — `styles/teamCopyIcons.js` `.ic.busy` 줄 앞에:
 
 ```js
     '.ic + .ic { margin-left: 4px; }', // [복사][저장] 사이 = 사이트 아이콘 간격 (슬롯 ml-1 · 초록 그룹 mr-1)
@@ -1426,7 +1428,7 @@ git commit -m "feat(ext): box button replaces helper; party-tab save/load flows;
 Run: `node --check extension/teamBuilderFill.js && node --check extension/styles/teamCopyIcons.js && echo OK`
 Expected: `OK`. 그리고 Grep `filled\b|clearFilled|buildIcon\(` 를 `extension/teamBuilderFill.js` 에서 → Expected: `r.filled` 참조(runCopySlot·runCopyPartyShareUrl)만 남음.
 
-- [ ] **Step 8: 커밋**
+- [x] **Step 8: 커밋**
 
 ```bash
 git add extension/teamBuilderFill.js extension/styles/teamCopyIcons.js
@@ -1439,14 +1441,14 @@ git commit -m "feat(ext): always-visible copy+save icons on party tab, party cop
 
 **Files:** 없음 (검증·문서 체크박스·인계)
 
-- [ ] **Step 1: 정적 검사** — Run:
+- [x] **Step 1: 정적 검사** — Run:
 
 `node --check extension/teamBuilderBridge.js && node --check extension/teamBuilderShared.js && node --check extension/calcFillShared.js && node --check extension/sampleLibrary.js && node --check extension/styles/sampleCard.js && node --check extension/styles/teamCopyIcons.js && node --check extension/teamBuilderFill.js && node --check extension/sampleParty.js && node --check extension/prefsEntry.js && node <scratchpad>/check-party-lib.js "C:/Users/qkrgu/Documents/nuo-formatter"`
 Expected: `party lib OK`
 
-- [ ] **Step 2: 사용자에게 "확장 새로고침 + 스마트누오 파티 탭 새로고침" 요청.**
+- [x] **Step 2: 사용자에게 "확장 새로고침 + 스마트누오 파티 탭 새로고침" 요청.**
 
-- [ ] **Step 3: 파티 탭 확인 (Claude in Chrome 스크린샷 + alert 는 사용자 확인)**
+- [x] **Step 3: 파티 탭 확인 (Claude in Chrome 스크린샷 + alert 는 사용자 확인)**
   1. 중앙 열 `계산기 / 초기화 / 사용법 / 박스` — 박스가 사이트 버튼과 같은 모양, `도우미` 없음.
   2. 초록 그룹 `[복사][저장] + 사이트 4개`, 슬롯 #1~#6 `[복사][저장] + 사이트 4개` — 빈 슬롯에도 보임. 간격 4px.
   3. 빈 슬롯 복사·저장, 전부 빈 파티 복사·저장 → alert `포켓몬을 먼저 선택해 주세요` (사용자 확인).
@@ -1460,9 +1462,9 @@ Expected: `party lib OK`
   11. 사이트 이미지 저장(초록 그룹·슬롯) → 저장된 이미지에 우리 아이콘 없음 (Review Focus 5). 찍히면 `teamBuilderFill` host 에 `capture-hide` 클래스(`host.className = 'capture-hide'` — `keepInjected` build 의 두 번째 인자 host 사용) 추가 후 재확인.
   12. 다른 탭에서 저장 → 열린 박스 목록 즉시 갱신.
 
-- [ ] **Step 4: 고친 게 있으면 커밋** (파일 지정 `git add`).
+- [x] **Step 4: 고친 게 있으면 커밋** (파일 지정 `git add`).
 
-- [ ] **Step 5: BP-B** — 본 문서 §12 Task 1~6 체크박스 갱신, 머리 상태 줄 `세션 2 완료 (BP-B)`, `handoff` 스킬로 인계 문서, 문서 커밋:
+- [x] **Step 5: BP-B** — 본 문서 §12 Task 1~6 체크박스 갱신, 머리 상태 줄 `세션 2 완료 (BP-B)`, `handoff` 스킬로 인계 문서, 문서 커밋:
 
 ```bash
 git add PARTY_PRESET_PLAN.md
