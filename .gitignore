@@ -4,13 +4,6 @@ scripts/.cache/
 scripts/regulation-speed-audit-report.json
 scripts/legacy/regulationMaSpeedRefNamu.json
 
-# Local-only extension icon sources / copies at repo root
-# (published icon assets are shipped inside extension/icon*.png)
-/icon.png
-/icon16.png
-/icon48.png
-/icon128.png
-
 # Local-only backup — not pushed (keep copies on disk only)
 .cursor/rules/karpathy-guidelines.mdc
 /RENEWAL_FIX_PLAN.md
