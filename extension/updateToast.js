@@ -8,7 +8,7 @@
   'use strict';
 
   var CHANGELOG_URL =
-    'https://github.com/HyunbinPark2359/douminuo/blob/main/CHANGELOG.md';
+    'https://github.com/douminuo/douminuo/blob/main/CHANGELOG.md';
   var HOST_ID = 'nuo-fmt-update-toast-host';
   var SK_NOTICE = 'nuo_fmt_pendingUpdateNotice';
   var SK_LAST_SEEN = 'nuo_fmt_lastSeenVersion';
