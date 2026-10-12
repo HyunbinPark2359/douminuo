@@ -40,6 +40,9 @@ scripts/legacy/regulationMaSpeedRefNamu.json
 # Legacy demo media (v0.1–v0.2) — kept locally for history, not published
 /assets/demo/
 
+# README/스토어 이미지 원본 스크린샷 (3840x2160) — 로컬 보관
+/assets/raw/
+
 # Local-only Claude Code hooks (qmd session-start reminder) — not shared
 /.claude/settings.local.json
 
