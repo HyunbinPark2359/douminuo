@@ -1,5 +1,7 @@
 # 도우미누오 (크롬 확장 프로그램 v2.0.0)
 
+**한국어** | [English](README.en.md)
+
 ## 소개
 <img src="assets/readme/overview.png" alt="도우미누오 적용 화면" style="max-width: 100%; height: auto;" />
 
