@@ -47,13 +47,13 @@
 
 ### 스피드 추월표
 
-<img src="assets/readme/03-speed-table.png" alt="스피드 추월표" style="max-width: 100%; height: auto;" />
+<img src="assets/readme/03-speed-table.webp" alt="스피드 추월표" style="max-width: 100%; height: auto;" />
 
 내 포켓몬이 스피드 몇 족까지 추월 가능한지 실시간으로 확인할 수 있습니다.
 
 ### 샘플/파티 저장 및 불러오기
 
-<img src="assets/readme/04-box.png" alt="박스" style="max-width: 100%; height: auto;" />
+<img src="assets/readme/04-box.webp" alt="박스" style="max-width: 100%; height: auto;" />
 
 샘플과 파티를 저장하여 박스에 보관할 수 있습니다.
 페이지 가운데 **박스** 버튼을 클릭해 박스에 접근할 수 있으며, 저장한 샘플 및 파티를 불러올 수 있습니다.
@@ -62,12 +62,14 @@
 
 ### 계산기 자동 입력
 
-<img src="assets/readme/01-calc-auto-fill.png" alt="계산기 자동 입력" style="max-width: 100%; height: auto;" />
+<img src="assets/readme/01-calc-auto-fill.webp" alt="계산기 자동 입력" style="max-width: 100%; height: auto;" />
 
 파티에 있는 포켓몬을 계산기에 자동으로 빠르게 넣을 수 있습니다.
 박스에서 미리 저장해둔 샘플을 선택해 넣을 수도 있습니다.
 
 ### 샘플 텍스트 변환
+
+<img src="assets/readme/05-text-copy.webp" alt="샘플 텍스트 변환" style="max-width: 100%; height: auto;" />
 
 내 파티 혹은 샘플을 다른 커뮤니티 및 블로그에 올리기 쉽게 텍스트로 변환해 복사해줍니다.
 환경설정에서 포함하고 싶은 항목을 켜고 끌 수 있습니다.

@@ -39,6 +39,8 @@
 2. **좌표 찾기** — 필요한 순간을 원본 크기로 한 장 뽑아 확인: `ffmpeg -ss 12 -i <녹화> -frames:v 1 f.png`
 3. **설정 파일** — `configs/box.js` 를 복사해 `points`·`cursor`·`clicks`·`views`·`camera`·`trim` 을 채운다.
 4. **렌더** — `node scripts/demo-video/render.js configs/<이름>.js`
+   - **README 용 고화질**: `node scripts/demo-video/render.js configs/<이름>.js hq assets/readme/<파일>.webp` — 1080×720(1.5배), 품질 90, 글자용 프리셋. 용량 3~8MB (커뮤니티 업로드용 기본 720×480 은 1~2MB).
+     README 매핑: box → `04-box`, calc → `01-calc-auto-fill`, speed → `03-speed-table`, copy → `05-text-copy`.
 
 ## 설정 옵션 (필요할 때만)
 

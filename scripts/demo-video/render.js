@@ -87,13 +87,21 @@ function keyTrack(v, keys, get) {
   return track(v, moves, get(keys[0][2]));
 }
 
-const WEBP = ['-c:v', 'libwebp_anim', '-lossless', '0', '-q:v', STYLE.webpQ, '-compression_level', '6', '-preset', 'picture', '-loop', '0'];
+const webp = (q, preset) => ['-c:v', 'libwebp_anim', '-lossless', '0', '-q:v', q, '-compression_level', '6', '-preset', preset, '-loop', '0'];
+// hq: README 용 — 1.5배 크기(720x480 → 1080x720, 전체 화면이 원본과 거의 1:1), 품질 90, 글자용 프리셋
+const HQ = { scale: 1.5, q: 90, preset: 'text' };
 
 // segments: 녹화 여러 개를 이어 붙일 때 — 각 항목 = 녹화별 설정(input·trim·base·views·camera·points·cursor·clicks·cuts),
 // 공통값(size·fps·cursorScreen)은 바깥에서 물려받음. 구간마다 무손실에 가까운 mp4 로 렌더 → 이어서 webp.
-function render(configPath) {
-  const C = require(path.resolve(__dirname, configPath));
-  const work = path.join(CACHE, path.basename(configPath, '.js'));
+function render(configPath, mode, outPath) {
+  const base = require(path.resolve(__dirname, configPath));
+  const hq = mode === 'hq';
+  if (mode && !hq) throw new Error('알 수 없는 모드: ' + mode);
+  const s = hq ? HQ.scale : 1;
+  const C = { ...base, size: base.size.map(v => v * s), cursorScreen: base.cursorScreen && base.cursorScreen * s,
+    output: outPath || base.output };
+  const WEBP = hq ? webp(HQ.q, HQ.preset) : webp(STYLE.webpQ, 'picture');
+  const work = path.join(CACHE, path.basename(configPath, '.js') + (hq ? '-hq' : ''));
   fs.mkdirSync(work, { recursive: true });
   if (!C.segments) return renderSegment(C, work, [...WEBP, path.join(ROOT, C.output)]);
   const parts = C.segments.map((s, i) => {
@@ -170,5 +178,5 @@ function sheet(video, fps = '4', crop) {
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
-if (!cmd) { console.error('사용: render.js <configs/x.js> | render.js sheet <영상> [fps] [crop]'); process.exit(1); }
-if (cmd === 'sheet') sheet(...rest); else render(cmd);
+if (!cmd) { console.error('사용: render.js <configs/x.js> [hq <출력.webp>] | render.js sheet <영상> [fps] [crop]'); process.exit(1); }
+if (cmd === 'sheet') sheet(...rest); else render(cmd, ...rest);
