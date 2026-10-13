@@ -63,6 +63,9 @@
     st.textContent =
       '.nuo-fmt-tb-ann{font-size:9px;font-weight:400;color:#888;display:inline;}' +
       '.nuo-fmt-tb-ann-num{white-space:nowrap;}' +
+      // 두 줄로 꺾인 기술만: 사이트 행 높이(18.75px) 고정이라 줄간격 압축 + 결정력 글씨 축소로 옆 줄 겹침 방지
+      '[data-nuo-tb-wrap]{line-height:10px !important;}' +
+      '[data-nuo-tb-wrap] .nuo-fmt-tb-ann{display:block;font-size:8px;line-height:9px;}' +
       '.nuo-fmt-tb-bulk-corner{position:absolute;top:8px;right:10px;font-size:9px;font-weight:400;color:#888;line-height:1.2;text-align:right;white-space:nowrap;pointer-events:none;z-index:4;}';
     document.head.appendChild(st);
   }
@@ -72,6 +75,9 @@
       try {
         if (n.parentNode) n.parentNode.removeChild(n);
       } catch (e) {}
+    });
+    document.querySelectorAll('[data-nuo-tb-wrap]').forEach(function (n) {
+      n.removeAttribute('data-nuo-tb-wrap');
     });
   }
 
@@ -248,6 +254,7 @@
   function applyMovePowerSuffixes(cardRoot, moveNames, suff) {
     if (!Array.isArray(suff)) return;
     var hosts = mapMoveNamesToHostsInCard(cardRoot, moveNames);
+    var added = [];
     var mi;
     for (mi = 0; mi < 4; mi++) {
       var suf = suff[mi];
@@ -274,7 +281,16 @@
       span.appendChild(document.createTextNode(' '));
       span.appendChild(inner);
       el.appendChild(span);
+      added.push([el, inner]);
     }
+    // 부착을 모두 끝낸 뒤 한 번에 측정(레이아웃 1회). 결정력이 기술명 아래 줄로 내려갔으면 꺾임.
+    added.forEach(function (p) {
+      try {
+        if (p[1].getBoundingClientRect().top - p[0].getBoundingClientRect().top > 5) {
+          p[0].setAttribute('data-nuo-tb-wrap', '1');
+        }
+      } catch (eWr) {}
+    });
   }
 
   /** 물리내구/특수내구 최종값만 `숫자/숫자`, 슬롯 카드 우상단 */
